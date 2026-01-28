@@ -1,0 +1,70 @@
+# 二进制文件
+/go-web-screenshot
+/go-snir
+/snir
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试二进制文件
+*.test
+
+# 覆盖率工具生成的文件
+*.out
+*.prof
+*.cov
+
+# 依赖目录
+/vendor/
+/Godeps/
+
+# GoReleaser 构建目录
+/dist/
+
+# IDE 和编辑器文件
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 日志文件
+*.log
+
+# 临时文件
+/tmp/
+/temp/
+
+# 截图输出目录
+/screenshots/
+/output/
+
+# 环境变量文件
+.env
+.env.local
+
+# Go工作区文件
+go.work
+
+# 编译时生成的文件
+*.pb.go
+
+# 本地配置文件
+config.local.yaml
+
+# webpage目录相关忽略规则
+/webpage/node_modules/
+/webpage/build/
+/webpage/coverage/
+/webpage/.pnp
+/webpage/.pnp.js
+/webpage/npm-debug.log*
+/webpage/yarn-debug.log*
+/webpage/yarn-error.log*
+/webpage/.env.local
+/webpage/.env.development.local
+/webpage/.env.test.local
+/webpage/.env.production.local

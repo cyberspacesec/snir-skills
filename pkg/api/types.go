@@ -123,23 +123,30 @@ type BatchScreenshotRequest struct {
 	Form            Form                `json:"form,omitempty"`              // 表单配置
 }
 
-// Options 包含API服务的配置选项
-type Options struct {
-	Port                  int
-	Host                  string
-	ScreenshotPath        string
-	APIKey                string   // API密钥，用于鉴权
-	EnableBlacklist       bool     // 是否启用URL黑名单
-	DefaultBlacklist      bool     // 是否使用默认黑名单
-	BlacklistPatterns     []string // 自定义黑名单规则
-	BlacklistFile         string   // 黑名单文件路径
-	MaxConcurrentRequests int      // 最大并发请求数
-	RequestQueueSize      int      // 请求队列大小
+// ServerOptions 表示API服务器选项
+type ServerOptions struct {
+	// 服务器配置
+	Port           int    `json:"port"`
+	Host           string `json:"host"`
+	APIKey         string `json:"api_key"`
+	ScreenshotPath string `json:"screenshot_path"`
+
+	// 批处理配置
+	MaxBatchSize          int `json:"max_batch_size"`
+	MaxConcurrency        int `json:"max_concurrency"`
+	MaxConcurrentRequests int `json:"max_concurrent_requests"`
+	RequestQueueSize      int `json:"request_queue_size"`
+
+	// 黑名单配置
+	EnableBlacklist   bool     `json:"enable_blacklist"`
+	DefaultBlacklist  bool     `json:"default_blacklist"`
+	BlacklistPatterns []string `json:"blacklist_patterns"`
+	BlacklistFile     string   `json:"blacklist_file"`
 }
 
 // Server 表示API服务器
 type Server struct {
-	Options          Options
+	Options          ServerOptions
 	Router           *mux.Router
 	concurrencyLimit interface{}   // 并发限制器
 	shutdownCh       chan struct{} // 关闭通道
@@ -150,4 +157,25 @@ type Server struct {
 type MemoryWriter struct {
 	Results []*models.Result
 	mu      sync.Mutex
+}
+
+// BatchResult 表示批处理中的单个结果
+type BatchResult struct {
+	URL    string         `json:"url"`
+	Result *models.Result `json:"result,omitempty"`
+	Error  string         `json:"error,omitempty"`
+}
+
+// BatchError 表示批处理中的错误信息
+type BatchError struct {
+	URL   string `json:"url"`
+	Error string `json:"error"`
+}
+
+// ScreenshotInfo 表示截图信息
+type ScreenshotInfo struct {
+	Filename  string    `json:"filename"`
+	URL       string    `json:"url"`
+	Size      int64     `json:"size"`
+	CreatedAt time.Time `json:"created_at"`
 }

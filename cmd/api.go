@@ -32,7 +32,7 @@ var apiCmd = &cobra.Command{
 		}
 
 		// 创建API服务配置
-		apiOptions := api.Options{
+		apiOptions := api.ServerOptions{
 			Port:                  opts.API.Port,
 			Host:                  opts.API.Host,
 			ScreenshotPath:        opts.Scan.ScreenshotPath,

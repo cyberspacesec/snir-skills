@@ -1,70 +1,114 @@
+
+# Air live reload
+# Build output
+# Certificate files (for certificate-hacker)
+# Configuration files with sensitive data
+# Coverage reports
+# Database files
+# Debug files
+# Dependency directories (remove the comment below to include it)
+# Environment files
+# Go workspace file
+# GoReleaser 构建目录
+# Go工作区文件
+# IDE files
+# IDE 和编辑器文件
+# Log files
+# MCP related
+# Nuclei templates (custom)
+# OS generated files
+# Output of the go coverage tool, specifically when used with LiteIDE
+# Profiling data
+# Submodule specific
+# Task runner
+# Temporary files
+# Test binary, built with `go test -c`
+# webpage目录相关忽略规则
+# 临时文件
+# 依赖目录
+# 日志文件
 # 二进制文件
-/go-web-screenshot
-/go-snir
-/snir
+# 截图输出目录
+# 本地配置文件
+# 环境变量文件
+# 测试二进制文件
+# 编译时生成的文件
+# 覆盖率工具生成的文件
+*.cov
+*.crt
+*.db
+*.dll
+*.dylib
 *.exe
 *.exe~
-*.dll
-*.so
-*.dylib
-
-# 测试二进制文件
-*.test
-
-# 覆盖率工具生成的文件
+*.key
+*.log
 *.out
+*.p12
+*.pb.go
+*.pem
+*.pprof
 *.prof
-*.cov
-
-# 依赖目录
-/vendor/
-/Godeps/
-
-# GoReleaser 构建目录
-/dist/
-
-# IDE 和编辑器文件
-.idea/
-.vscode/
-*.swp
+*.so
+*.sqlite
+*.sqlite3
 *.swo
+*.swp
+*.temp
+*.test
+*.tmp
+*.yaml.bak
 *~
 .DS_Store
-
-# 日志文件
-*.log
-
-# 临时文件
-/tmp/
-/temp/
-
-# 截图输出目录
-/screenshots/
-/output/
-
-# 环境变量文件
+.Spotlight-V100
+.Trashes
+.air.toml
 .env
+.env.*.local
 .env.local
-
-# Go工作区文件
-go.work
-
-# 编译时生成的文件
-*.pb.go
-
-# 本地配置文件
-config.local.yaml
-
-# webpage目录相关忽略规则
-/webpage/node_modules/
-/webpage/build/
-/webpage/coverage/
+.gitmodule.*
+.idea/
+.mcp/
+.vscode/
+/Godeps/
+/bin/
+/build/
+/cache/
+/dist/
+/go-snir
+/go-web-screenshot
+/output/
+/screenshots/
+/snir
+/temp/
+/tmp/
+/vendor/
+/webpage/.env.development.local
+/webpage/.env.local
+/webpage/.env.production.local# Binaries for programs and plugins
+/webpage/.env.test.local
 /webpage/.pnp
 /webpage/.pnp.js
+/webpage/build/
+/webpage/coverage/
+/webpage/node_modules/
 /webpage/npm-debug.log*
 /webpage/yarn-debug.log*
 /webpage/yarn-error.log*
-/webpage/.env.local
-/webpage/.env.development.local
-/webpage/.env.test.local
-/webpage/.env.production.local
+Taskfile.yml
+Thumbs.db
+config.json
+config.local.yaml
+config.yaml
+config.yml
+coverage.html
+coverage.out
+coverage.txt
+debug
+debug.exe
+go.work
+secrets.yaml
+secrets.yml
+templates-custom/
+tmp/
+vendor/

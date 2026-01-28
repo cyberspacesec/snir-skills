@@ -22,8 +22,5 @@ func init() {
 	reportCmd.PersistentFlags().StringVar(&opts.Report.Host, "host", "127.0.0.1", log.Cyan("Web服务器主机地址"))
 	reportCmd.PersistentFlags().IntVar(&opts.Report.Port, "port", 8080, log.Cyan("Web服务器端口"))
 
-	// 添加serve子命令
-	reportCmd.AddCommand(serveCmd)
-
 	log.Debug(log.Green("已注册report命令"))
 }

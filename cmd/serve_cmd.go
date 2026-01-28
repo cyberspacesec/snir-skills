@@ -7,10 +7,12 @@ import (
 	"github.com/cyberspacesec/go-snir/pkg/report"
 )
 
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: log.Yellow("启动Web服务器查看结果"),
-	Long:  log.Yellow("启动一个Web服务器，用于查看截图和扫描结果"),
+// webserveCmd 替代原有的serveCmd，避免命令重复问题
+var webserveCmd = &cobra.Command{
+	Use:     "webserve",
+	Aliases: []string{"serve"},
+	Short:   log.Yellow("启动Web服务器查看结果"),
+	Long:    log.Yellow("启动一个Web服务器，用于查看截图和扫描结果"),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// 创建服务器配置
 		serverOptions := report.ServerOptions{
@@ -31,11 +33,12 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(serveCmd)
+	// 添加webserveCmd到根命令
+	rootCmd.AddCommand(webserveCmd)
 
 	// 添加服务器选项
-	serveCmd.Flags().StringVar(&opts.Report.Host, "host", "0.0.0.0", log.Cyan("Web服务器监听地址"))
-	serveCmd.Flags().IntVar(&opts.Report.Port, "port", 8080, log.Cyan("Web服务器监听端口"))
+	webserveCmd.Flags().StringVar(&opts.Report.Host, "host", "0.0.0.0", log.Cyan("Web服务器监听地址"))
+	webserveCmd.Flags().IntVar(&opts.Report.Port, "port", 8080, log.Cyan("Web服务器监听端口"))
 
 	log.Debug(log.Green("已注册serve命令"))
 }
