@@ -26,40 +26,8 @@ type ChromeDP struct {
 
 // NewChromeDP creates a new ChromeDP driver
 func NewChromeDP(opts *Options) (*ChromeDP, error) {
-	// 设置Chrome选项
-	chromedpOpts := []chromedp.ExecAllocatorOption{
-		chromedp.NoFirstRun,
-		chromedp.NoDefaultBrowserCheck,
-		chromedp.DisableGPU,
-	}
-
-	// 根据配置设置无头模式
-	if opts.Chrome.Headless {
-		chromedpOpts = append(chromedpOpts, chromedp.Headless)
-	}
-
-	// 设置窗口大小
-	chromedpOpts = append(chromedpOpts, chromedp.WindowSize(opts.Chrome.WindowX, opts.Chrome.WindowY))
-
-	// 设置自定义User-Agent
-	if opts.Chrome.UserAgent != "" {
-		chromedpOpts = append(chromedpOpts, chromedp.UserAgent(opts.Chrome.UserAgent))
-	}
-
-	// 设置代理
-	if opts.Chrome.Proxy != "" {
-		chromedpOpts = append(chromedpOpts, chromedp.ProxyServer(opts.Chrome.Proxy))
-	}
-
-	// 设置Chrome路径
-	if opts.Chrome.Path != "" {
-		chromedpOpts = append(chromedpOpts, chromedp.ExecPath(opts.Chrome.Path))
-	}
-
-	// 忽略证书错误
-	if opts.Chrome.IgnoreCertErrors {
-		chromedpOpts = append(chromedpOpts, chromedp.Flag("ignore-certificate-errors", true))
-	}
+	// 使用共享的 allocOptions 构建逻辑
+	chromedpOpts := buildAllocOptions(opts)
 
 	// 创建Chrome上下文
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), chromedpOpts...)
