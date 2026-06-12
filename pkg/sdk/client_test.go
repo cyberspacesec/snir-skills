@@ -40,7 +40,7 @@ func TestClient_Screenshot(t *testing.T) {
 	}
 	defer client.Close()
 
-	result, err := client.Screenshot("https://example.com", nil)
+	result, err := client.Screenshot("https://www.baidu.com", nil)
 	if err != nil {
 		t.Fatalf("Screenshot() error = %v", err)
 	}
@@ -72,7 +72,7 @@ func TestClient_ScreenshotWithOptions(t *testing.T) {
 		Timeout: 30 * time.Second,
 	}
 
-	result, err := client.Screenshot("https://example.com", screenshotOpts)
+	result, err := client.Screenshot("https://www.baidu.com", screenshotOpts)
 	if err != nil {
 		t.Fatalf("Screenshot() with options error = %v", err)
 	}

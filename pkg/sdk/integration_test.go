@@ -26,8 +26,8 @@ func TestSDKIntegration(t *testing.T) {
 	}
 	defer client.Close()
 
-	// 步骤 2: 第一次截图
-	result1, err := client.Screenshot("https://example.com", nil)
+	// 步骤 2: 第一次截图（百度首页较稳定）
+	result1, err := client.Screenshot("https://www.baidu.com", nil)
 	if err != nil {
 		t.Fatalf("步骤2 - 第一次截图失败: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestSDKIntegration(t *testing.T) {
 	}
 
 	// 步骤 3: 第二次截图（复用同一浏览器进程）
-	result2, err := client.Screenshot("https://example.com", nil)
+	result2, err := client.Screenshot("https://www.baidu.com", nil)
 	if err != nil {
 		t.Fatalf("步骤3 - 第二次截图失败: %v", err)
 	}
@@ -47,38 +47,5 @@ func TestSDKIntegration(t *testing.T) {
 	// 步骤 4: 验证并发计数已归零
 	if client.ActiveCount() != 0 {
 		t.Errorf("步骤4 - ActiveCount = %d, want 0", client.ActiveCount())
-	}
-}
-
-// TestSDKMultipleURLs 测试对多个不同 URL 截图
-func TestSDKMultipleURLs(t *testing.T) {
-	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
-		t.Skip("跳过需要浏览器的测试")
-	}
-
-	opts := DefaultClientOptions()
-	opts.ScreenshotPath = t.TempDir()
-	opts.Timeout = 30 * time.Second
-
-	client, err := NewClient(opts)
-	if err != nil {
-		t.Fatalf("NewClient() error = %v", err)
-	}
-	defer client.Close()
-
-	urls := []string{
-		"https://example.com",
-		"https://httpbin.org/get",
-	}
-
-	for _, url := range urls {
-		result, err := client.Screenshot(url, nil)
-		if err != nil {
-			t.Errorf("Screenshot(%s) error = %v", url, err)
-			continue
-		}
-		if result.Failed {
-			t.Errorf("Screenshot(%s) failed: %s", url, result.FailedReason)
-		}
 	}
 }

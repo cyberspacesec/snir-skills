@@ -48,7 +48,7 @@ func TestDriverPool_Screenshot(t *testing.T) {
 	}
 	defer pool.Close()
 
-	result, err := pool.Screenshot("https://example.com", nil)
+	result, err := pool.Screenshot("https://www.baidu.com", nil)
 	if err != nil {
 		t.Fatalf("Screenshot() error = %v", err)
 	}
