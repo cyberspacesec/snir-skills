@@ -1,9 +1,12 @@
 package runner
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/cyberspacesec/go-snir/pkg/models"
 )
 
 func TestNewDriverPool(t *testing.T) {
@@ -73,6 +76,38 @@ func TestDriverPool_Screenshot(t *testing.T) {
 	stats := pool.Stats()
 	if stats.TotalScreenshots != 1 {
 		t.Errorf("TotalScreenshots = %d, want 1", stats.TotalScreenshots)
+	}
+}
+
+func TestDriverPool_ScreenshotWithContext(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := &Options{}
+	opts.Chrome.Headless = true
+	opts.Chrome.WindowX = 1280
+	opts.Chrome.WindowY = 800
+	opts.Chrome.Timeout = 30
+	opts.Scan.ScreenshotPath = t.TempDir()
+	opts.Scan.ScreenshotFormat = "png"
+
+	pool, err := NewDriverPool(opts, 2)
+	if err != nil {
+		t.Fatalf("NewDriverPool() error = %v", err)
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result, err := pool.ScreenshotWithContext(ctx, "https://www.baidu.com", nil)
+	if err != nil {
+		t.Fatalf("ScreenshotWithContext() error = %v", err)
+	}
+
+	if result.Title == "" {
+		t.Error("截图结果缺少页面标题")
 	}
 }
 
@@ -162,22 +197,6 @@ func TestDriverPool_Stats(t *testing.T) {
 	}
 }
 
-func TestBuildAllocOptions(t *testing.T) {
-	opts := &Options{}
-	opts.Chrome.Headless = true
-	opts.Chrome.WindowX = 1920
-	opts.Chrome.WindowY = 1080
-	opts.Chrome.UserAgent = "TestAgent"
-	opts.Chrome.Proxy = "http://127.0.0.1:8080"
-	opts.Chrome.IgnoreCertErrors = true
-
-	allocOpts := buildAllocOptions(opts)
-
-	if len(allocOpts) < 3 {
-		t.Errorf("buildAllocOptions 返回选项太少: %d", len(allocOpts))
-	}
-}
-
 func TestDriverPool_IdleTimeout(t *testing.T) {
 	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
 		t.Skip("跳过需要浏览器的测试")
@@ -203,9 +222,7 @@ func TestDriverPool_IdleTimeout(t *testing.T) {
 	// 等待超时触发
 	time.Sleep(5 * time.Second)
 
-	// 验证：空闲超时后浏览器进程已被释放
-	// 注意：可能因为时序问题不完全精确，所以只做基本检查
-	// 下次截图应该能自动重启
+	// 下次截图应该能自动重启浏览器进程
 	result, err := pool.Screenshot("https://www.baidu.com", nil)
 	if err != nil {
 		t.Fatalf("空闲超时后截图应能自动恢复: %v", err)
@@ -218,5 +235,70 @@ func TestDriverPool_IdleTimeout(t *testing.T) {
 	stats := pool.Stats()
 	if stats.ReconnectCount < 1 {
 		t.Errorf("空闲超时后应至少重连1次, ReconnectCount = %d", stats.ReconnectCount)
+	}
+}
+
+func TestBuildAllocOptions(t *testing.T) {
+	opts := &Options{}
+	opts.Chrome.Headless = true
+	opts.Chrome.WindowX = 1920
+	opts.Chrome.WindowY = 1080
+	opts.Chrome.UserAgent = "TestAgent"
+	opts.Chrome.Proxy = "http://127.0.0.1:8080"
+	opts.Chrome.IgnoreCertErrors = true
+
+	allocOpts := buildAllocOptions(opts)
+
+	if len(allocOpts) < 3 {
+		t.Errorf("buildAllocOptions 返回选项太少: %d", len(allocOpts))
+	}
+}
+
+func TestDriverPool_ConcurrentScreenshots(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := &Options{}
+	opts.Chrome.Headless = true
+	opts.Chrome.WindowX = 1280
+	opts.Chrome.WindowY = 800
+	opts.Chrome.Timeout = 30
+	opts.Scan.ScreenshotPath = t.TempDir()
+	opts.Scan.ScreenshotFormat = "png"
+
+	pool, err := NewDriverPool(opts, 3)
+	if err != nil {
+		t.Fatalf("NewDriverPool() error = %v", err)
+	}
+	defer pool.Close()
+
+	// 并发3个截图
+	type screenshotResult struct {
+		result *models.Result
+		err    error
+	}
+
+	resultsCh := make(chan screenshotResult, 3)
+	for i := 0; i < 3; i++ {
+		go func() {
+			result, err := pool.Screenshot("https://www.baidu.com", nil)
+			resultsCh <- screenshotResult{result, err}
+		}()
+	}
+
+	for i := 0; i < 3; i++ {
+		r := <-resultsCh
+		if r.err != nil {
+			t.Errorf("并发截图[%d]失败: %v", i, r.err)
+		}
+		if r.result != nil && r.result.Title == "" {
+			t.Errorf("并发截图[%d]缺少页面标题", i)
+		}
+	}
+
+	stats := pool.Stats()
+	if stats.TotalScreenshots != 3 {
+		t.Errorf("TotalScreenshots = %d, want 3", stats.TotalScreenshots)
 	}
 }
