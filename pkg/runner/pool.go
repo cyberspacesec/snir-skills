@@ -64,6 +64,9 @@ type DriverPool struct {
 	// 优雅关闭
 	shutdownCh chan struct{}
 	wg         sync.WaitGroup // 跟踪进行中的截图
+
+	// 事件总线
+	events *eventBus
 }
 
 // NewDriverPool 创建一个新的 ChromeDP 连接池
@@ -85,6 +88,7 @@ func NewDriverPool(opts *Options, maxConcurrent int) (*DriverPool, error) {
 		sem:         make(chan struct{}, maxConcurrent),
 		createdAt:   time.Now(),
 		shutdownCh:  make(chan struct{}),
+		events:      newEventBus(),
 	}
 
 	// 记录初始活跃时间
@@ -185,6 +189,9 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 	p.wg.Add(1)
 	p.totalScreenshots.Add(1)
 	p.lastActive.Store(time.Now().UnixNano())
+	p.events.emitScreenshotStart(target)
+
+	startTime := time.Now()
 
 	defer func() {
 		<-p.sem
@@ -196,6 +203,8 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 	// 确保浏览器进程可用（可能在空闲超时后关闭了）
 	if err := p.ensureBrowserProcess(); err != nil {
 		p.failedScreenshots.Add(1)
+		duration := time.Since(startTime)
+		p.events.emitScreenshotFailed(target, duration, err)
 		return nil, fmt.Errorf("浏览器进程不可用: %v", err)
 	}
 
@@ -219,7 +228,10 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 	select {
 	case <-ctx.Done():
 		p.failedScreenshots.Add(1)
-		return nil, fmt.Errorf("截图取消: %v", ctx.Err())
+		duration := time.Since(startTime)
+		err := fmt.Errorf("截图取消: %v", ctx.Err())
+		p.events.emitScreenshotFailed(target, duration, err)
+		return nil, err
 	default:
 	}
 
@@ -231,15 +243,20 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 	}
 
 	result, err := driver.Witness(target, opts)
+	duration := time.Since(startTime)
+
 	if err != nil {
 		p.failedScreenshots.Add(1)
+		p.events.emitScreenshotFailed(target, duration, err)
 		return nil, err
 	}
 
 	if result.Failed {
 		p.failedScreenshots.Add(1)
+		p.events.emitScreenshotFailed(target, duration, fmt.Errorf(result.FailedReason))
 	}
 
+	p.events.emitScreenshotComplete(target, duration, result)
 	return result, nil
 }
 
@@ -268,9 +285,17 @@ func (p *DriverPool) ensureBrowserProcess() error {
 	p.allocCtx = allocCtx
 	p.allocCancel = allocCancel
 	p.reconnectCount.Add(1)
+	p.events.emitReconnect(p.reconnectCount.Load())
 
 	log.Info("浏览器进程已重启", "reconnect_count", p.reconnectCount.Load())
 	return nil
+}
+
+// On 注册池事件监听器
+// 事件类型: screenshot_start, screenshot_complete, screenshot_failed, reconnect, idle_close, pool_closed
+// 回调是异步执行的，不会阻塞主流程
+func (p *DriverPool) On(handler PoolEventHandler) {
+	p.events.On(handler)
 }
 
 // Stats 返回连接池统计信息
@@ -348,6 +373,7 @@ func (p *DriverPool) CloseWithTimeout(timeout time.Duration) {
 		p.allocCancel()
 	}
 	log.Info("浏览器连接池已关闭")
+	p.events.emitPoolClosed()
 }
 
 // startBrowserProcess 启动一个新的浏览器进程

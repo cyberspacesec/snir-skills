@@ -190,6 +190,20 @@ func (c *Client) SetIdleTimeout(timeout time.Duration) {
 	c.pool.SetIdleTimeout(timeout)
 }
 
+// OnEvent 注册池事件监听器
+// 事件类型:
+//   - screenshot_start: 截图开始
+//   - screenshot_complete: 截图完成（含耗时和结果）
+//   - screenshot_failed: 截图失败（含错误信息）
+//   - reconnect: 浏览器进程重新连接
+//   - idle_close: 空闲超时关闭浏览器
+//   - pool_closed: 连接池关闭
+//
+// 回调是异步执行的，不会阻塞截图流程
+func (c *Client) OnEvent(handler runner.PoolEventHandler) {
+	c.pool.On(handler)
+}
+
 // ActiveCount 返回当前正在执行的截图数
 func (c *Client) ActiveCount() int {
 	return c.pool.ActiveCount()

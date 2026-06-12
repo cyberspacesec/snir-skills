@@ -171,6 +171,11 @@ func (d *PoolDriver) SetIdleTimeout(timeout time.Duration) {
 	d.pool.SetIdleTimeout(timeout)
 }
 
+// On 注册池事件监听器
+func (d *PoolDriver) On(handler PoolEventHandler) {
+	d.pool.On(handler)
+}
+
 // logPoolStats 定期打印池统计信息（调试用）
 func logPoolStats(driver *PoolDriver) {
 	stats := driver.Stats()
