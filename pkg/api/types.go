@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/go-snir/pkg/runner"
 	"github.com/gorilla/mux"
 )
 
@@ -148,9 +149,10 @@ type ServerOptions struct {
 type Server struct {
 	Options          ServerOptions
 	Router           *mux.Router
-	concurrencyLimit interface{}   // 并发限制器
-	shutdownCh       chan struct{} // 关闭通道
-	serverStartTime  time.Time     // 服务器启动时间
+	concurrencyLimit interface{}          // 并发限制器
+	shutdownCh       chan struct{}        // 关闭通道
+	serverStartTime  time.Time            // 服务器启动时间
+	pool             *runner.DriverPool   // 浏览器连接池，复用 Chrome 进程
 }
 
 // MemoryWriter 内存写入器实现 runner.Writer 接口

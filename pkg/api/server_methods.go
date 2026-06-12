@@ -22,34 +22,63 @@ func NewServer(options ServerOptions) *Server {
 	}
 }
 
+// InitPool 初始化浏览器连接池
+// 必须在服务器启动前调用，使用共享的 Chrome 进程处理所有截图请求
+func (s *Server) InitPool(opts *runner.Options) error {
+	pool, err := runner.NewDriverPool(opts, s.Options.MaxConcurrentRequests)
+	if err != nil {
+		return fmt.Errorf("初始化浏览器连接池失败: %v", err)
+	}
+	s.pool = pool
+	log.Info("API服务器浏览器连接池已初始化", "max_concurrent", s.Options.MaxConcurrentRequests)
+	return nil
+}
+
+// ClosePool 关闭浏览器连接池
+func (s *Server) ClosePool() {
+	if s.pool != nil {
+		s.pool.Close()
+	}
+}
+
 // GetBlacklist 获取URL黑名单实例
 func (s *Server) GetBlacklist(opts *runner.Options) (*runner.URLBlacklist, error) {
 	return runner.NewURLBlacklist(opts)
 }
 
 // ProcessScreenshot 处理单个URL的截图请求
+// 优先使用连接池，若池未初始化则回退到单次创建模式
 func (s *Server) ProcessScreenshot(req ScreenshotRequest, opts runner.Options) (*models.Result, error) {
-	// 创建Chrome驱动
+	// 优先使用连接池
+	if s.pool != nil {
+		result, err := s.pool.Screenshot(req.URL, &opts)
+		if err != nil {
+			return nil, fmt.Errorf("截图失败: %v", err)
+		}
+		if result.Failed {
+			return nil, fmt.Errorf(result.FailedReason)
+		}
+		return result, nil
+	}
+
+	// 回退：连接池未初始化时使用单次模式
 	driver, err := runner.NewChromeDP(&opts)
 	if err != nil {
 		return nil, fmt.Errorf("创建浏览器驱动失败: %v", err)
 	}
 	defer driver.Close()
 
-	// 创建Runner
 	runnerInstance, err := runner.NewRunner(log.GetLogger(), driver, opts, nil)
 	if err != nil {
 		return nil, fmt.Errorf("创建截图运行器失败: %v", err)
 	}
 	defer runnerInstance.Close()
 
-	// 执行截图
 	result, err := driver.Witness(req.URL, &opts)
 	if err != nil {
 		return nil, fmt.Errorf("截图失败: %v", err)
 	}
 
-	// 检查结果状态
 	if result.Failed {
 		return nil, fmt.Errorf(result.FailedReason)
 	}
