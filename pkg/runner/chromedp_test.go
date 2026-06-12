@@ -354,7 +354,7 @@ func TestChromeDP_Witness(t *testing.T) {
 	// 测试Witness方法
 	t.Run("基本截图", func(t *testing.T) {
 		// 测试简单的静态网站
-		result, err := driver.Witness("https://example.com", runner)
+		result, err := driver.Witness("https://example.com", opts)
 		if err != nil {
 			t.Fatalf("Witness() error = %v", err)
 		}

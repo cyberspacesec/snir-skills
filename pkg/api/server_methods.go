@@ -44,7 +44,7 @@ func (s *Server) ProcessScreenshot(req ScreenshotRequest, opts runner.Options) (
 	defer runnerInstance.Close()
 
 	// 执行截图
-	result, err := driver.Witness(req.URL, runnerInstance)
+	result, err := driver.Witness(req.URL, &opts)
 	if err != nil {
 		return nil, fmt.Errorf("截图失败: %v", err)
 	}

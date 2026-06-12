@@ -44,7 +44,6 @@ type Runner struct {
 }
 
 // Writer is the interface result writers will implement
-var defaultRunner *Runner
 
 type Writer interface {
 	Write(result *models.Result) error
@@ -120,11 +119,6 @@ func (run *Runner) checkUrl(target string) error {
 }
 
 // Run starts the runner, processing targets from the Targets channel
-// Screenshot 执行单次截图操作
-func Screenshot(target string) (*models.Result, error) {
-	return defaultRunner.Driver.Witness(target, defaultRunner)
-}
-
 func (run *Runner) Run() error {
 	if run.options.Scan.Threads <= 0 {
 		run.options.Scan.Threads = 1
@@ -167,7 +161,7 @@ func (run *Runner) Run() error {
 						continue
 					}
 
-					result, err := run.Driver.Witness(target, run)
+					result, err := run.Driver.Witness(target, &run.options)
 					if err != nil {
 						run.log.Error("截图失败", "url", target, "error", err)
 						continue

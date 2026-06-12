@@ -154,7 +154,7 @@ func (s *Scanner) ScanSingle(target string) (*models.Result, error) {
 		}
 
 		// 执行扫描
-		result, lastErr = s.Driver.Witness(target, s.Runner)
+		result, lastErr = s.Driver.Witness(target, s.Config.Options)
 
 		// 如果成功或者是特定类型的错误不应重试，则跳出循环
 		if lastErr == nil ||

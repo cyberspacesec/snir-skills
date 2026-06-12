@@ -41,7 +41,7 @@ type MockDriver struct {
 }
 
 // Witness 实现 runner.Driver 接口的 Witness 方法
-func (d *MockDriver) Witness(target string, runner *runner.Runner) (*models.Result, error) {
+func (d *MockDriver) Witness(target string, opts *runner.Options) (*models.Result, error) {
 	d.WitnessCalls++
 
 	// 如果设置了目标到错误的映射，则检查当前目标是否应该返回错误

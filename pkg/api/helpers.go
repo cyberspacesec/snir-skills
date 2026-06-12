@@ -84,12 +84,10 @@ func UrlHasProtocol(url string) bool {
 }
 
 // Write 实现 runner.Writer 接口的写入方法
-func (w *MemoryWriter) Write(result *interface{}) error {
-	if r, ok := (*result).(*models.Result); ok {
-		w.mu.Lock()
-		w.Results = append(w.Results, r)
-		w.mu.Unlock()
-	}
+func (w *MemoryWriter) Write(result *models.Result) error {
+	w.mu.Lock()
+	w.Results = append(w.Results, result)
+	w.mu.Unlock()
 	return nil
 }
 

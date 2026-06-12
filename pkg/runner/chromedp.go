@@ -80,7 +80,7 @@ func NewChromeDP(opts *Options) (*ChromeDP, error) {
 }
 
 // Witness implements the Driver interface
-func (c *ChromeDP) Witness(target string, runner *Runner) (*models.Result, error) {
+func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error) {
 	result := &models.Result{
 		URL:      target,
 		ProbedAt: time.Now(),

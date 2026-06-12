@@ -17,7 +17,7 @@ type MockDriver struct {
 }
 
 // Witness implements the Driver interface
-func (d *MockDriver) Witness(target string, runner *Runner) (*models.Result, error) {
+func (d *MockDriver) Witness(target string, opts *Options) (*models.Result, error) {
 	d.WitnessCalls++
 	return d.ReturnResult, d.ReturnError
 }
