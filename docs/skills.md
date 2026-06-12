@@ -1,0 +1,567 @@
+# go-snir 网页截图工具 — 能力文档
+
+> 本文档描述 go-snir 的全部截图能力，以及如何通过 CLI、SDK、API、Provider 四种方式集成使用。
+
+---
+
+## 概述
+
+go-snir 是一个基于 Chrome DevTools Protocol (CDP) 的网页截图与信息收集工具。核心能力包括：
+
+- **网页截图**：全页/元素级截图，支持 PNG/JPEG
+- **信息收集**：HTML 源码、HTTP 头、Cookie、控制台日志、网络请求
+- **浏览器交互**：JavaScript 执行、表单填写、点击/滚动/输入操作
+- **浏览器指纹**：自定义 User-Agent、WebGL、平台、语言等
+- **CDP 复用**：连接池、单例池、远程连接、自动发现
+- **多种集成方式**：CLI、Go SDK、HTTP API、CDP Provider
+
+---
+
+## 一、CLI 使用
+
+### 1.1 单 URL 截图
+
+```bash
+# 基本用法
+./snir scan example.com
+
+# 指定超时和延迟
+./snir scan example.com --timeout 60 --delay 3
+
+# 高分辨率
+./snir scan example.com --resolution-x 1920 --resolution-y 1080
+
+# 使用代理
+./snir scan example.com --proxy http://127.0.0.1:8080
+
+# 忽略证书错误（HTTPS 站点）
+./snir scan example.com --ignore-cert-errors
+
+# 连接远程 Chrome（避免本地启动）
+./snir scan example.com --wss ws://chrome-server:9222/devtools/browser/xxx
+
+# 执行 JavaScript
+./snir scan example.com --js "document.querySelectorAll('.popup').forEach(el => el.remove());"
+
+# 页面加载前执行 JS
+./snir scan example.com --js "window.__test = true" --run-js-before
+
+# CSS 选择器截图（仅截取特定元素）
+./snir scan example.com --selector "#main-content"
+
+# XPath 截图
+./snir scan example.com --xpath "//div[@class='chart']"
+
+# 全页截图（包括滚动区域）
+./snir scan example.com --full-page
+```
+
+### 1.2 批量扫描
+
+```bash
+# 从文件读取 URL 列表
+./snir scan file -f urls.txt
+
+# 扫描网段
+./snir scan cidr 192.168.1.0/24
+
+# 调整并发数
+./snir scan file -f urls.txt --threads 10
+
+# 最大重试次数
+./snir scan file -f urls.txt --max-retries 3
+```
+
+### 1.3 数据收集
+
+```bash
+# 保存 HTML 源码
+./snir scan example.com --save-html
+
+# 保存 HTTP 头
+./snir scan example.com --save-headers
+
+# 保存 Cookie
+./snir scan example.com --save-cookies
+
+# 保存控制台日志
+./snir scan example.com --save-console
+
+# 保存网络请求日志
+./snir scan example.com --save-network
+
+# 全部保存
+./snir scan example.com --save-html --save-headers --save-cookies --save-console --save-network
+
+# 输出到 JSONL/CSV
+./snir scan file -f urls.txt --write-jsonl --jsonl-file results.jsonl
+./snir scan file -f urls.txt --write-csv --csv-file results.csv
+
+# 存入数据库
+./snir scan file -f urls.txt --db --db-path screenshots.db
+```
+
+### 1.4 API 服务
+
+```bash
+# 启动 API 服务
+./snir api --port 8080
+
+# 指定 API Key
+./snir api --api-key my-secret-key
+
+# 连接远程 Chrome
+./snir api --wss ws://chrome-server:9222/devtools/browser/xxx
+
+# 最大并发
+./snir api --max-concurrent 20
+
+# 忽略证书错误
+./snir api --ignore-cert-errors
+```
+
+### 1.5 CDP Provider（共享 Chrome 给其他工具）
+
+```bash
+# 启动 Provider（默认端口 9223）
+./snir provider
+
+# 自定义配置
+./snir provider --port 8090 --chrome-port 9222 --max-concurrent 20
+
+# 设置空闲超时（5 分钟不用自动关闭浏览器）
+./snir provider --idle-timeout 5m
+
+# 使用代理
+./snir provider --proxy http://127.0.0.1:8080
+
+# 非无头模式（调试用）
+./snir provider --headless=false
+```
+
+### 1.6 全部 CLI 标志
+
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--screenshot-path` | screenshots | 截图保存路径 |
+| `--screenshot-format` | png | 截图格式 (png/jpeg) |
+| `--screenshot-quality` | 90 | JPEG 截图质量 |
+| `--skip-screenshot` | false | 跳过保存截图 |
+| `--save-html` | false | 保存 HTML 源码 |
+| `--save-headers` | false | 保存 HTTP 头 |
+| `--save-console` | false | 保存控制台日志 |
+| `--save-cookies` | false | 保存 Cookie |
+| `--save-network` | false | 保存网络请求日志 |
+| `--chrome-path` | "" | Chrome 可执行文件路径 |
+| `--user-agent` | "" | 自定义 User-Agent |
+| `--proxy` | "" | 代理服务器 |
+| `--timeout` | 30 | 页面加载超时（秒） |
+| `--delay` | 0 | 截图前等待（秒） |
+| `--resolution-x` | 1280 | 窗口宽度 |
+| `--resolution-y` | 800 | 窗口高度 |
+| `--headless` | true | 无头模式 |
+| `--ignore-cert-errors` | false | 忽略证书错误 |
+| `--wss` | "" | 远程 Chrome WebSocket URL |
+| `--threads` | 2 | 并发线程数 |
+| `--max-retries` | 1 | 最大重试次数 |
+| `--js` | "" | 页面上执行的 JavaScript |
+| `--js-file` | "" | JavaScript 文件路径 |
+| `--run-js-before` | false | 在页面加载前执行 JS |
+| `--selector` | "" | CSS 选择器截图 |
+| `--xpath` | "" | XPath 截图 |
+| `--full-page` | false | 全页截图 |
+| `--http` | true | 使用 HTTP 协议 |
+| `--https` | true | 使用 HTTPS 协议 |
+| `--enable-blacklist` | true | 启用 URL 黑名单 |
+| `--default-blacklist` | true | 使用默认黑名单 |
+| `--blacklist-pattern` | [] | 自定义黑名单规则 |
+| `--blacklist-file` | "" | 黑名单文件 |
+| `--db` | false | 启用数据库存储 |
+| `--db-path` | go-web-screenshot.db | 数据库路径 |
+| `--write-jsonl` | false | 写入 JSONL |
+| `--write-csv` | false | 写入 CSV |
+
+---
+
+## 二、Go SDK 集成
+
+### 2.1 安装
+
+```bash
+go get github.com/cyberspacesec/go-snir/pkg/sdk
+```
+
+### 2.2 基本使用
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/cyberspacesec/go-snir/pkg/sdk"
+)
+
+func main() {
+    // 创建客户端
+    opts := sdk.DefaultClientOptions()
+    opts.ScreenshotPath = "screenshots"
+    opts.MaxConcurrent = 4
+    
+    client, err := sdk.NewClient(opts)
+    if err != nil {
+        panic(err)
+    }
+    defer client.Close()
+    
+    // 截图
+    result, err := client.Screenshot("https://www.baidu.com", nil)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("标题: %s\n", result.Title)
+}
+```
+
+### 2.3 截图字节数据（不写磁盘）
+
+```go
+imgBytes, result, err := client.ScreenshotBytes("https://example.com", nil)
+if err != nil {
+    panic(err)
+}
+// imgBytes 是 PNG/JPEG 的原始字节数据
+fmt.Printf("图片大小: %d bytes\n", len(imgBytes))
+```
+
+### 2.4 带取消的截图
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+result, err := client.ScreenshotWithContext(ctx, "https://example.com", nil)
+```
+
+### 2.5 批量截图
+
+```go
+urls := []string{"https://a.com", "https://b.com", "https://c.com"}
+results := client.BatchScreenshot(urls, nil)
+
+for _, r := range results {
+    if r.Error != nil {
+        fmt.Printf("❌ %s: %v\n", r.URL, r.Error)
+    } else {
+        fmt.Printf("✅ %s: %s\n", r.URL, r.Result.Title)
+    }
+}
+```
+
+### 2.6 连接远程 Chrome
+
+```go
+// 连接 Provider 或其他 Chrome 实例
+wsURL := "ws://chrome-server:9222/devtools/browser/xxxx"
+client, err := sdk.NewRemoteClient(wsURL, 4)
+```
+
+### 2.7 自动发现并连接
+
+```go
+// AutoConnect: 优先级：远程 > 发现本地 > 启动新实例
+client, mode, err := sdk.AutoConnectClient(sdk.DefaultClientOptions())
+fmt.Printf("连接模式: %s\n", mode) // "remote" | "discovered" | "local"
+```
+
+### 2.8 进程内共享池（多模块复用）
+
+```go
+// 任意包/模块调用，自动复用同一 Chrome 进程
+result, _ := sdk.SharedScreenshot("https://example.com", nil)
+
+// 查看统计
+stats, _ := sdk.SharedStats()
+fmt.Printf("总截图: %d, 失败: %d\n", stats.TotalScreenshots, stats.FailedScreenshots)
+
+// 程序退出时关闭
+defer sdk.CloseSharedPool()
+```
+
+### 2.9 事件监听
+
+```go
+client.OnEvent(func(event runner.PoolEvent) {
+    switch event.Type {
+    case runner.EventScreenshotComplete:
+        fmt.Printf("✅ %s (%.2fs)\n", event.URL, event.Duration.Seconds())
+    case runner.EventScreenshotFailed:
+        fmt.Printf("❌ %s: %v\n", event.URL, event.Error)
+    case runner.EventReconnect:
+        fmt.Printf("🔄 浏览器重连 (第%d次)\n", event.ReconnectCount)
+    case runner.EventIdleClose:
+        fmt.Printf("💤 浏览器空闲关闭")
+    }
+})
+```
+
+### 2.10 空闲超时
+
+```go
+// 5分钟不用自动关闭浏览器，下次截图自动重启
+client.SetIdleTimeout(5 * time.Minute)
+```
+
+### 2.11 统计信息
+
+```go
+stats := client.Stats()
+fmt.Printf("活跃: %d, 总计: %d, 失败: %d, 重连: %d\n",
+    stats.ActiveCount,
+    stats.TotalScreenshots,
+    stats.FailedScreenshots,
+    stats.ReconnectCount,
+)
+```
+
+### 2.12 自定义截图选项
+
+```go
+opts := &sdk.ScreenshotOptions{
+    Timeout:        60,                          // 超时 60 秒
+    Delay:          3,                           // 延迟 3 秒
+    UserAgent:      "Mozilla/5.0 Custom",        // 自定义 UA
+    Selector:       "#main-content",             // CSS 选择器
+    CaptureFullPage: true,                        // 全页截图
+    JavaScript:     "window.scrollTo(0, 500)",    // 执行 JS
+}
+
+result, err := client.Screenshot("https://example.com", opts)
+```
+
+---
+
+## 三、HTTP API 集成
+
+### 3.1 单张截图
+
+```bash
+curl -X POST http://localhost:8080/screenshot \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "timeout": 30,
+    "delay": 0,
+    "user_agent": "",
+    "proxy": "",
+    "ignore_cert_errors": false,
+    "javascript": "",
+    "selector": "",
+    "xpath": "",
+    "capture_full_page": false,
+    "https": true,
+    "http": true
+  }'
+```
+
+### 3.2 批量截图
+
+```bash
+curl -X POST http://localhost:8080/batch \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": ["https://a.com", "https://b.com"],
+    "threads": 4,
+    "timeout": 30
+  }'
+```
+
+### 3.3 查看统计
+
+```bash
+curl http://localhost:8080/stats
+```
+
+### 3.4 健康检查
+
+```bash
+curl http://localhost:8080/health
+```
+
+### 3.5 API 端点一览
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | API 信息 |
+| `/screenshot` | POST | 单张截图 |
+| `/batch` | POST | 批量截图 |
+| `/screenshots_list` | GET | 列出截图文件 |
+| `/get_screenshot/{filename}` | GET | 获取截图文件 |
+| `/screenshots/{path}` | GET | 静态文件服务 |
+| `/stats` | GET | 统计信息（含连接池） |
+| `/health` | GET | 健康检查 |
+
+---
+
+## 四、CDP Provider（跨进程共享 Chrome）
+
+### 4.1 启动 Provider
+
+```bash
+./snir provider --port 9223 --max-concurrent 20 --idle-timeout 5m
+```
+
+### 4.2 Provider HTTP API
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | Provider 信息 |
+| `/ws` | GET | 获取 WebSocket URL |
+| `/health` | GET | 健康检查 |
+| `/stats` | GET | 连接池统计 |
+| `/screenshot?url=` | POST | 直接截图 |
+
+### 4.3 其他工具连接 Provider
+
+```bash
+# 查询 WebSocket URL
+curl http://provider-host:9223/ws
+
+# 返回: {"ws_url": "ws://provider-host:9222/devtools/browser/xxx", ...}
+```
+
+```go
+// Go SDK 连接
+client, _ := sdk.NewRemoteClient("ws://provider-host:9222/devtools/browser/xxx", 4)
+```
+
+### 4.4 自动发现
+
+```go
+// 自动发现本地 Chrome 实例（扫描 9222/9223/9224）
+client, mode, _ := sdk.AutoConnectClient(sdk.DefaultClientOptions())
+// mode: "discovered" = 找到了 Provider 或其他 Chrome 实例
+```
+
+---
+
+## 五、Chrome 复用架构
+
+### 5.1 三层复用
+
+```
+层级 3: Provider 服务（跨进程/跨机器）
+  多个独立进程 → 1个 Provider → 1个 Chrome 实例
+
+层级 2: Singleton Pool（同进程内多模块）
+  多个模块 → GetSharedPool() → 1个 Chrome 实例
+
+层级 1: AutoConnect（自动发现）
+  AutoConnectClient() → 优先连接已有 Chrome → 没有则启动新的
+```
+
+### 5.2 连接池特性
+
+| 特性 | 说明 |
+|------|------|
+| 健康检查 | 每次截图前验证浏览器进程可用 |
+| 自动恢复 | 浏览器崩溃时自动重启 |
+| 优雅关闭 | 等待进行中截图完成 |
+| 空闲超时 | 长时间不用自动关闭浏览器 |
+| 智能重试 | 区分可重试/不可重试错误，指数退避 |
+| 生命周期事件 | 6 种事件类型，异步回调 |
+| 远程连接 | 通过 WebSocket URL 连接远程 Chrome |
+
+### 5.3 智能重试分类
+
+| 不可重试（立即失败） | 可重试（指数退避重试） |
+|---|---|
+| `ERR_NAME_NOT_RESOLVED` | `ERR_CONNECTION_RESET` |
+| `ERR_CONNECTION_REFUSED` | `ERR_TIMED_OUT` |
+| `ERR_ADDRESS_UNREACHABLE` | `ERR_NETWORK_CHANGED` |
+| `ERR_ACCESS_DENIED` | `Could not find node with given id` |
+| | `context deadline exceeded` |
+| | 浏览器进程不可用 |
+
+### 5.4 生命周期事件
+
+| 事件 | 触发时机 | 可用字段 |
+|------|---------|---------|
+| `screenshot_start` | 截图开始 | URL |
+| `screenshot_complete` | 截图成功 | URL, Duration, Result |
+| `screenshot_failed` | 截图失败 | URL, Duration, Error |
+| `reconnect` | 浏览器重连 | ReconnectCount |
+| `idle_close` | 空闲关闭浏览器 | — |
+| `pool_closed` | 连接池关闭 | — |
+
+---
+
+## 六、SDK ClientOptions 完整参考
+
+```go
+type ClientOptions struct {
+    ChromePath       string        // Chrome 可执行文件路径
+    Headless         bool          // 无头模式（默认 true）
+    WindowWidth      int           // 窗口宽度（默认 1280）
+    WindowHeight     int           // 窗口高度（默认 800）
+    Timeout          time.Duration // 页面加载超时
+    Delay            time.Duration // 截图前等待
+    UserAgent        string        // 自定义 User-Agent
+    Proxy            string        // 代理服务器
+    WSSURL           string        // 远程 Chrome WebSocket URL
+    MaxConcurrent    int           // 最大并发截图数（默认 2）
+    ScreenshotPath   string        // 截图保存路径
+    ScreenshotFormat string        // 截图格式 png/jpeg
+    SkipSave         bool          // 跳过保存到磁盘
+    IgnoreCertErrors bool          // 忽略证书错误
+    CaptureFullPage  bool          // 全页截图
+    Selector         string        // CSS 选择器截图
+    XPath            string        // XPath 截图
+}
+
+type ScreenshotOptions struct {
+    Timeout         int    // 超时秒数（覆盖 ClientOptions）
+    Delay           int    // 延迟秒数（覆盖 ClientOptions）
+    UserAgent       string // User-Agent（覆盖 ClientOptions）
+    Selector        string // CSS 选择器（覆盖 ClientOptions）
+    XPath           string // XPath（覆盖 ClientOptions）
+    CaptureFullPage bool   // 全页截图（覆盖 ClientOptions）
+    JavaScript      string // 要执行的 JavaScript
+    SkipSave        bool   // 跳过保存
+}
+```
+
+---
+
+## 七、PoolStats 完整参考
+
+```go
+type PoolStats struct {
+    ActiveCount      int       // 当前活跃截图数
+    MaxConcurrent    int       // 最大并发数
+    TotalScreenshots int64     // 总截图次数
+    FailedScreenshots int64    // 失败截图次数
+    ReconnectCount   int64     // 浏览器重连次数
+    LastActive       time.Time // 最后活跃时间
+    CreatedAt        time.Time // 池创建时间
+    Closed           bool      // 是否已关闭
+}
+```
+
+---
+
+## 八、快速选择指南
+
+| 场景 | 推荐方式 | 示例 |
+|------|---------|------|
+| 命令行一次性截图 | `snir scan` | `./snir scan example.com` |
+| 批量扫描 | `snir scan file` | `./snir scan file -f urls.txt` |
+| 网段扫描 | `snir scan cidr` | `./snir scan cidr 192.168.1.0/24` |
+| 提供 HTTP API | `snir api` | `./snir api --port 8080` |
+| 共享 Chrome 给其他工具 | `snir provider` | `./snir provider` |
+| Go 程序内截图 | SDK `NewClient` | `sdk.NewClient(opts)` |
+| Go 程序连远程 Chrome | SDK `NewRemoteClient` | `sdk.NewRemoteClient(wsURL, 4)` |
+| Go 程序零配置 | SDK `AutoConnectClient` | `sdk.AutoConnectClient(opts)` |
+| 同进程多模块共享 | SDK `SharedScreenshot` | `sdk.SharedScreenshot(url, nil)` |
+| 监控截图状态 | SDK `OnEvent` | `client.OnEvent(handler)` |
