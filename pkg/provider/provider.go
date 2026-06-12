@@ -393,31 +393,11 @@ func WaitForSignal(p *Provider) {
 }
 
 // DiscoverChrome 尝试发现本地已运行的 Chrome 实例
-// 扫描常见端口（9222），查询 /json/version 获取 WebSocket URL
+// 委托给 runner.DiscoverChrome 实现
 func DiscoverChrome(host string, ports []int) (string, error) {
-	if len(ports) == 0 {
-		ports = []int{9222, 9223, 9224}
+	instance, err := runner.DiscoverChrome(host, ports)
+	if err != nil {
+		return "", err
 	}
-
-	for _, port := range ports {
-		url := fmt.Sprintf("http://%s:%d/json/version", host, port)
-
-		client := &http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get(url)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			continue
-		}
-
-		if wsURL, ok := result["webSocketDebuggerUrl"].(string); ok && wsURL != "" {
-			return wsURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("未发现本地 Chrome 实例 (扫描端口: %v)", ports)
+	return instance.WsURL, nil
 }
