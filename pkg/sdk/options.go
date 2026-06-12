@@ -19,6 +19,12 @@ type ClientOptions struct {
 	UserAgent     string        // 自定义 User-Agent
 	Proxy         string        // 代理服务器地址
 
+	// 远程 Chrome 连接（优先级高于本地启动）
+	// 设置后不再启动本地 Chrome 进程，而是连接到已有的远程 Chrome 实例
+	// 格式：ws://hostname:port/devtools/browser/xxxx
+	// 可通过 chrome --remote-debugging-port=9222 启动后获取
+	WSSURL string // WebSocket URL 连接远程 Chrome
+
 	// 连接池配置
 	MaxConcurrent int // 最大并发截图数（默认 2）
 
@@ -75,6 +81,7 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	opts.Chrome.UserAgent = co.UserAgent
 	opts.Chrome.Proxy = co.Proxy
 	opts.Chrome.IgnoreCertErrors = co.IgnoreCertErrors
+	opts.Chrome.WSS = co.WSSURL
 	opts.Scan.ScreenshotPath = co.ScreenshotPath
 	opts.Scan.ScreenshotFormat = co.ScreenshotFormat
 	opts.Scan.ScreenshotSkipSave = co.SkipSave

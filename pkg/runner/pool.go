@@ -351,8 +351,29 @@ func (p *DriverPool) CloseWithTimeout(timeout time.Duration) {
 }
 
 // startBrowserProcess 启动一个新的浏览器进程
+// 支持两种模式：
+// 1. 本地模式（opts.Chrome.WSS 为空）：启动本地 Chrome 进程
+// 2. 远程模式（opts.Chrome.WSS 不为空）：连接到已有的远程 Chrome 实例
 // 返回 allocCtx, allocCancel, error
 func startBrowserProcess(opts *Options) (context.Context, context.CancelFunc, error) {
+	// 远程模式：通过 WebSocket URL 连接已有的 Chrome 实例
+	if opts.Chrome.WSS != "" {
+		allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), opts.Chrome.WSS)
+
+		// 验证远程连接可用
+		ctx, cancel := chromedp.NewContext(allocCtx)
+		if err := chromedp.Run(ctx, chromedp.Navigate("about:blank")); err != nil {
+			cancel()
+			allocCancel()
+			return nil, nil, fmt.Errorf("连接远程浏览器失败 (wsURL=%s): %v", opts.Chrome.WSS, err)
+		}
+		cancel()
+
+		log.Info("已连接到远程浏览器", "ws_url", opts.Chrome.WSS)
+		return allocCtx, allocCancel, nil
+	}
+
+	// 本地模式：启动新的 Chrome 进程
 	chromedpOpts := buildAllocOptions(opts)
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromedpOpts...)
 

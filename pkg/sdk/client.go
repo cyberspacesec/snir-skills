@@ -50,7 +50,35 @@ func NewClient(opts ClientOptions) (*Client, error) {
 		return nil, fmt.Errorf("初始化截图客户端失败: %v", err)
 	}
 
-	log.Info("截图SDK客户端已创建", "max_concurrent", opts.MaxConcurrent)
+	mode := "本地"
+	if opts.WSSURL != "" {
+		mode = "远程"
+	}
+	log.Info("截图SDK客户端已创建", "mode", mode, "max_concurrent", opts.MaxConcurrent)
+	return &Client{
+		pool: pool,
+		opts: opts,
+	}, nil
+}
+
+// NewRemoteClient 创建一个连接到远程 Chrome 的截图客户端
+// wsURL: 远程 Chrome 的 WebSocket URL（如 ws://hostname:9222/devtools/browser/xxxx）
+// maxConcurrent: 最大并发截图数
+// 其他选项使用默认值
+func NewRemoteClient(wsURL string, maxConcurrent int) (*Client, error) {
+	opts := DefaultClientOptions()
+	opts.WSSURL = wsURL
+	if maxConcurrent > 0 {
+		opts.MaxConcurrent = maxConcurrent
+	}
+
+	runnerOpts := toRunnerOptions(opts)
+	pool, err := runner.NewDriverPool(&runnerOpts, opts.MaxConcurrent)
+	if err != nil {
+		return nil, fmt.Errorf("连接远程浏览器失败: %v", err)
+	}
+
+	log.Info("远程截图SDK客户端已创建", "ws_url", wsURL, "max_concurrent", opts.MaxConcurrent)
 	return &Client{
 		pool: pool,
 		opts: opts,
