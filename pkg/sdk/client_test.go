@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -52,6 +53,148 @@ func TestClient_Screenshot(t *testing.T) {
 	if result.Failed {
 		t.Errorf("截图失败: %s", result.FailedReason)
 	}
+}
+
+func TestClient_ScreenshotWithContext(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := DefaultClientOptions()
+	opts.ScreenshotPath = t.TempDir()
+	opts.Timeout = 30 * time.Second
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result, err := client.ScreenshotWithContext(ctx, "https://www.baidu.com", nil)
+	if err != nil {
+		t.Fatalf("ScreenshotWithContext() error = %v", err)
+	}
+
+	if result.Title == "" {
+		t.Error("截图结果缺少页面标题")
+	}
+}
+
+func TestClient_ScreenshotBytes(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := DefaultClientOptions()
+	opts.ScreenshotPath = t.TempDir()
+	opts.Timeout = 30 * time.Second
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	defer client.Close()
+
+	imgBytes, result, err := client.ScreenshotBytes("https://www.baidu.com", nil)
+	if err != nil {
+		t.Fatalf("ScreenshotBytes() error = %v", err)
+	}
+
+	if len(imgBytes) == 0 {
+		t.Error("截图字节数据为空")
+	}
+
+	if result.Title == "" {
+		t.Error("截图结果缺少页面标题")
+	}
+
+	// PNG 文件头检查
+	if len(imgBytes) >= 4 {
+		if imgBytes[0] != 0x89 || imgBytes[1] != 'P' || imgBytes[2] != 'N' || imgBytes[3] != 'G' {
+			t.Error("返回的数据不是 PNG 格式")
+		}
+	}
+}
+
+func TestClient_BatchScreenshot(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := DefaultClientOptions()
+	opts.ScreenshotPath = t.TempDir()
+	opts.MaxConcurrent = 2
+	opts.Timeout = 30 * time.Second
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	defer client.Close()
+
+	urls := []string{
+		"https://www.baidu.com",
+		"https://www.bing.com",
+	}
+
+	results := client.BatchScreenshot(urls, nil)
+	if len(results) != len(urls) {
+		t.Fatalf("BatchScreenshot 返回 %d 个结果, 期望 %d", len(results), len(urls))
+	}
+
+	for i, r := range results {
+		if r.Error != nil {
+			t.Errorf("BatchScreenshot[%d] %s error: %v", i, r.URL, r.Error)
+		}
+		if r.Result != nil && r.Result.Title == "" {
+			t.Errorf("BatchScreenshot[%d] %s 缺少页面标题", i, r.URL)
+		}
+	}
+}
+
+func TestClient_Stats(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := DefaultClientOptions()
+	opts.ScreenshotPath = t.TempDir()
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	defer client.Close()
+
+	stats := client.Stats()
+	if stats.Closed {
+		t.Error("新客户端不应标记为关闭")
+	}
+	if stats.MaxConcurrent != opts.MaxConcurrent {
+		t.Errorf("MaxConcurrent = %d, want %d", stats.MaxConcurrent, opts.MaxConcurrent)
+	}
+}
+
+func TestClient_SetIdleTimeout(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") != "" {
+		t.Skip("跳过需要浏览器的测试")
+	}
+
+	opts := DefaultClientOptions()
+	opts.ScreenshotPath = t.TempDir()
+	opts.Timeout = 30 * time.Second
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// 设置空闲超时（不等待触发，只验证设置不报错）
+	client.SetIdleTimeout(5 * time.Minute)
+	client.Close()
 }
 
 func TestClient_ScreenshotWithOptions(t *testing.T) {
@@ -147,6 +290,7 @@ func TestMergeWithScreenshotOptions(t *testing.T) {
 		Timeout:         60 * time.Second,
 		Selector:        "#main",
 		CaptureFullPage: true,
+		SkipSave:        true,
 	}
 
 	merged := mergeWithScreenshotOptions(base, so)
@@ -159,5 +303,8 @@ func TestMergeWithScreenshotOptions(t *testing.T) {
 	}
 	if !merged.Scan.CaptureFullPage {
 		t.Error("CaptureFullPage 合并后应为 true")
+	}
+	if !merged.Scan.ScreenshotSkipSave {
+		t.Error("SkipSave 合并后应为 true")
 	}
 }

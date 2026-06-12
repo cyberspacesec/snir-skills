@@ -60,6 +60,7 @@ type ScreenshotOptions struct {
 	XPath           string        // 本次截图 XPath
 	CaptureFullPage bool          // 本次截图是否全页
 	JavaScript      string        // 要执行的 JavaScript
+	SkipSave        bool          // 本次截图是否跳过保存到磁盘
 }
 
 // toRunnerOptions 将 ClientOptions 转换为 runner.Options
@@ -112,6 +113,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	if so.JavaScript != "" {
 		base.Scan.JavaScript = so.JavaScript
 		base.Scan.RunJSAfter = true
+	}
+	if so.SkipSave {
+		base.Scan.ScreenshotSkipSave = true
 	}
 
 	return base
