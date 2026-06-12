@@ -83,6 +83,8 @@ func init() {
 	// 添加并发控制相关选项
 	apiCmd.Flags().IntVar(&opts.API.MaxConcurrent, "max-concurrent", 10, log.Cyan("最大并发请求数"))
 	apiCmd.Flags().IntVar(&opts.API.QueueSize, "queue-size", 100, log.Cyan("请求队列大小"))
+	apiCmd.Flags().StringVar(&opts.Chrome.WSS, "wss", "", log.Cyan("远程Chrome WebSocket URL (如 ws://host:9222/devtools/browser/xxx)"))
+	apiCmd.Flags().BoolVar(&opts.Chrome.IgnoreCertErrors, "ignore-cert-errors", false, log.Cyan("忽略证书错误"))
 
 	log.Debug(log.Green("已注册api命令"))
 }

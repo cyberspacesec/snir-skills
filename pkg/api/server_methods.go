@@ -111,7 +111,7 @@ func (s *Server) SetupRoutes() {
 	s.Router.HandleFunc("/", s.HandleRoot).Methods("GET", "OPTIONS")
 
 	// 添加状态监控和健康检查端点
-	s.Router.HandleFunc("/stats", HandleStats).Methods("GET", "OPTIONS")
+	s.Router.HandleFunc("/stats", s.HandleStats).Methods("GET", "OPTIONS")
 	s.Router.HandleFunc("/health", HandleHealth).Methods("GET", "OPTIONS")
 }
 
@@ -154,4 +154,35 @@ func (s *Server) Run() error {
 	}
 
 	return server.ListenAndServe()
+}
+
+// HandleStats 处理统计请求（含连接池统计）
+func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
+	active, waiting, max, queue, uptime := GetConcurrencyStats()
+
+	stats := map[string]interface{}{
+		"active_requests":  active,
+		"waiting_requests": waiting,
+		"max_concurrent":   max,
+		"queue_size":       queue,
+		"uptime":           uptime.String(),
+		"started_at":       startTime.Format(time.RFC3339),
+	}
+
+	// 附加连接池统计（如果已初始化）
+	if s.pool != nil {
+		poolStats := s.pool.Stats()
+		stats["pool"] = map[string]interface{}{
+			"active_screenshots":  poolStats.ActiveCount,
+			"total_screenshots":   poolStats.TotalScreenshots,
+			"failed_screenshots":  poolStats.FailedScreenshots,
+			"reconnect_count":     poolStats.ReconnectCount,
+			"closed":              poolStats.Closed,
+		}
+	}
+
+	SendJSONResponse(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data:    stats,
+	})
 }

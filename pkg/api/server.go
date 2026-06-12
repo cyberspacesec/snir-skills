@@ -156,16 +156,18 @@ func CreateConcurrencyLimitMiddleware() func(http.Handler) http.Handler {
 func HandleStats(w http.ResponseWriter, r *http.Request) {
 	active, waiting, max, queue, uptime := GetConcurrencyStats()
 
+	stats := map[string]interface{}{
+		"active_requests":  active,
+		"waiting_requests": waiting,
+		"max_concurrent":   max,
+		"queue_size":       queue,
+		"uptime":           uptime.String(),
+		"started_at":       startTime.Format(time.RFC3339),
+	}
+
 	SendJSONResponse(w, http.StatusOK, APIResponse{
 		Success: true,
-		Data: map[string]interface{}{
-			"active_requests":  active,
-			"waiting_requests": waiting,
-			"max_concurrent":   max,
-			"queue_size":       queue,
-			"uptime":           uptime.String(),
-			"started_at":       startTime.Format(time.RFC3339),
-		},
+		Data:    stats,
 	})
 }
 

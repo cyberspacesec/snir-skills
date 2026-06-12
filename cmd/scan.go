@@ -147,6 +147,8 @@ func init() {
 	scanCmd.PersistentFlags().IntVar(&opts.Chrome.WindowX, "resolution-x", 1280, log.Cyan("窗口宽度"))
 	scanCmd.PersistentFlags().IntVar(&opts.Chrome.WindowY, "resolution-y", 800, log.Cyan("窗口高度"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Chrome.Headless, "headless", true, log.Cyan("使用无头模式"))
+	scanCmd.PersistentFlags().BoolVar(&opts.Chrome.IgnoreCertErrors, "ignore-cert-errors", false, log.Cyan("忽略证书错误"))
+	scanCmd.PersistentFlags().StringVar(&opts.Chrome.WSS, "wss", "", log.Cyan("远程Chrome WebSocket URL (如 ws://host:9222/devtools/browser/xxx)"))
 
 	// 扫描相关选项
 	scanCmd.PersistentFlags().IntVar(&opts.Scan.Threads, "threads", 2, log.Cyan("并发线程数"))
@@ -155,6 +157,11 @@ func init() {
 	scanCmd.PersistentFlags().IntVar(&opts.Scan.MaxRetries, "max-retries", 1, log.Cyan("最大重试次数"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.JavaScript, "js", "", log.Cyan("要在页面上执行的JavaScript代码"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.JavaScriptFile, "js-file", "", log.Cyan("包含JavaScript代码的文件路径"))
+	scanCmd.PersistentFlags().BoolVar(&opts.Scan.RunJSBefore, "run-js-before", false, log.Cyan("在页面加载前执行JavaScript"))
+	scanCmd.PersistentFlags().StringVar(&opts.Scan.Selector, "selector", "", log.Cyan("CSS选择器截图 (仅截取匹配元素)"))
+	scanCmd.PersistentFlags().StringVar(&opts.Scan.XPath, "xpath", "", log.Cyan("XPath截图 (仅截取匹配元素)"))
+	scanCmd.PersistentFlags().BoolVar(&opts.Scan.CaptureFullPage, "full-page", false, log.Cyan("截取完整页面 (包括滚动区域)"))
+	scanCmd.PersistentFlags().BoolVar(&opts.Scan.SaveNetwork, "save-network", false, log.Cyan("保存网络请求日志"))
 
 	// 数据库相关选项
 	scanCmd.PersistentFlags().BoolVar(&opts.DB.Enable, "db", false, log.Cyan("启用数据库存储"))
