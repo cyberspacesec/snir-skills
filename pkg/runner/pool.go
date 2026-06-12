@@ -13,17 +13,57 @@ import (
 	"github.com/cyberspacesec/go-snir/pkg/models"
 )
 
+// PoolStats 连接池统计信息
+type PoolStats struct {
+	ActiveCount    int       // 当前正在执行的截图数
+	MaxConcurrent  int       // 最大并发数
+	TotalScreenshots int64   // 总截图次数
+	FailedScreenshots int64  // 失败截图次数
+	ReconnectCount int64     // 浏览器重连次数
+	LastActive     time.Time // 最后一次截图时间
+	CreatedAt      time.Time // 池创建时间
+	Closed         bool      // 是否已关闭
+}
+
 // DriverPool 管理一组可复用的 Chrome 浏览器实例
 // 复用 allocCtx（浏览器进程级别），每次截图创建新 tab（标签页级别）
 // 截图完成后关闭 tab 但保留浏览器进程，避免反复启动 Chrome
+//
+// 支持以下高级特性：
+//   - 健康检查：每次截图前验证浏览器进程可用
+//   - 自动恢复：浏览器崩溃时自动重启 allocCtx
+//   - 优雅关闭：等待进行中的截图完成后再关闭
+//   - 空闲超时：长时间不使用自动关闭浏览器，下次使用自动重启
 type DriverPool struct {
+	// 浏览器进程级上下文（可被重建）
 	allocCtx    context.Context
 	allocCancel context.CancelFunc
 	opts        *Options
-	sem         chan struct{} // 信号量控制并发截图数
-	mu          sync.Mutex
+
+	// 并发控制
+	sem chan struct{} // 信号量控制并发截图数
+
+	// 状态管理
+	mu          sync.RWMutex
 	active      atomic.Int32
 	closed      bool
+	closing     bool // 正在优雅关闭中
+
+	// 统计
+	totalScreenshots  atomic.Int64
+	failedScreenshots atomic.Int64
+	reconnectCount    atomic.Int64
+	lastActive        atomic.Int64 // UnixNano
+	createdAt         time.Time
+
+	// 空闲超时
+	idleTimeout    time.Duration // 0 表示不自动关闭
+	idleTimer      *time.Timer
+	idleMu         sync.Mutex
+
+	// 优雅关闭
+	shutdownCh chan struct{}
+	wg         sync.WaitGroup // 跟踪进行中的截图
 }
 
 // NewDriverPool 创建一个新的 ChromeDP 连接池
@@ -33,58 +73,154 @@ func NewDriverPool(opts *Options, maxConcurrent int) (*DriverPool, error) {
 		maxConcurrent = 2
 	}
 
-	// 构建浏览器进程级别的 allocCtx（整个池共享一个 Chrome 进程）
-	chromedpOpts := buildAllocOptions(opts)
-	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromedpOpts...)
-
-	// 预启动浏览器进程，确保可用
-	ctx, cancel := chromedp.NewContext(allocCtx)
-	if err := chromedp.Run(ctx, chromedp.Navigate("about:blank")); err != nil {
-		cancel()
-		allocCancel()
-		return nil, fmt.Errorf("启动浏览器进程失败: %v", err)
+	allocCtx, allocCancel, err := startBrowserProcess(opts)
+	if err != nil {
+		return nil, err
 	}
-	cancel() // 关闭初始 tab，但浏览器进程保留
 
 	pool := &DriverPool{
 		allocCtx:    allocCtx,
 		allocCancel: allocCancel,
 		opts:        opts,
 		sem:         make(chan struct{}, maxConcurrent),
+		createdAt:   time.Now(),
+		shutdownCh:  make(chan struct{}),
 	}
+
+	// 记录初始活跃时间
+	pool.lastActive.Store(time.Now().UnixNano())
 
 	log.Info("浏览器连接池已创建", "max_concurrent", maxConcurrent)
 	return pool, nil
 }
 
+// SetIdleTimeout 设置空闲超时
+// 当池空闲超过此时间后，自动关闭浏览器进程释放资源
+// 下次截图时会自动重启浏览器进程
+// 设为 0 表示不自动关闭（默认行为）
+func (p *DriverPool) SetIdleTimeout(timeout time.Duration) {
+	p.idleMu.Lock()
+	defer p.idleMu.Unlock()
+
+	p.idleTimeout = timeout
+
+	// 停止旧定时器
+	if p.idleTimer != nil {
+		p.idleTimer.Stop()
+	}
+
+	// 设置新定时器
+	if timeout > 0 {
+		p.idleTimer = time.AfterFunc(timeout, p.handleIdleTimeout)
+		log.Info("浏览器连接池空闲超时已设置", "timeout", timeout)
+	}
+}
+
+// handleIdleTimeout 空闲超时回调：关闭浏览器进程
+func (p *DriverPool) handleIdleTimeout() {
+	p.mu.RLock()
+	closed := p.closed
+	closing := p.closing
+	active := p.active.Load()
+	p.mu.RUnlock()
+
+	if closed || closing || active > 0 {
+		return
+	}
+
+	p.mu.Lock()
+	if p.closed || p.closing || p.active.Load() > 0 {
+		p.mu.Unlock()
+		return
+	}
+
+	log.Info("浏览器连接池空闲超时，关闭浏览器进程", "timeout", p.idleTimeout)
+	p.allocCancel()
+	p.allocCtx = nil
+	p.allocCancel = nil
+	p.mu.Unlock()
+}
+
+// resetIdleTimer 重置空闲定时器
+func (p *DriverPool) resetIdleTimer() {
+	p.idleMu.Lock()
+	defer p.idleMu.Unlock()
+
+	if p.idleTimer != nil && p.idleTimeout > 0 {
+		p.idleTimer.Stop()
+		p.idleTimer = time.AfterFunc(p.idleTimeout, p.handleIdleTimeout)
+	}
+}
+
 // Screenshot 在池中的浏览器实例里执行截图
 // 从池中获取一个 tab 槽位，创建新 tab 执行截图，完成后关闭 tab 释放槽位
 func (p *DriverPool) Screenshot(target string, opts *Options) (*models.Result, error) {
-	if p.closed {
+	return p.ScreenshotWithContext(context.Background(), target, opts)
+}
+
+// ScreenshotWithContext 支持取消的截图
+// ctx 可用于取消长时间运行的截图任务
+func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, opts *Options) (*models.Result, error) {
+	p.mu.RLock()
+	closed := p.closed
+	closing := p.closing
+	p.mu.RUnlock()
+
+	if closed {
 		return nil, fmt.Errorf("连接池已关闭")
+	}
+	if closing {
+		return nil, fmt.Errorf("连接池正在关闭")
 	}
 
 	// 获取并发槽位
-	p.sem <- struct{}{}
+	select {
+	case p.sem <- struct{}{}:
+		// 获得槽位
+	case <-ctx.Done():
+		return nil, fmt.Errorf("截图取消: %v", ctx.Err())
+	}
+
 	p.active.Add(1)
+	p.wg.Add(1)
+	p.totalScreenshots.Add(1)
+	p.lastActive.Store(time.Now().UnixNano())
+
 	defer func() {
 		<-p.sem
 		p.active.Add(-1)
+		p.wg.Done()
+		p.resetIdleTimer()
 	}()
+
+	// 确保浏览器进程可用（可能在空闲超时后关闭了）
+	if err := p.ensureBrowserProcess(); err != nil {
+		p.failedScreenshots.Add(1)
+		return nil, fmt.Errorf("浏览器进程不可用: %v", err)
+	}
+
+	// 使用传入的 opts 或池默认的 opts
+	if opts == nil {
+		opts = p.opts
+	}
 
 	// 在共享的浏览器进程中创建新 tab
 	tabCtx, tabCancel := chromedp.NewContext(p.allocCtx)
 	defer tabCancel()
 
 	// 设置超时
-	if opts != nil && opts.Chrome.Timeout > 0 {
-		tabCtx, tabCancel = context.WithTimeout(tabCtx, time.Duration(opts.Chrome.Timeout)*time.Second)
-		defer tabCancel()
+	if opts.Chrome.Timeout > 0 {
+		var timeoutCancel context.CancelFunc
+		tabCtx, timeoutCancel = context.WithTimeout(tabCtx, time.Duration(opts.Chrome.Timeout)*time.Second)
+		defer timeoutCancel()
 	}
 
-	// 使用传入的 opts 或池默认的 opts
-	if opts == nil {
-		opts = p.opts
+	// 支持外部取消
+	select {
+	case <-ctx.Done():
+		p.failedScreenshots.Add(1)
+		return nil, fmt.Errorf("截图取消: %v", ctx.Err())
+	default:
 	}
 
 	// 创建临时 ChromeDP 实例执行截图
@@ -94,7 +230,70 @@ func (p *DriverPool) Screenshot(target string, opts *Options) (*models.Result, e
 		opts:   opts,
 	}
 
-	return driver.Witness(target, opts)
+	result, err := driver.Witness(target, opts)
+	if err != nil {
+		p.failedScreenshots.Add(1)
+		return nil, err
+	}
+
+	if result.Failed {
+		p.failedScreenshots.Add(1)
+	}
+
+	return result, nil
+}
+
+// ensureBrowserProcess 确保浏览器进程可用
+// 如果进程被空闲超时关闭了，自动重启
+func (p *DriverPool) ensureBrowserProcess() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed {
+		return fmt.Errorf("连接池已关闭")
+	}
+
+	// 浏览器进程已在运行
+	if p.allocCtx != nil && p.allocCtx.Err() == nil {
+		return nil
+	}
+
+	// 浏览器进程被关闭（空闲超时或崩溃），需要重启
+	log.Info("浏览器进程不可用，正在重启...")
+	allocCtx, allocCancel, err := startBrowserProcess(p.opts)
+	if err != nil {
+		return fmt.Errorf("重启浏览器进程失败: %v", err)
+	}
+
+	p.allocCtx = allocCtx
+	p.allocCancel = allocCancel
+	p.reconnectCount.Add(1)
+
+	log.Info("浏览器进程已重启", "reconnect_count", p.reconnectCount.Load())
+	return nil
+}
+
+// Stats 返回连接池统计信息
+func (p *DriverPool) Stats() PoolStats {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	lastActiveNano := p.lastActive.Load()
+	var lastActive time.Time
+	if lastActiveNano > 0 {
+		lastActive = time.Unix(0, lastActiveNano)
+	}
+
+	return PoolStats{
+		ActiveCount:      int(p.active.Load()),
+		MaxConcurrent:    cap(p.sem),
+		TotalScreenshots: p.totalScreenshots.Load(),
+		FailedScreenshots: p.failedScreenshots.Load(),
+		ReconnectCount:   p.reconnectCount.Load(),
+		LastActive:       lastActive,
+		CreatedAt:        p.createdAt,
+		Closed:           p.closed,
+	}
 }
 
 // ActiveCount 返回当前正在执行的截图数
@@ -103,17 +302,70 @@ func (p *DriverPool) ActiveCount() int {
 }
 
 // Close 关闭连接池，释放浏览器进程
+// 如果有进行中的截图，等待它们完成
 func (p *DriverPool) Close() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.CloseWithTimeout(30 * time.Second)
+}
 
+// CloseWithTimeout 带超时的优雅关闭
+// timeout: 等待进行中截图完成的最大时间
+func (p *DriverPool) CloseWithTimeout(timeout time.Duration) {
+	p.mu.Lock()
 	if p.closed {
+		p.mu.Unlock()
 		return
 	}
 
+	p.closing = true
+	p.mu.Unlock()
+
+	// 停止空闲定时器
+	p.idleMu.Lock()
+	if p.idleTimer != nil {
+		p.idleTimer.Stop()
+	}
+	p.idleMu.Unlock()
+
+	// 等待进行中的截图完成
+	done := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Info("所有进行中的截图已完成")
+	case <-time.After(timeout):
+		log.Warn("等待截图完成超时，强制关闭", "timeout", timeout)
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	p.closed = true
-	p.allocCancel()
+	if p.allocCancel != nil {
+		p.allocCancel()
+	}
 	log.Info("浏览器连接池已关闭")
+}
+
+// startBrowserProcess 启动一个新的浏览器进程
+// 返回 allocCtx, allocCancel, error
+func startBrowserProcess(opts *Options) (context.Context, context.CancelFunc, error) {
+	chromedpOpts := buildAllocOptions(opts)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromedpOpts...)
+
+	// 预启动浏览器进程，确保可用
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	if err := chromedp.Run(ctx, chromedp.Navigate("about:blank")); err != nil {
+		cancel()
+		allocCancel()
+		return nil, nil, fmt.Errorf("启动浏览器进程失败: %v", err)
+	}
+	cancel() // 关闭初始 tab，但浏览器进程保留
+
+	return allocCtx, allocCancel, nil
 }
 
 // buildAllocOptions 构建 chromedp ExecAllocator 选项
