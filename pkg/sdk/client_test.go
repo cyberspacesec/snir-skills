@@ -137,7 +137,7 @@ func TestClient_BatchScreenshot(t *testing.T) {
 
 	urls := []string{
 		"https://www.baidu.com",
-		"https://www.bing.com",
+		"https://www.baidu.com",
 	}
 
 	results := client.BatchScreenshot(urls, nil)
