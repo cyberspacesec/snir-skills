@@ -18,6 +18,7 @@ type Config struct {
 	TargetFile string          // 包含目标的文件
 	Targets    []string        // 目标列表
 	Options    *runner.Options // 扫描选项
+	UsePool    bool            // 是否使用连接池（复用 Chrome 进程）
 }
 
 // Scanner 表示扫描器
@@ -42,8 +43,8 @@ func NewScanner(config *Config) (*Scanner, error) {
 		return nil, fmt.Errorf("扫描配置不能为空")
 	}
 
-	// 创建驱动
-	driver, err := createDriver(config.Options)
+	// 创建驱动（根据配置选择连接池或单次模式）
+	driver, err := createDriver(config.Options, config.UsePool)
 	if err != nil {
 		return nil, fmt.Errorf("创建浏览器驱动失败: %v", err)
 	}
@@ -63,15 +64,44 @@ func NewScanner(config *Config) (*Scanner, error) {
 	return scanner, nil
 }
 
+// NewPooledScanner 创建一个使用连接池的扫描器
+// 复用 Chrome 进程，适合批量截图场景
+// maxConcurrent: 最大并发截图数
+func NewPooledScanner(config *Config, maxConcurrent int) (*Scanner, error) {
+	if config == nil || config.Options == nil {
+		return nil, fmt.Errorf("扫描配置不能为空")
+	}
+
+	poolDriver, err := runner.NewPoolDriver(config.Options, maxConcurrent)
+	if err != nil {
+		return nil, fmt.Errorf("创建连接池驱动失败: %v", err)
+	}
+
+	writers, err := createWriters(config.Options)
+	if err != nil {
+		poolDriver.Close()
+		return nil, fmt.Errorf("创建结果写入器失败: %v", err)
+	}
+
+	return &Scanner{
+		Config:  config,
+		Driver:  poolDriver,
+		Writers: writers,
+	}, nil
+}
+
 // createDriver 创建浏览器驱动
-// 实例化适当的浏览器驱动以执行截图操作
-// 参数:
-//   - options: 驱动选项
-//
-// 返回:
-//   - 浏览器驱动和可能的错误
-func createDriver(options *runner.Options) (runner.Driver, error) {
-	// 使用 ChromeDP 实现
+// 根据 usePool 配置选择使用连接池或单次模式
+func createDriver(options *runner.Options, usePool bool) (runner.Driver, error) {
+	if usePool {
+		// 使用连接池，并发数等于 Threads
+		maxConcurrent := options.Scan.Threads
+		if maxConcurrent <= 0 {
+			maxConcurrent = 2
+		}
+		return runner.NewPoolDriver(options, maxConcurrent)
+	}
+	// 使用单次 ChromeDP
 	return runner.NewChromeDP(options)
 }
 
@@ -201,7 +231,7 @@ func (s *Scanner) ScanMulti(targets []string) error {
 		if err != nil {
 			return fmt.Errorf("创建扫描运行器失败: %v", err)
 		}
-		s.Runner = runner 
+		s.Runner = runner
 	}
 
 	// 启动扫描，向通道发送目标

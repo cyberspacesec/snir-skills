@@ -451,7 +451,7 @@ func TestCreateDriver(t *testing.T) {
 		defer cancel()
 
 		opts := &runner.Options{}
-		driver, err := createDriver(opts)
+		driver, err := createDriver(opts, false)
 
 		if err != nil {
 			t.Errorf("createDriver返回了错误: %v", err)
@@ -469,7 +469,7 @@ func TestCreateDriver(t *testing.T) {
 	t.Run("无效驱动类型", func(t *testing.T) {
 		opts := &runner.Options{}
 		opts.Scan.Driver = "invalid_driver"
-		driver, err := createDriver(opts)
+		driver, err := createDriver(opts, false)
 
 		if err == nil {
 			t.Error("对于无效的驱动类型，createDriver应返回错误，但没有")

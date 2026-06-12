@@ -32,10 +32,11 @@ var singleCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := args[0]
 
-		// 创建扫描配置
+		// 创建扫描配置（使用连接池复用 Chrome 进程）
 		config := &scan.Config{
 			Target:  target,
 			Options: opts,
+			UsePool: true,
 		}
 
 		// 创建扫描器

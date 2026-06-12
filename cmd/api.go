@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -47,6 +48,13 @@ var apiCmd = &cobra.Command{
 
 		// 创建API服务
 		server := api.NewServer(apiOptions)
+
+		// 初始化浏览器连接池（复用 Chrome 进程）
+		if err := server.InitPool(opts); err != nil {
+			log.Error("初始化浏览器连接池失败，将使用单次模式", "error", err)
+		} else {
+			log.Success("浏览器连接池已初始化", "max_concurrent", log.Cyan(fmt.Sprintf("%d", opts.API.MaxConcurrent)))
+		}
 
 		// 设置路由
 		server.SetupRoutes()

@@ -45,6 +45,7 @@ var scanCmd = &cobra.Command{
 			config := &scan.Config{
 				Target:  target,
 				Options: opts,
+				UsePool: true,
 			}
 
 			// 创建扫描器

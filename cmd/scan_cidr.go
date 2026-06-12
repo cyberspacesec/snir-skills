@@ -56,10 +56,11 @@ var cidrCmd = &cobra.Command{
 
 		log.Info("从CIDR中解析IP", "count", log.Cyan(fmt.Sprintf("%d", len(ips))), "cidr", log.Cyan(cidr))
 
-		// 创建扫描配置
+		// 创建扫描配置（使用连接池复用 Chrome 进程）
 		config := &scan.Config{
 			Targets: ips,
 			Options: opts,
+			UsePool: true,
 		}
 
 		// 创建扫描器
