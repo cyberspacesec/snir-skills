@@ -212,7 +212,7 @@ release:
     ```bash
     # Linux/macOS 一键安装（自动检测平台）
     LATEST={{.Tag}}
-    OS=$(uname -s | sed 's/Linux/Linux/;s/Darwin/Darwin/;s/FreeBSD/FreeBSD/;s/OpenBSD/OpenBSD/;s/NetBSD/NetBSD/')
+    OS=$(uname -s | sed 's/Linux/Linux/;s/Darwin/Darwin/;s/FreeBSD/Freebsd/;s/OpenBSD/Openbsd/;s/NetBSD/Netbsd/')
     ARCH=$(uname -m | sed 's/x86_64/x86_64/;s/aarch64/arm64/;s/arm64/arm64/;s/armv.*/armv7/')
     curl -L -o snir.tar.gz "https://github.com/cyberspacesec/snir-skills/releases/download/${LATEST}/snir-skills_${OS}_${ARCH}.tar.gz"
     tar xzf snir.tar.gz snir && chmod +x snir && sudo mv snir /usr/local/bin/

@@ -35,9 +35,9 @@ ARCH=$(uname -m)
 case "$OS" in
   Linux)   OS_NAME="Linux" ;;
   Darwin)  OS_NAME="Darwin" ;;
-  FreeBSD) OS_NAME="FreeBSD" ;;
-  OpenBSD) OS_NAME="OpenBSD" ;;
-  NetBSD)  OS_NAME="NetBSD" ;;
+  FreeBSD) OS_NAME="Freebsd" ;;
+  OpenBSD) OS_NAME="Openbsd" ;;
+  NetBSD)  OS_NAME="Netbsd" ;;
   *)       echo "Unsupported OS: $OS"; exit 1 ;;
 esac
 case "$ARCH" in
@@ -97,26 +97,26 @@ Expand-Archive snir.zip -DestinationPath .
 | **Windows** | x86_64 | `snir-skills_Windows_x86_64.zip` |
 | **Windows** | arm64 | `snir-skills_Windows_arm64.zip` |
 | **Windows** | i386 | `snir-skills_Windows_i386.zip` |
-| **FreeBSD** | x86_64 | `snir-skills_FreeBSD_x86_64.tar.gz` |
-| **FreeBSD** | arm64 | `snir-skills_FreeBSD_arm64.tar.gz` |
-| **FreeBSD** | i386 | `snir-skills_FreeBSD_i386.tar.gz` |
-| **FreeBSD** | armv6/v7 | `snir-skills_FreeBSD_armvX.tar.gz` |
-| **FreeBSD** | mips | `snir-skills_FreeBSD_mips.tar.gz` |
-| **FreeBSD** | mipsle | `snir-skills_FreeBSD_mipsle.tar.gz` |
-| **FreeBSD** | mips64 | `snir-skills_FreeBSD_mips64.tar.gz` |
-| **FreeBSD** | mips64le | `snir-skills_FreeBSD_mips64le.tar.gz` |
-| **FreeBSD** | ppc64le | `snir-skills_FreeBSD_ppc64le.tar.gz` |
-| **FreeBSD** | riscv64 | `snir-skills_FreeBSD_riscv64.tar.gz` |
-| **OpenBSD** | x86_64 | `snir-skills_OpenBSD_x86_64.tar.gz` |
-| **OpenBSD** | arm64 | `snir-skills_OpenBSD_arm64.tar.gz` |
-| **OpenBSD** | i386 | `snir-skills_OpenBSD_i386.tar.gz` |
-| **OpenBSD** | armv6/v7 | `snir-skills_OpenBSD_armvX.tar.gz` |
-| **OpenBSD** | riscv64 | `snir-skills_OpenBSD_riscv64.tar.gz` |
-| **NetBSD** | x86_64 | `snir-skills_NetBSD_x86_64.tar.gz` |
-| **NetBSD** | arm64 | `snir-skills_NetBSD_arm64.tar.gz` |
-| **NetBSD** | i386 | `snir-skills_NetBSD_i386.tar.gz` |
-| **NetBSD** | armv6/v7 | `snir-skills_NetBSD_armvX.tar.gz` |
-| **NetBSD** | riscv64 | `snir-skills_NetBSD_riscv64.tar.gz` |
+| **FreeBSD** | x86_64 | `snir-skills_Freebsd_x86_64.tar.gz` |
+| **FreeBSD** | arm64 | `snir-skills_Freebsd_arm64.tar.gz` |
+| **FreeBSD** | i386 | `snir-skills_Freebsd_i386.tar.gz` |
+| **FreeBSD** | armv6/v7 | `snir-skills_Freebsd_armvX.tar.gz` |
+| **FreeBSD** | mips | `snir-skills_Freebsd_mips.tar.gz` |
+| **FreeBSD** | mipsle | `snir-skills_Freebsd_mipsle.tar.gz` |
+| **FreeBSD** | mips64 | `snir-skills_Freebsd_mips64.tar.gz` |
+| **FreeBSD** | mips64le | `snir-skills_Freebsd_mips64le.tar.gz` |
+| **FreeBSD** | ppc64le | `snir-skills_Freebsd_ppc64le.tar.gz` |
+| **FreeBSD** | riscv64 | `snir-skills_Freebsd_riscv64.tar.gz` |
+| **OpenBSD** | x86_64 | `snir-skills_Openbsd_x86_64.tar.gz` |
+| **OpenBSD** | arm64 | `snir-skills_Openbsd_arm64.tar.gz` |
+| **OpenBSD** | i386 | `snir-skills_Openbsd_i386.tar.gz` |
+| **OpenBSD** | armv6/v7 | `snir-skills_Openbsd_armvX.tar.gz` |
+| **OpenBSD** | riscv64 | `snir-skills_Openbsd_riscv64.tar.gz` |
+| **NetBSD** | x86_64 | `snir-skills_Netbsd_x86_64.tar.gz` |
+| **NetBSD** | arm64 | `snir-skills_Netbsd_arm64.tar.gz` |
+| **NetBSD** | i386 | `snir-skills_Netbsd_i386.tar.gz` |
+| **NetBSD** | armv6/v7 | `snir-skills_Netbsd_armvX.tar.gz` |
+| **NetBSD** | riscv64 | `snir-skills_Netbsd_riscv64.tar.gz` |
 
 > 下载链接格式：`https://github.com/cyberspacesec/snir-skills/releases/download/{版本号}/{文件名}`
 
