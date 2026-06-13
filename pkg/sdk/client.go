@@ -13,7 +13,13 @@
 //	imgBytes, result, _ := client.ScreenshotBytes("https://example.com", nil)
 //
 //	// 批量截图
-//	results, _ := client.BatchScreenshot([]string{"https://a.com", "https://b.com"}, nil)
+//	results := client.BatchScreenshot([]string{"https://a.com", "https://b.com"}, nil)
+//
+//	// 流式批量截图（每完成一个立即返回）
+//	ch := client.BatchScreenshotStreaming(ctx, urls, nil)
+//	for result := range ch {
+//	    fmt.Println(result.URL, result.Result.Title)
+//	}
 //
 //	// 带取消的截图
 //	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -85,6 +91,10 @@ func NewRemoteClient(wsURL string, maxConcurrent int) (*Client, error) {
 	}, nil
 }
 
+// ---------------------------------------------------------------------------
+// 截图方法
+// ---------------------------------------------------------------------------
+
 // Screenshot 对指定 URL 执行截图
 // url: 目标网页 URL
 // screenshotOpts: 单次截图的可选配置，可覆盖客户端默认配置，传 nil 使用默认配置
@@ -146,6 +156,99 @@ func (c *Client) ScreenshotBytesWithContext(ctx context.Context, url string, scr
 	return data, result, nil
 }
 
+// ScreenshotHTML 截图并同时获取页面 HTML 源码
+// 等价于设置 SaveHTML=true 后截图，便捷方法
+func (c *Client) ScreenshotHTML(url string, screenshotOpts *ScreenshotOptions) (string, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveHTML = true
+
+	result, err := c.Screenshot(url, opts)
+	if err != nil {
+		return "", nil, err
+	}
+	return result.HTML, result, nil
+}
+
+// ScreenshotWithActions 截图前执行交互动作序列
+// 适用于需要点击按钮、填写表单、滚动页面等交互后再截图的场景
+//
+// 示例:
+//
+//	actions := []runner.InteractionAction{
+//	    {Type: "type", Selector: "#search", Value: "go-snir"},
+//	    {Type: "click", Selector: "#search-btn"},
+//	    {Type: "wait", WaitTime: 2},
+//	}
+//	result, _ := client.ScreenshotWithActions("https://example.com", actions, nil)
+func (c *Client) ScreenshotWithActions(url string, actions []runner.InteractionAction, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Actions = actions
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithForm 截图前填写并提交表单
+// 适用于登录页面、搜索框等需要表单交互的场景
+//
+// 示例:
+//
+//	form := runner.Form{
+//	    Fields: []runner.FormField{
+//	        {Selector: "#username", Value: "admin"},
+//	        {Selector: "#password", Value: "pass123"},
+//	    },
+//	    SubmitSelector: "#login-btn",
+//	    WaitAfterSubmit: 3,
+//	}
+//	result, _ := client.ScreenshotWithForm("https://example.com/login", form, nil)
+func (c *Client) ScreenshotWithForm(url string, form runner.Form, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Form = form
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookies 截图前注入自定义 Cookie
+// 适用于需要认证状态的页面
+//
+// 示例:
+//
+//	cookies := []runner.CustomCookie{
+//	    {Name: "session", Value: "abc123", Domain: "example.com"},
+//	}
+//	result, _ := client.ScreenshotWithCookies("https://example.com/dashboard", cookies, nil)
+func (c *Client) ScreenshotWithCookies(url string, cookies []runner.CustomCookie, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Cookies = cookies
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotElement 截取指定 CSS 选择器匹配的元素
+// 便捷方法，等价于设置 Selector 后截图
+func (c *Client) ScreenshotElement(url string, selector string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Selector = selector
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotFullPage 截取完整页面（含滚动区域）
+// 便捷方法，等价于设置 CaptureFullPage=true 后截图
+func (c *Client) ScreenshotFullPage(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.CaptureFullPage = true
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithJS 截图前执行 JavaScript
+// 便捷方法，适用于需要操作 DOM 后截图的场景
+func (c *Client) ScreenshotWithJS(url string, js string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.JavaScript = js
+	return c.Screenshot(url, opts)
+}
+
+// ---------------------------------------------------------------------------
+// 批量截图
+// ---------------------------------------------------------------------------
+
 // BatchScreenshot 批量截图，并发执行
 // urls: 要截图的 URL 列表
 // screenshotOpts: 所有 URL 共享的截图配置，传 nil 使用默认配置
@@ -176,6 +279,71 @@ func (c *Client) BatchScreenshotWithContext(ctx context.Context, urls []string, 
 	wg.Wait()
 	return results
 }
+
+// BatchScreenshotStreaming 流式批量截图
+// 每完成一个截图立即通过 channel 返回，不用等全部完成
+// 适用于大量 URL 截图、进度展示、实时处理等场景
+//
+// 示例:
+//
+//	ch := client.BatchScreenshotStreaming(ctx, urls, nil)
+//	for result := range ch {
+//	    if result.Error != nil {
+//	        log.Printf("失败: %s - %v", result.URL, result.Error)
+//	    } else {
+//	        log.Printf("完成: %s - %s", result.URL, result.Result.Title)
+//	    }
+//	}
+func (c *Client) BatchScreenshotStreaming(ctx context.Context, urls []string, screenshotOpts *ScreenshotOptions) <-chan BatchResult {
+	ch := make(chan BatchResult, len(urls))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, url := range urls {
+			// 检查 context 是否已取消
+			select {
+			case <-ctx.Done():
+				ch <- BatchResult{URL: url, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(target string) {
+				defer wg.Done()
+
+				result, err := c.ScreenshotWithContext(ctx, target, screenshotOpts)
+				ch <- BatchResult{
+					URL:    target,
+					Result: result,
+					Error:  err,
+				}
+			}(url)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// BatchScreenshotCallback 批量截图，每完成一个调用回调函数
+// 适用于需要逐个处理结果的场景
+// callback 在截图完成时同步调用，可用于进度展示、结果处理等
+func (c *Client) BatchScreenshotCallback(ctx context.Context, urls []string, screenshotOpts *ScreenshotOptions, callback func(BatchResult)) {
+	ch := c.BatchScreenshotStreaming(ctx, urls, screenshotOpts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 池管理
+// ---------------------------------------------------------------------------
 
 // Stats 返回连接池统计信息
 func (c *Client) Stats() runner.PoolStats {
@@ -216,9 +384,26 @@ func (c *Client) Close() {
 	log.Info("截图SDK客户端已关闭")
 }
 
+// ---------------------------------------------------------------------------
+// 类型定义
+// ---------------------------------------------------------------------------
+
 // BatchResult 批量截图中的单个结果
 type BatchResult struct {
 	URL    string         `json:"url"`
 	Result *models.Result `json:"result,omitempty"`
 	Error  error          `json:"error,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// 内部辅助
+// ---------------------------------------------------------------------------
+
+// ensureScreenshotOptions 确保 ScreenshotOptions 不为 nil
+// 如果传入 nil，返回一个新的零值 ScreenshotOptions
+func (c *Client) ensureScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOptions {
+	if opts != nil {
+		return opts
+	}
+	return &ScreenshotOptions{}
 }

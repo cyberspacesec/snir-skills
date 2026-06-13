@@ -6,41 +6,76 @@ import (
 	"github.com/cyberspacesec/go-snir/pkg/runner"
 )
 
-// ClientOptions SDK 客户端配置选项
-// 外部项目通过设置这些选项来初始化截图客户端
+// ClientOptions SDK 客户端配置
+// 控制浏览器行为、截图参数、数据收集等
 type ClientOptions struct {
-	// Chrome 浏览器相关配置
-	ChromePath    string        // Chrome 可执行文件路径（留空则自动查找）
-	Headless      bool          // 是否使用无头模式（默认 true）
-	WindowWidth   int           // 窗口宽度（默认 1280）
-	WindowHeight  int           // 窗口高度（默认 800）
-	Timeout       time.Duration // 页面加载超时（默认 30s）
-	Delay         time.Duration // 截图前等待时间
-	UserAgent     string        // 自定义 User-Agent
-	Proxy         string        // 代理服务器地址
+	// Chrome 浏览器配置
+	ChromePath    string // Chrome 可执行文件路径
+	Headless      bool   // 无头模式（默认 true）
+	WindowWidth   int    // 窗口宽度（默认 1280）
+	WindowHeight  int    // 窗口高度（默认 800）
+	UserAgent     string // 自定义 User-Agent
+	Proxy         string // 代理服务器地址
+	WSSURL        string // 远程 Chrome WebSocket URL
+	IgnoreCertErrors bool // 忽略证书错误
 
-	// 远程 Chrome 连接（优先级高于本地启动）
-	// 设置后不再启动本地 Chrome 进程，而是连接到已有的远程 Chrome 实例
-	// 格式：ws://hostname:port/devtools/browser/xxxx
-	// 可通过 chrome --remote-debugging-port=9222 启动后获取
-	WSSURL string // WebSocket URL 连接远程 Chrome
+	// 浏览器指纹配置（反检测）
+	AcceptLanguage   string            // Accept-Language 头（如 "zh-CN,zh;q=0.9"）
+	Platform         string            // 平台标识（如 "Win32"）
+	Vendor           string            // 浏览器厂商（如 "Google Inc."）
+	Plugins          []string          // 浏览器插件列表
+	WebGLVendor     string            // WebGL 厂商（如 "Intel Inc."）
+	WebGLRenderer   string            // WebGL 渲染器（如 "Intel Iris"）
+	CustomHeaders   map[string]string // 自定义 HTTP 头
+	DisableWebRTC   bool              // 禁用 WebRTC
+	SpoofScreenSize bool              // 伪造屏幕尺寸
+	ScreenWidth     int               // 伪造屏幕宽度
+	ScreenHeight    int               // 伪造屏幕高度
 
-	// 连接池配置
-	MaxConcurrent int // 最大并发截图数（默认 2）
-
-	// 截图输出配置
-	ScreenshotPath   string // 截图保存目录（默认 "screenshots"）
-	ScreenshotFormat string // 截图格式: "png" 或 "jpeg"（默认 "png"）
-	SkipSave         bool   // 是否跳过保存截图到磁盘（仅返回内存数据）
-
-	// 高级选项
-	IgnoreCertErrors bool  // 忽略证书错误
-	CaptureFullPage  bool  // 截取完整页面
+	// 截图配置
+	MaxConcurrent    int    // 最大并发截图数（默认 2）
+	ScreenshotPath   string // 截图保存路径
+	ScreenshotFormat string // 截图格式 png/jpeg
+	ScreenshotQuality int   // JPEG 截图质量（1-100，默认 90）
+	SkipSave         bool   // 跳过保存到磁盘
+	CaptureFullPage  bool   // 全页截图（含滚动区域）
 	Selector         string // CSS 选择器截图
 	XPath            string // XPath 截图
+
+	// 超时配置
+	Timeout time.Duration // 页面加载超时
+	Delay   time.Duration // 截图前等待
+
+	// JavaScript 执行
+	JavaScript     string // 在页面上执行的 JavaScript
+	JavaScriptFile string // JavaScript 文件路径
+	RunJSBefore    bool   // 在页面加载前执行 JS
+
+	// 数据收集
+	SaveHTML     bool // 保存 HTML 源码
+	SaveHeaders  bool // 保存 HTTP 头
+	SaveConsole  bool // 保存控制台日志
+	SaveCookies  bool // 保存 Cookie
+	SaveNetwork  bool // 保存网络请求日志
+
+	// 重试配置
+	MaxRetries int // 最大重试次数（默认 1）
+
+	// 自定义 Cookie
+	Cookies []runner.CustomCookie // 注入自定义 Cookie
+
+	// 浏览器交互
+	Actions []runner.InteractionAction // 交互动作序列
+	Form    runner.Form                // 表单填写配置
+
+	// 黑名单
+	EnableBlacklist   bool     // 启用 URL 黑名单
+	DefaultBlacklist  bool     // 使用默认黑名单
+	BlacklistPatterns []string // 自定义黑名单规则
+	BlacklistFile     string   // 黑名单文件路径
 }
 
-// DefaultClientOptions 返回默认的客户端配置
+// DefaultClientOptions 返回默认客户端配置
 func DefaultClientOptions() ClientOptions {
 	return ClientOptions{
 		Headless:         true,
@@ -50,64 +85,152 @@ func DefaultClientOptions() ClientOptions {
 		MaxConcurrent:    2,
 		ScreenshotPath:   "screenshots",
 		ScreenshotFormat: "png",
+		ScreenshotQuality: 90,
 		SkipSave:         false,
 		IgnoreCertErrors: false,
 		CaptureFullPage:  false,
+		MaxRetries:       1,
+		EnableBlacklist:  true,
+		DefaultBlacklist: true,
 	}
 }
 
-// ScreenshotOptions 单次截图的可选配置
-// 可以覆盖 ClientOptions 中的部分设置
+// ScreenshotOptions 单次截图的覆盖配置
+// 非零值会覆盖 ClientOptions 中的对应配置
 type ScreenshotOptions struct {
-	Timeout         time.Duration // 本次截图超时
-	Delay           time.Duration // 本次截图延迟
-	UserAgent       string        // 本次截图 User-Agent
-	Selector        string        // 本次截图 CSS 选择器
-	XPath           string        // 本次截图 XPath
-	CaptureFullPage bool          // 本次截图是否全页
-	JavaScript      string        // 要执行的 JavaScript
-	SkipSave        bool          // 本次截图是否跳过保存到磁盘
+	// 超时覆盖
+	Timeout time.Duration // 页面加载超时（覆盖 ClientOptions）
+	Delay   time.Duration // 截图前等待（覆盖 ClientOptions）
+
+	// 浏览器覆盖
+	UserAgent string // User-Agent（覆盖 ClientOptions）
+	Proxy     string // 代理（覆盖 ClientOptions）
+
+	// 截图覆盖
+	Selector         string // CSS 选择器
+	XPath            string // XPath
+	CaptureFullPage  bool   // 全页截图
+	ScreenshotQuality int   // JPEG 质量
+
+	// JavaScript
+	JavaScript     string // 在页面上执行的 JavaScript
+	JavaScriptFile string // JavaScript 文件路径
+	RunJSBefore    bool   // 在页面加载前执行 JS
+
+	// 数据收集覆盖
+	SaveHTML    bool // 保存 HTML
+	SaveHeaders bool // 保存 HTTP 头
+	SaveConsole bool // 保存控制台
+	SaveCookies bool // 保存 Cookie
+	SaveNetwork bool // 保存网络请求
+	SkipSave    bool // 跳过保存
+
+	// 自定义 Cookie（注入）
+	Cookies []runner.CustomCookie
+
+	// 浏览器交互
+	Actions []runner.InteractionAction // 交互动作序列
+	Form    runner.Form                // 表单填写
+
+	// 重试覆盖
+	MaxRetries int // 最大重试次数
 }
 
 // toRunnerOptions 将 ClientOptions 转换为 runner.Options
 func toRunnerOptions(co ClientOptions) runner.Options {
 	opts := runner.Options{}
+
+	// Chrome 配置
 	opts.Chrome.Path = co.ChromePath
 	opts.Chrome.Headless = co.Headless
 	opts.Chrome.WindowX = co.WindowWidth
 	opts.Chrome.WindowY = co.WindowHeight
-	opts.Chrome.Timeout = int(co.Timeout.Seconds())
-	opts.Chrome.Delay = int(co.Delay.Seconds())
 	opts.Chrome.UserAgent = co.UserAgent
 	opts.Chrome.Proxy = co.Proxy
 	opts.Chrome.IgnoreCertErrors = co.IgnoreCertErrors
 	opts.Chrome.WSS = co.WSSURL
+	opts.Chrome.Timeout = int(co.Timeout.Seconds())
+	opts.Chrome.Delay = int(co.Delay.Seconds())
+
+	// 浏览器指纹
+	opts.Chrome.AcceptLanguage = co.AcceptLanguage
+	opts.Chrome.Platform = co.Platform
+	opts.Chrome.Vendor = co.Vendor
+	opts.Chrome.Plugins = co.Plugins
+	opts.Chrome.WebGLVendor = co.WebGLVendor
+	opts.Chrome.WebGLRenderer = co.WebGLRenderer
+	opts.Chrome.CustomHeaders = co.CustomHeaders
+	opts.Chrome.DisableWebRTC = co.DisableWebRTC
+	opts.Chrome.SpoofScreenSize = co.SpoofScreenSize
+	opts.Chrome.ScreenWidth = co.ScreenWidth
+	opts.Chrome.ScreenHeight = co.ScreenHeight
+
+	// Scan 配置
 	opts.Scan.ScreenshotPath = co.ScreenshotPath
 	opts.Scan.ScreenshotFormat = co.ScreenshotFormat
+	opts.Scan.ScreenshotQuality = co.ScreenshotQuality
 	opts.Scan.ScreenshotSkipSave = co.SkipSave
 	opts.Scan.Selector = co.Selector
 	opts.Scan.XPath = co.XPath
 	opts.Scan.CaptureFullPage = co.CaptureFullPage
 	opts.Scan.HTTP = true
 	opts.Scan.HTTPS = true
+	opts.Scan.MaxRetries = co.MaxRetries
+
+	// JavaScript
+	opts.Scan.JavaScript = co.JavaScript
+	opts.Scan.JavaScriptFile = co.JavaScriptFile
+	opts.Scan.RunJSBefore = co.RunJSBefore
+	if co.JavaScript != "" {
+		opts.Scan.RunJSAfter = true
+	}
+
+	// 数据收集
+	opts.Scan.SaveHTML = co.SaveHTML
+	opts.Scan.SaveHeaders = co.SaveHeaders
+	opts.Scan.SaveConsole = co.SaveConsole
+	opts.Scan.SaveCookies = co.SaveCookies
+	opts.Scan.SaveNetwork = co.SaveNetwork
+
+	// Cookie
+	opts.Scan.Cookies = co.Cookies
+
+	// 交互
+	opts.Scan.Actions = co.Actions
+	opts.Scan.Form = co.Form
+
+	// 黑名单
+	opts.Scan.EnableBlacklist = co.EnableBlacklist
+	opts.Scan.DefaultBlacklist = co.DefaultBlacklist
+	opts.Scan.BlacklistPatterns = co.BlacklistPatterns
+	opts.Scan.BlacklistFile = co.BlacklistFile
+
 	return opts
 }
 
-// mergeWithScreenshotOptions 将 ScreenshotOptions 合并到 runner.Options
+// mergeWithScreenshotOptions 用 ScreenshotOptions 覆盖 runner.Options
 func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runner.Options {
 	if so == nil {
 		return base
 	}
 
+	// 超时覆盖
 	if so.Timeout > 0 {
 		base.Chrome.Timeout = int(so.Timeout.Seconds())
 	}
 	if so.Delay > 0 {
 		base.Chrome.Delay = int(so.Delay.Seconds())
 	}
+
+	// 浏览器覆盖
 	if so.UserAgent != "" {
 		base.Chrome.UserAgent = so.UserAgent
 	}
+	if so.Proxy != "" {
+		base.Chrome.Proxy = so.Proxy
+	}
+
+	// 截图覆盖
 	if so.Selector != "" {
 		base.Scan.Selector = so.Selector
 	}
@@ -117,12 +240,58 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	if so.CaptureFullPage {
 		base.Scan.CaptureFullPage = true
 	}
+	if so.ScreenshotQuality > 0 {
+		base.Scan.ScreenshotQuality = so.ScreenshotQuality
+	}
+
+	// JavaScript 覆盖
 	if so.JavaScript != "" {
 		base.Scan.JavaScript = so.JavaScript
 		base.Scan.RunJSAfter = true
 	}
+	if so.JavaScriptFile != "" {
+		base.Scan.JavaScriptFile = so.JavaScriptFile
+	}
+	if so.RunJSBefore {
+		base.Scan.RunJSBefore = true
+	}
+
+	// 数据收集覆盖
+	if so.SaveHTML {
+		base.Scan.SaveHTML = true
+	}
+	if so.SaveHeaders {
+		base.Scan.SaveHeaders = true
+	}
+	if so.SaveConsole {
+		base.Scan.SaveConsole = true
+	}
+	if so.SaveCookies {
+		base.Scan.SaveCookies = true
+	}
+	if so.SaveNetwork {
+		base.Scan.SaveNetwork = true
+	}
 	if so.SkipSave {
 		base.Scan.ScreenshotSkipSave = true
+	}
+
+	// Cookie
+	if len(so.Cookies) > 0 {
+		base.Scan.Cookies = so.Cookies
+	}
+
+	// 交互
+	if len(so.Actions) > 0 {
+		base.Scan.Actions = so.Actions
+	}
+	if so.Form.Fields != nil {
+		base.Scan.Form = so.Form
+	}
+
+	// 重试
+	if so.MaxRetries > 0 {
+		base.Scan.MaxRetries = so.MaxRetries
 	}
 
 	return base

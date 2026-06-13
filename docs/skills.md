@@ -257,7 +257,30 @@ for _, r := range results {
 }
 ```
 
-### 2.6 连接远程 Chrome
+### 2.6 流式批量截图（实时获取结果）
+
+```go
+// 每完成一个截图立即返回，不用等全部完成
+ch := client.BatchScreenshotStreaming(ctx, urls, nil)
+for result := range ch {
+    if result.Error != nil {
+        fmt.Printf("❌ %s: %v\n", result.URL, result.Error)
+    } else {
+        fmt.Printf("✅ %s: %s\n", result.URL, result.Result.Title)
+    }
+}
+```
+
+### 2.7 回调式批量截图
+
+```go
+// 每完成一个截图调用回调
+client.BatchScreenshotCallback(ctx, urls, nil, func(r sdk.BatchResult) {
+    fmt.Printf("完成: %s\n", r.URL)
+})
+```
+
+### 2.8 连接远程 Chrome
 
 ```go
 // 连接 Provider 或其他 Chrome 实例
@@ -265,7 +288,7 @@ wsURL := "ws://chrome-server:9222/devtools/browser/xxxx"
 client, err := sdk.NewRemoteClient(wsURL, 4)
 ```
 
-### 2.7 自动发现并连接
+### 2.9 自动发现并连接
 
 ```go
 // AutoConnect: 优先级：远程 > 发现本地 > 启动新实例
@@ -273,7 +296,7 @@ client, mode, err := sdk.AutoConnectClient(sdk.DefaultClientOptions())
 fmt.Printf("连接模式: %s\n", mode) // "remote" | "discovered" | "local"
 ```
 
-### 2.8 进程内共享池（多模块复用）
+### 2.10 进程内共享池（多模块复用）
 
 ```go
 // 任意包/模块调用，自动复用同一 Chrome 进程
@@ -287,7 +310,7 @@ fmt.Printf("总截图: %d, 失败: %d\n", stats.TotalScreenshots, stats.FailedSc
 defer sdk.CloseSharedPool()
 ```
 
-### 2.9 事件监听
+### 2.11 事件监听
 
 ```go
 client.OnEvent(func(event runner.PoolEvent) {
@@ -304,14 +327,14 @@ client.OnEvent(func(event runner.PoolEvent) {
 })
 ```
 
-### 2.10 空闲超时
+### 2.12 空闲超时
 
 ```go
 // 5分钟不用自动关闭浏览器，下次截图自动重启
 client.SetIdleTimeout(5 * time.Minute)
 ```
 
-### 2.11 统计信息
+### 2.13 统计信息
 
 ```go
 stats := client.Stats()
@@ -323,22 +346,159 @@ fmt.Printf("活跃: %d, 总计: %d, 失败: %d, 重连: %d\n",
 )
 ```
 
-### 2.12 自定义截图选项
+### 2.14 便捷截图方法
+
+#### 全页截图
+
+```go
+result, err := client.ScreenshotFullPage("https://example.com", nil)
+```
+
+#### 元素截图
+
+```go
+// CSS 选择器
+result, err := client.ScreenshotElement("https://example.com", "#main-content", nil)
+```
+
+#### 执行 JavaScript 后截图
+
+```go
+result, err := client.ScreenshotWithJS("https://example.com",
+    "window.scrollTo(0, document.body.scrollHeight)", nil)
+```
+
+#### 交互动作后截图
+
+```go
+actions := []runner.InteractionAction{
+    {Type: "type", Selector: "#search", Value: "go-snir"},
+    {Type: "click", Selector: "#search-btn"},
+    {Type: "wait", WaitTime: 2},
+}
+result, err := client.ScreenshotWithActions("https://example.com", actions, nil)
+```
+
+#### 表单填写后截图
+
+```go
+form := runner.Form{
+    Fields: []runner.FormField{
+        {Selector: "#username", Value: "admin"},
+        {Selector: "#password", Value: "pass123"},
+    },
+    SubmitSelector: "#login-btn",
+    WaitAfterSubmit: 3,
+}
+result, err := client.ScreenshotWithForm("https://example.com/login", form, nil)
+```
+
+#### 注入 Cookie 后截图
+
+```go
+cookies := []runner.CustomCookie{
+    {Name: "session", Value: "abc123", Domain: "example.com"},
+}
+result, err := client.ScreenshotWithCookies("https://example.com/dashboard", cookies, nil)
+```
+
+#### 截图并获取 HTML
+
+```go
+html, result, err := client.ScreenshotHTML("https://example.com", nil)
+fmt.Printf("HTML 长度: %d\n", len(html))
+```
+
+### 2.15 结果便捷访问（ResultWrapper）
+
+```go
+w := sdk.WrapResult(result)
+
+// 状态判断
+w.IsSuccess()    // 截图是否成功
+w.IsFailed()     // 截图是否失败
+w.HasScreenshot() // 是否有截图文件
+w.HasHTML()      // 是否包含 HTML
+
+// 便捷取值
+w.TitleOrDefault("无标题")     // 标题，空则返回默认值
+w.ResponseCodeOrDefault(0)     // 状态码
+w.HeaderValue("Content-Type")  // 获取指定 HTTP 头
+w.CookieMap()                  // Cookie 的 map 形式
+w.ConsoleErrors()              // 控制台错误日志
+w.NetworkErrors()              // 失败的网络请求
+w.TechnologyNames()            // 检测到的技术名称
+w.TLSInfo()                    // TLS 信息
+```
+
+### 2.16 自定义截图选项
 
 ```go
 opts := &sdk.ScreenshotOptions{
-    Timeout:        60,                          // 超时 60 秒
-    Delay:          3,                           // 延迟 3 秒
-    UserAgent:      "Mozilla/5.0 Custom",        // 自定义 UA
-    Selector:       "#main-content",             // CSS 选择器
-    CaptureFullPage: true,                        // 全页截图
-    JavaScript:     "window.scrollTo(0, 500)",    // 执行 JS
+    Timeout:          60 * time.Second,              // 超时 60 秒
+    Delay:            3 * time.Second,               // 延迟 3 秒
+    UserAgent:        "Mozilla/5.0 Custom",          // 自定义 UA
+    Proxy:            "http://127.0.0.1:8080",       // 代理
+    Selector:         "#main-content",               // CSS 选择器
+    CaptureFullPage:  true,                           // 全页截图
+    ScreenshotQuality: 95,                            // JPEG 质量
+    JavaScript:       "window.scrollTo(0, 500)",      // 执行 JS
+    JavaScriptFile:   "inject.js",                    // JS 文件
+    RunJSBefore:      true,                           // 页面加载前执行
+    SaveHTML:         true,                           // 保存 HTML
+    SaveHeaders:      true,                           // 保存 HTTP 头
+    SaveConsole:      true,                           // 保存控制台
+    SaveCookies:      true,                           // 保存 Cookie
+    SaveNetwork:      true,                           // 保存网络请求
+    SkipSave:         false,                          // 不跳过保存
+    Cookies: []runner.CustomCookie{                   // 注入 Cookie
+        {Name: "auth", Value: "xxx", Domain: ".example.com"},
+    },
+    Actions: []runner.InteractionAction{              // 交互动作
+        {Type: "click", Selector: "#accept"},
+        {Type: "wait", WaitTime: 2},
+    },
+    MaxRetries: 3,                                    // 重试次数
 }
 
 result, err := client.Screenshot("https://example.com", opts)
 ```
 
----
+### 2.17 浏览器指纹配置（反检测）
+
+```go
+opts := sdk.DefaultClientOptions()
+
+// 基本指纹
+opts.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
+opts.AcceptLanguage = "zh-CN,zh;q=0.9,en;q=0.8"
+opts.Platform = "Win32"
+opts.Vendor = "Google Inc."
+
+// WebGL 指纹
+opts.WebGLVendor = "Intel Inc."
+opts.WebGLRenderer = "Intel Iris OpenGL Engine"
+
+// 插件列表
+opts.Plugins = []string{
+    "Chrome PDF Plugin",
+    "Chrome PDF Viewer",
+    "Native Client",
+}
+
+// 自定义 HTTP 头
+opts.CustomHeaders = map[string]string{
+    "X-Custom-Header": "value",
+}
+
+// 高级选项
+opts.DisableWebRTC = true       // 禁用 WebRTC（防止泄漏真实 IP）
+opts.SpoofScreenSize = true     // 伪造屏幕尺寸
+opts.ScreenWidth = 1920
+opts.ScreenHeight = 1080
+
+client, _ := sdk.NewClient(opts)
+```
 
 ## 三、HTTP API 集成
 
@@ -501,38 +661,111 @@ client, mode, _ := sdk.AutoConnectClient(sdk.DefaultClientOptions())
 
 ```go
 type ClientOptions struct {
+    // Chrome 浏览器配置
     ChromePath       string        // Chrome 可执行文件路径
     Headless         bool          // 无头模式（默认 true）
     WindowWidth      int           // 窗口宽度（默认 1280）
     WindowHeight     int           // 窗口高度（默认 800）
-    Timeout          time.Duration // 页面加载超时
-    Delay            time.Duration // 截图前等待
     UserAgent        string        // 自定义 User-Agent
     Proxy            string        // 代理服务器
     WSSURL           string        // 远程 Chrome WebSocket URL
-    MaxConcurrent    int           // 最大并发截图数（默认 2）
-    ScreenshotPath   string        // 截图保存路径
-    ScreenshotFormat string        // 截图格式 png/jpeg
-    SkipSave         bool          // 跳过保存到磁盘
     IgnoreCertErrors bool          // 忽略证书错误
-    CaptureFullPage  bool          // 全页截图
-    Selector         string        // CSS 选择器截图
-    XPath            string        // XPath 截图
+
+    // 浏览器指纹（反检测）
+    AcceptLanguage   string            // Accept-Language 头
+    Platform         string            // 平台标识
+    Vendor           string            // 浏览器厂商
+    Plugins          []string          // 插件列表
+    WebGLVendor      string            // WebGL 厂商
+    WebGLRenderer    string            // WebGL 渲染器
+    CustomHeaders    map[string]string // 自定义 HTTP 头
+    DisableWebRTC    bool              // 禁用 WebRTC
+    SpoofScreenSize  bool              // 伪造屏幕尺寸
+    ScreenWidth      int               // 伪造屏幕宽度
+    ScreenHeight     int               // 伪造屏幕高度
+
+    // 截图配置
+    MaxConcurrent     int    // 最大并发截图数（默认 2）
+    ScreenshotPath    string // 截图保存路径
+    ScreenshotFormat  string // 截图格式 png/jpeg
+    ScreenshotQuality int    // JPEG 质量（1-100，默认 90）
+    SkipSave          bool   // 跳过保存到磁盘
+    CaptureFullPage   bool   // 全页截图
+    Selector          string // CSS 选择器截图
+    XPath             string // XPath 截图
+
+    // 超时配置
+    Timeout time.Duration // 页面加载超时
+    Delay   time.Duration // 截图前等待
+
+    // JavaScript 执行
+    JavaScript     string // 在页面上执行的 JavaScript
+    JavaScriptFile string // JavaScript 文件路径
+    RunJSBefore    bool   // 在页面加载前执行 JS
+
+    // 数据收集
+    SaveHTML    bool // 保存 HTML 源码
+    SaveHeaders bool // 保存 HTTP 头
+    SaveConsole bool // 保存控制台日志
+    SaveCookies bool // 保存 Cookie
+    SaveNetwork bool // 保存网络请求日志
+
+    // 重试配置
+    MaxRetries int // 最大重试次数（默认 1）
+
+    // 自定义 Cookie
+    Cookies []runner.CustomCookie
+
+    // 浏览器交互
+    Actions []runner.InteractionAction
+    Form    runner.Form
+
+    // 黑名单
+    EnableBlacklist   bool     // 启用 URL 黑名单
+    DefaultBlacklist  bool     // 使用默认黑名单
+    BlacklistPatterns []string // 自定义黑名单规则
+    BlacklistFile     string   // 黑名单文件
 }
 
 type ScreenshotOptions struct {
-    Timeout         int    // 超时秒数（覆盖 ClientOptions）
-    Delay           int    // 延迟秒数（覆盖 ClientOptions）
-    UserAgent       string // User-Agent（覆盖 ClientOptions）
-    Selector        string // CSS 选择器（覆盖 ClientOptions）
-    XPath           string // XPath（覆盖 ClientOptions）
-    CaptureFullPage bool   // 全页截图（覆盖 ClientOptions）
-    JavaScript      string // 要执行的 JavaScript
-    SkipSave        bool   // 跳过保存
+    // 超时覆盖
+    Timeout time.Duration
+    Delay   time.Duration
+
+    // 浏览器覆盖
+    UserAgent string
+    Proxy     string
+
+    // 截图覆盖
+    Selector          string
+    XPath             string
+    CaptureFullPage   bool
+    ScreenshotQuality int
+
+    // JavaScript
+    JavaScript     string
+    JavaScriptFile string
+    RunJSBefore    bool
+
+    // 数据收集覆盖
+    SaveHTML    bool
+    SaveHeaders bool
+    SaveConsole bool
+    SaveCookies bool
+    SaveNetwork bool
+    SkipSave    bool
+
+    // 自定义 Cookie（注入）
+    Cookies []runner.CustomCookie
+
+    // 浏览器交互
+    Actions []runner.InteractionAction
+    Form    runner.Form
+
+    // 重试覆盖
+    MaxRetries int
 }
 ```
-
----
 
 ## 七、PoolStats 完整参考
 
