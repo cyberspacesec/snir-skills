@@ -293,3 +293,59 @@ func TestCookieJar_FileDoesNotExist(t *testing.T) {
 	// 清理
 	os.Remove("/tmp/nonexistent_dir/cookies_test.json")
 }
+
+
+func TestDomainMatches(t *testing.T) {
+	tests := []struct {
+		request string
+		cookie  string
+		matches bool
+	}{
+		{"example.com", "example.com", true},
+		{"sub.example.com", "example.com", true},
+		{"sub.example.com", ".example.com", true},
+		{"example.com", ".example.com", true},
+		{"deep.sub.example.com", ".example.com", true},
+		{"notexample.com", ".example.com", false},
+		{"notexample.com", "example.com", false},
+		{"example.com", "other.com", false},
+	}
+
+	for _, tt := range tests {
+		name := tt.request + " vs " + tt.cookie
+		t.Run(name, func(t *testing.T) {
+			result := domainMatches(tt.request, tt.cookie)
+			if result != tt.matches {
+				t.Errorf("domainMatches(%q, %q) = %v, want %v", tt.request, tt.cookie, result, tt.matches)
+			}
+		})
+	}
+}
+
+func TestCookieJar_SubdomainMatching(t *testing.T) {
+	tmpDir := t.TempDir()
+	jar, _ := NewCookieJar(filepath.Join(tmpDir, "cookies.json"))
+
+	// Cookie 存储在 .example.com
+	jar.AddCookie(PersistentCookie{
+		Name: "session", Value: "abc", Domain: ".example.com", Persistent: true,
+	})
+
+	// 请求 sub.example.com 应该匹配
+	cookies := jar.GetCookies("sub.example.com")
+	if len(cookies) != 1 {
+		t.Errorf("sub.example.com 匹配 .example.com: got %d cookies, want 1", len(cookies))
+	}
+
+	// 请求 example.com 也应该匹配
+	cookies = jar.GetCookies("example.com")
+	if len(cookies) != 1 {
+		t.Errorf("example.com 匹配 .example.com: got %d cookies, want 1", len(cookies))
+	}
+
+	// 不相关域名不匹配
+	cookies = jar.GetCookies("other.com")
+	if len(cookies) != 0 {
+		t.Errorf("other.com 不匹配 .example.com: got %d cookies, want 0", len(cookies))
+	}
+}

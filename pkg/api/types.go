@@ -90,6 +90,7 @@ type ScreenshotRequest struct {
 	CookieFile     string            `json:"cookie_file,omitempty"`      // Cookie持久化文件路径 (JSON格式)
 	CookieImport   string            `json:"cookie_import,omitempty"`    // 导入Netscape格式Cookie文件
 	CookieWriteBack bool             `json:"cookie_write_back,omitempty"` // 截图后写回Cookie到文件
+	CookieHeader    string            `json:"cookie_header,omitempty"`    // Cookie Header 格式 (name=value; name2=value2)
 
 	// 高级元素选择和交互
 	Selector        string              `json:"selector,omitempty"`          // CSS选择器
@@ -121,6 +122,7 @@ type BatchScreenshotRequest struct {
 	CookieFile      string             `json:"cookie_file,omitempty"`      // Cookie持久化文件路径
 	CookieImport    string             `json:"cookie_import,omitempty"`    // 导入Netscape格式Cookie文件
 	CookieWriteBack bool               `json:"cookie_write_back,omitempty"` // 截图后写回Cookie
+	CookieHeader    string             `json:"cookie_header,omitempty"`    // Cookie Header 格式 (name=value; name2=value2)
 
 	// 高级元素选择和交互
 	Selector        string              `json:"selector,omitempty"`          // CSS选择器

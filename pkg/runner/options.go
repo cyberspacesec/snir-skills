@@ -82,6 +82,8 @@ type Options struct {
 		CookiesFile      string              // Cookie持久化文件路径
 		CookieWriteBack bool                // 截图后写回Cookie到CookieJar
 		CookieImport    string              // 导入Netscape格式Cookie文件路径
+		CookieStrings   []string            // 内联Cookie字符串 (name=value格式)
+		CookieExport    string              // 截图后导出Cookie文件路径
 		Selector        string              // CSS选择器，用于元素截图
 		XPath           string              // XPath，用于元素截图
 		CaptureFullPage bool                // 是否捕获整个页面
@@ -125,6 +127,8 @@ type CustomCookie struct {
 	Path     string
 	Secure   bool
 	HttpOnly bool
+	Expires  int64  // Unix 时间戳，0=会话 Cookie
+	SameSite string // "Strict", "Lax", "None"
 }
 
 // InteractionAction 表示交互操作

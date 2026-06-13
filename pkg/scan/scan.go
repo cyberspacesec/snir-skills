@@ -87,6 +87,15 @@ func NewScanner(config *Config) (*Scanner, error) {
 		}
 	}
 
+	// 解析内联 Cookie 字符串
+	if len(config.Options.Scan.CookieStrings) > 0 {
+		for _, cs := range config.Options.Scan.CookieStrings {
+		parsed := runner.ParseCookieHeader(cs, "")
+		config.Options.Scan.Cookies = append(config.Options.Scan.Cookies, parsed...)
+		}
+		log.Info("内联 Cookie 已解析", "count", len(config.Options.Scan.CookieStrings))
+	}
+
 	return scanner, nil
 }
 

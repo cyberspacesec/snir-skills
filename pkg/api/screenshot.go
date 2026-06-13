@@ -200,6 +200,12 @@ func createRunnerOptions(req ScreenshotRequest, serverOpts ServerOptions) runner
 	opts.Scan.CookiesFile = req.CookieFile
 	opts.Scan.CookieWriteBack = req.CookieWriteBack
 
+	// Cookie Header 格式解析
+	if req.CookieHeader != "" {
+		parsed := runner.ParseCookieHeader(req.CookieHeader, "")
+		opts.Scan.Cookies = append(opts.Scan.Cookies, parsed...)
+	}
+
 	// 导入 Netscape 格式 Cookie
 	if req.CookieImport != "" {
 		imported, err := runner.LoadNetscapeCookieFile(req.CookieImport)

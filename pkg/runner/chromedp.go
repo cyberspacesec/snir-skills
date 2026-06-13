@@ -9,8 +9,12 @@ import (
 	"strings"
 	"time"
 
+
+
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/network"
+
 	"github.com/chromedp/chromedp"
 
 	"github.com/cyberspacesec/go-snir/pkg/log"
@@ -89,6 +93,13 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 			}
 			cookieParam = cookieParam.WithSecure(cookie.Secure)
 			cookieParam = cookieParam.WithHTTPOnly(cookie.HttpOnly)
+			if cookie.Expires > 0 {
+				ts := cdp.TimeSinceEpoch(time.Unix(cookie.Expires, 0))
+				cookieParam = cookieParam.WithExpires(&ts)
+			}
+			if cookie.SameSite != "" {
+				cookieParam = cookieParam.WithSameSite(parseSameSite(cookie.SameSite))
+			}
 			tasks = append(tasks, cookieParam)
 		}
 	}
@@ -450,5 +461,20 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 func (c *ChromeDP) Close() {
 	if c.cancel != nil {
 		c.cancel()
+	}
+}
+
+
+// parseSameSite 将字符串转为 network.CookieSameSite
+func parseSameSite(s string) network.CookieSameSite {
+	switch strings.ToLower(s) {
+	case "strict":
+		return network.CookieSameSiteStrict
+	case "lax":
+		return network.CookieSameSiteLax
+	case "none":
+		return network.CookieSameSiteNone
+	default:
+		return network.CookieSameSiteLax
 	}
 }

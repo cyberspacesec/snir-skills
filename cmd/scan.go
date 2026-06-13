@@ -168,7 +168,9 @@ func init() {
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.SaveNetwork, "save-network", false, log.Cyan("保存网络请求日志"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.CookiesFile, "cookie-file", "", log.Cyan("Cookie 持久化文件路径 (JSON 格式，跨请求复用)"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.CookieWriteBack, "cookie-write-back", false, log.Cyan("截图后将浏览器 Cookie 写回 cookie-file"))
+	scanCmd.PersistentFlags().StringVar(&opts.Scan.CookieExport, "cookie-export", "", log.Cyan("截图后导出 Cookie 到文件 (Netscape 格式)"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.CookieImport, "cookie-import", "", log.Cyan("导入 Netscape 格式 Cookie 文件 (curl/wget 格式)"))
+	scanCmd.PersistentFlags().StringArrayVar(&opts.Scan.CookieStrings, "cookie", []string{}, log.Cyan("内联 Cookie (name=value 格式，可多次使用)"))
 
 	// 数据库相关选项
 	scanCmd.PersistentFlags().BoolVar(&opts.DB.Enable, "db", false, log.Cyan("启用数据库存储"))

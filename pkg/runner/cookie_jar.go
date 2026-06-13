@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -157,7 +158,7 @@ func (jar *CookieJar) GetCookies(domain string) []CustomCookie {
 				needsSave = true
 				continue
 			}
-			result = append(result, c.ToCustomCookie())
+			result = append(result, c.ToCustomCookieWithExpires())
 			if c.Persistent {
 				remaining = append(remaining, c)
 			} else {
@@ -167,22 +168,30 @@ func (jar *CookieJar) GetCookies(domain string) []CustomCookie {
 		jar.cookies["_global"] = remaining
 	}
 
-	// 获取域名 Cookie
-	if domainCookies, ok := jar.cookies[domain]; ok {
+	// 获取域名 Cookie（支持子域名匹配）
+	// 遍历所有域名，检查请求域名是否匹配 Cookie 域名
+	// .example.com 的 Cookie 匹配 sub.example.com 和 example.com
+	for cookieDomain, domainCookies := range jar.cookies {
+		if cookieDomain == "_global" {
+			continue // 全局 Cookie 已处理
+		}
+		if !domainMatches(domain, cookieDomain) {
+			continue
+		}
 		var remaining []PersistentCookie
 		for _, c := range domainCookies {
 			if c.IsExpired() {
 				needsSave = true
 				continue
 			}
-			result = append(result, c.ToCustomCookie())
+			result = append(result, c.ToCustomCookieWithExpires())
 			if c.Persistent {
 				remaining = append(remaining, c)
 			} else {
 				needsSave = true // 一次性 Cookie 被消费
 			}
 		}
-		jar.cookies[domain] = remaining
+		jar.cookies[cookieDomain] = remaining
 	}
 
 	if needsSave {
@@ -201,7 +210,7 @@ func (jar *CookieJar) GetAllCookies() []CustomCookie {
 	for _, cookies := range jar.cookies {
 		for _, c := range cookies {
 			if !c.IsExpired() {
-				result = append(result, c.ToCustomCookie())
+				result = append(result, c.ToCustomCookieWithExpires())
 			}
 		}
 	}
@@ -336,4 +345,34 @@ func CookieJarToCustomCookies(jar *CookieJar, domain string) []CustomCookie {
 		return nil
 	}
 	return jar.GetCookies(domain)
+}
+
+
+// domainMatches 检查请求域名是否匹配 Cookie 域名
+// 遵循 RFC 6265 的域名匹配规则：
+//   - .example.com 匹配 sub.example.com 和 example.com
+//   - example.com 匹配 example.com 和 sub.example.com
+//   - .example.com 不匹配 notexample.com
+func domainMatches(requestDomain, cookieDomain string) bool {
+	// 精确匹配
+	if requestDomain == cookieDomain {
+		return true
+	}
+
+	// Cookie 域名以 . 开头（表示包含子域名）
+	if strings.HasPrefix(cookieDomain, ".") {
+		suffix := cookieDomain[1:] // 去掉前导 .
+		// 请求域名等于后缀 或 以 .后缀 结尾
+		if requestDomain == suffix || strings.HasSuffix(requestDomain, "."+suffix) {
+			return true
+		}
+	}
+
+	// Cookie 域名不以 . 开头但请求域名是子域名
+	// example.com 匹配 sub.example.com
+	if strings.HasSuffix(requestDomain, "."+cookieDomain) {
+		return true
+	}
+
+	return false
 }
