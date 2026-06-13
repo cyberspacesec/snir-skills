@@ -167,6 +167,8 @@ func init() {
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.CaptureFullPage, "full-page", false, log.Cyan("截取完整页面 (包括滚动区域)"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.SaveNetwork, "save-network", false, log.Cyan("保存网络请求日志"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.CookiesFile, "cookie-file", "", log.Cyan("Cookie 持久化文件路径 (JSON 格式，跨请求复用)"))
+	scanCmd.PersistentFlags().BoolVar(&opts.Scan.CookieWriteBack, "cookie-write-back", false, log.Cyan("截图后将浏览器 Cookie 写回 cookie-file"))
+	scanCmd.PersistentFlags().StringVar(&opts.Scan.CookieImport, "cookie-import", "", log.Cyan("导入 Netscape 格式 Cookie 文件 (curl/wget 格式)"))
 
 	// 数据库相关选项
 	scanCmd.PersistentFlags().BoolVar(&opts.DB.Enable, "db", false, log.Cyan("启用数据库存储"))

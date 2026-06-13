@@ -24,10 +24,11 @@ type Config struct {
 // Scanner 表示扫描器
 // 负责执行网站扫描和截图操作
 type Scanner struct {
-	Config  *Config         // 扫描配置
-	Driver  runner.Driver   // 浏览器驱动
-	Writers []runner.Writer // 结果写入器
-	Runner  *runner.Runner  // 运行器
+	Config    *Config            // 扫描配置
+	Driver    runner.Driver      // 浏览器驱动
+	Writers   []runner.Writer    // 结果写入器
+	Runner    *runner.Runner     // 运行器
+	CookieJar *runner.CookieJar  // Cookie 持久化存储
 }
 
 // NewScanner 创建一个新的扫描器
@@ -61,6 +62,31 @@ func NewScanner(config *Config) (*Scanner, error) {
 		Writers: writers,
 	}
 
+	// 加载 Cookie 持久化存储
+	if config.Options.Scan.CookiesFile != "" {
+		jar, err := runner.NewCookieJar(config.Options.Scan.CookiesFile)
+		if err != nil {
+			log.Warn("加载 Cookie 文件失败", "file", config.Options.Scan.CookiesFile, "error", err)
+		} else {
+			scanner.CookieJar = jar
+			log.Info("Cookie 持久化存储已加载", "file", config.Options.Scan.CookiesFile)
+		}
+	}
+
+	// 导入 Netscape 格式 Cookie
+	if config.Options.Scan.CookieImport != "" {
+		_, imported, err := runner.LoadNetscapeCookieFileToJar(config.Options.Scan.CookieImport, true, "import")
+		if err != nil {
+			log.Warn("导入 Netscape Cookie 文件失败", "file", config.Options.Scan.CookieImport, "error", err)
+		} else {
+			// 将导入的 Cookie 合并到 opts
+			for _, pc := range imported {
+				config.Options.Scan.Cookies = append(config.Options.Scan.Cookies, pc.ToCustomCookie())
+			}
+			log.Info("Netscape Cookie 已导入", "file", config.Options.Scan.CookieImport, "count", len(imported))
+		}
+	}
+
 	return scanner, nil
 }
 
@@ -83,11 +109,24 @@ func NewPooledScanner(config *Config, maxConcurrent int) (*Scanner, error) {
 		return nil, fmt.Errorf("创建结果写入器失败: %v", err)
 	}
 
-	return &Scanner{
+	scanner := &Scanner{
 		Config:  config,
 		Driver:  poolDriver,
 		Writers: writers,
-	}, nil
+	}
+
+	// 加载 Cookie 持久化存储
+	if config.Options.Scan.CookiesFile != "" {
+		jar, err := runner.NewCookieJar(config.Options.Scan.CookiesFile)
+		if err != nil {
+			log.Warn("加载 Cookie 文件失败", "file", config.Options.Scan.CookiesFile, "error", err)
+		} else {
+			scanner.CookieJar = jar
+			log.Info("Cookie 持久化存储已加载", "file", config.Options.Scan.CookiesFile)
+		}
+	}
+
+	return scanner, nil
 }
 
 // createDriver 创建浏览器驱动
@@ -142,6 +181,23 @@ func ensureProtocol(target string, useHTTPS, useHTTP bool) string {
 	return "https://" + target
 }
 
+// extractDomainFromURL 从 URL 中提取域名
+func extractDomainFromURL(rawURL string) string {
+	u := rawURL
+	for _, prefix := range []string{"http://", "https://"} {
+		if len(u) > len(prefix) && u[:len(prefix)] == prefix {
+			u = u[len(prefix):]
+			break
+		}
+	}
+	for i, c := range u {
+		if c == '/' || c == ':' || c == '?' || c == '#' {
+			return u[:i]
+		}
+	}
+	return u
+}
+
 // ScanSingle 扫描单个URL
 // 对单个URL执行截图和信息收集
 // 参数:
@@ -160,6 +216,15 @@ func (s *Scanner) ScanSingle(target string) (*models.Result, error) {
 	}
 
 	log.Info("开始扫描单个URL", "url", target)
+
+	// 从 CookieJar 注入 Cookie
+	if s.CookieJar != nil {
+		domain := extractDomainFromURL(target)
+		jarCookies := s.CookieJar.GetCookies(domain)
+		if len(jarCookies) > 0 {
+			s.Config.Options.Scan.Cookies = append(jarCookies, s.Config.Options.Scan.Cookies...)
+		}
+	}
 
 	// 创建Runner（如果尚未创建）
 	if s.Runner == nil {

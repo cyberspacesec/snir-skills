@@ -80,6 +80,8 @@ type Options struct {
 		RunJSAfter      bool                // 在页面加载后执行JS
 		Cookies         []CustomCookie      // 自定义Cookie
 		CookiesFile      string              // Cookie持久化文件路径
+		CookieWriteBack bool                // 截图后写回Cookie到CookieJar
+		CookieImport    string              // 导入Netscape格式Cookie文件路径
 		Selector        string              // CSS选择器，用于元素截图
 		XPath           string              // XPath，用于元素截图
 		CaptureFullPage bool                // 是否捕获整个页面

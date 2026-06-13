@@ -87,6 +87,9 @@ type ScreenshotRequest struct {
 	RunJSAfter     bool               `json:"run_js_after,omitempty"`    // 在页面加载后执行
 	Fingerprint    BrowserFingerprint `json:"fingerprint,omitempty"`     // 浏览器指纹配置
 	Cookies        []CustomCookie     `json:"cookies,omitempty"`         // 自定义Cookie
+	CookieFile     string            `json:"cookie_file,omitempty"`      // Cookie持久化文件路径 (JSON格式)
+	CookieImport   string            `json:"cookie_import,omitempty"`    // 导入Netscape格式Cookie文件
+	CookieWriteBack bool             `json:"cookie_write_back,omitempty"` // 截图后写回Cookie到文件
 
 	// 高级元素选择和交互
 	Selector        string              `json:"selector,omitempty"`          // CSS选择器
@@ -114,7 +117,10 @@ type BatchScreenshotRequest struct {
 	RunJSBefore    bool               `json:"run_js_before,omitempty"`   // 在页面加载前执行
 	RunJSAfter     bool               `json:"run_js_after,omitempty"`    // 在页面加载后执行
 	Fingerprint    BrowserFingerprint `json:"fingerprint,omitempty"`     // 浏览器指纹配置
-	Cookies        []CustomCookie     `json:"cookies,omitempty"`         // 自定义Cookie
+	Cookies         []CustomCookie     `json:"cookies,omitempty"`         // 自定义Cookie
+	CookieFile      string             `json:"cookie_file,omitempty"`      // Cookie持久化文件路径
+	CookieImport    string             `json:"cookie_import,omitempty"`    // 导入Netscape格式Cookie文件
+	CookieWriteBack bool               `json:"cookie_write_back,omitempty"` // 截图后写回Cookie
 
 	// 高级元素选择和交互
 	Selector        string              `json:"selector,omitempty"`          // CSS选择器

@@ -70,6 +70,9 @@ type DriverPool struct {
 
 	// 代理池
 	proxyProvider ProxyProvider
+
+	// Cookie 持久化
+	cookieJar *CookieJar
 }
 
 // NewDriverPool 创建一个新的 ChromeDP 连接池
@@ -273,8 +276,49 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 		p.events.emitScreenshotFailed(target, duration, fmt.Errorf(result.FailedReason))
 	}
 
+	// Cookie 写回：将浏览器获取的 Cookie 写回 CookieJar
+	if p.cookieJar != nil && opts.Scan.CookieWriteBack && len(result.Cookies) > 0 {
+		domain := extractDomainSimple(target)
+		for _, c := range result.Cookies {
+			cookieDomain := c.Domain
+			if cookieDomain == "" {
+				cookieDomain = domain
+			}
+			p.cookieJar.AddCookie(PersistentCookie{
+				Name:       c.Name,
+				Value:      c.Value,
+				Domain:     cookieDomain,
+				Path:       c.Path,
+				Persistent: true,
+				Source:     "session",
+			})
+		}
+	}
+
 	p.events.emitScreenshotComplete(target, duration, result)
 	return result, nil
+}
+
+// SetCookieJar 设置 Cookie 持久化存储
+func (p *DriverPool) SetCookieJar(jar *CookieJar) {
+	p.cookieJar = jar
+}
+
+// extractDomainSimple 从 URL 提取域名
+func extractDomainSimple(rawURL string) string {
+	u := rawURL
+	for _, prefix := range []string{"http://", "https://"} {
+		if len(u) > len(prefix) && u[:len(prefix)] == prefix {
+			u = u[len(prefix):]
+			break
+		}
+	}
+	for i, c := range u {
+		if c == '/' || c == ':' || c == '?' || c == '#' {
+			return u[:i]
+		}
+	}
+	return u
 }
 
 // ensureBrowserProcess 确保浏览器进程可用

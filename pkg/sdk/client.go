@@ -57,15 +57,28 @@ func NewClient(opts ClientOptions) (*Client, error) {
 		return nil, fmt.Errorf("初始化截图客户端失败: %v", err)
 	}
 
+	client := &Client{
+		pool: pool,
+		opts: opts,
+	}
+
+	// 加载 Cookie 持久化存储
+	if opts.CookieFile != "" {
+		jar, err := runner.NewCookieJar(opts.CookieFile)
+		if err != nil {
+			log.Warn("加载 Cookie 文件失败", "file", opts.CookieFile, "error", err)
+		} else {
+			client.cookieJar = jar
+			log.Info("Cookie 持久化存储已加载", "file", opts.CookieFile)
+		}
+	}
+
 	mode := "本地"
 	if opts.WSSURL != "" {
 		mode = "远程"
 	}
 	log.Info("截图SDK客户端已创建", "mode", mode, "max_concurrent", opts.MaxConcurrent)
-	return &Client{
-		pool: pool,
-		opts: opts,
-	}, nil
+	return client, nil
 }
 
 // NewRemoteClient 创建一个连接到远程 Chrome 的截图客户端

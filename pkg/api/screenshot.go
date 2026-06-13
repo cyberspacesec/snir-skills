@@ -196,6 +196,20 @@ func createRunnerOptions(req ScreenshotRequest, serverOpts ServerOptions) runner
 		}
 	}
 
+	// Cookie 持久化
+	opts.Scan.CookiesFile = req.CookieFile
+	opts.Scan.CookieWriteBack = req.CookieWriteBack
+
+	// 导入 Netscape 格式 Cookie
+	if req.CookieImport != "" {
+		imported, err := runner.LoadNetscapeCookieFile(req.CookieImport)
+		if err != nil {
+			log.Warn("API: 导入 Netscape Cookie 失败", "file", req.CookieImport, "error", err)
+		} else {
+			opts.Scan.Cookies = append(opts.Scan.Cookies, imported...)
+		}
+	}
+
 	// 交互动作
 	if len(req.Actions) > 0 {
 		for _, a := range req.Actions {

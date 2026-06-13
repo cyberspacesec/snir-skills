@@ -425,7 +425,7 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 	}
 
 	// 保存Cookies
-	if c.opts.Scan.SaveCookies && cookies != nil {
+	if (c.opts.Scan.SaveCookies || c.opts.Scan.CookieWriteBack) && cookies != nil {
 		for _, cookie := range cookies {
 			result.Cookies = append(result.Cookies, models.Cookie{
 				Name:   cookie.Name,

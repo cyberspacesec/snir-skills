@@ -197,6 +197,7 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 
 	// Cookie
 	opts.Scan.Cookies = co.Cookies
+	opts.Scan.CookiesFile = co.CookieFile
 
 	// 交互
 	opts.Scan.Actions = co.Actions
@@ -279,9 +280,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 		base.Scan.ScreenshotSkipSave = true
 	}
 
-	// Cookie
+	// Cookie（追加而非替换）
 	if len(so.Cookies) > 0 {
-		base.Scan.Cookies = so.Cookies
+		base.Scan.Cookies = append(base.Scan.Cookies, so.Cookies...)
 	}
 
 	// 交互
