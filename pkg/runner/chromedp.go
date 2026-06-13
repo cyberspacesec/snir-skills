@@ -71,6 +71,9 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 				nl.StatusCode = int(e.Response.Status)
 				nl.ContentType = e.Response.MimeType
 			}
+		default:
+			// 忽略其他 CDP 事件（如 page.EventFrameStartedNavigating）
+			// 避免输出 "unhandled page event" 错误日志
 		}
 	})
 
@@ -359,12 +362,30 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 
 	tasks = append(tasks,
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			// 获取响应码
+			// 获取响应码 — 优先精确匹配，其次模糊匹配，最后取第一个非零状态码
 			var statusCode int
 			for _, nl := range networkEvents {
-				if nl.URL == target || strings.HasSuffix(target, nl.URL) {
+				if nl.URL == target {
 					statusCode = nl.StatusCode
 					break
+				}
+			}
+			// 精确匹配失败，尝试后缀匹配
+			if statusCode == 0 {
+				for _, nl := range networkEvents {
+					if strings.HasSuffix(nl.URL, target) || strings.HasSuffix(target, nl.URL) {
+						statusCode = nl.StatusCode
+						break
+					}
+				}
+			}
+			// 仍然为0，取第一个有非零状态码的响应
+			if statusCode == 0 {
+				for _, nl := range networkEvents {
+					if nl.StatusCode > 0 {
+						statusCode = nl.StatusCode
+						break
+					}
 				}
 			}
 			responseCode = statusCode
@@ -422,14 +443,16 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 			strings.ReplaceAll(target, "/", "_"),
 			time.Now().Format("20060102150405"),
 			c.opts.Scan.ScreenshotFormat)
-		filepath := filepath.Join(c.opts.Scan.ScreenshotPath, filename)
+		screenshotFilepath := filepath.Join(c.opts.Scan.ScreenshotPath, filename)
 
-		err = ioutil.WriteFile(filepath, buf, 0644)
+		err = ioutil.WriteFile(screenshotFilepath, buf, 0644)
 		if err != nil {
 			log.Error("保存截图失败", "error", err)
 		} else {
-			result.Filename = filepath
-			result.Screenshot = filepath
+			// 确保返回绝对路径
+			absPath, _ := filepath.Abs(screenshotFilepath)
+			result.Filename = absPath
+			result.Screenshot = absPath
 		}
 	}
 

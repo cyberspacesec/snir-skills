@@ -16,7 +16,7 @@ func generateRandomAPIKey(length int) string {
 	bytes := make([]byte, length/2)
 	if _, err := rand.Read(bytes); err != nil {
 		log.Error("生成API密钥失败", "error", log.Red(err.Error()))
-		return "go-snir-random-api-key"
+		return "snir-random-api-key"
 	}
 	return hex.EncodeToString(bytes)
 }
@@ -29,7 +29,6 @@ var apiCmd = &cobra.Command{
 		// 如果未指定API密钥，则生成一个随机密钥
 		if opts.API.APIKey == "" {
 			opts.API.APIKey = generateRandomAPIKey(32)
-			log.Success("已生成随机API密钥", "api_key", log.Cyan(opts.API.APIKey))
 		}
 
 		// 创建API服务配置
@@ -52,16 +51,22 @@ var apiCmd = &cobra.Command{
 		// 初始化浏览器连接池（复用 Chrome 进程）
 		if err := server.InitPool(opts); err != nil {
 			log.Error("初始化浏览器连接池失败，将使用单次模式", "error", err)
-		} else {
-			log.Success("浏览器连接池已初始化", "max_concurrent", log.Cyan(fmt.Sprintf("%d", opts.API.MaxConcurrent)))
 		}
 
 		// 设置路由
 		server.SetupRoutes()
 
-		// 启动服务
-		log.CommandTitle("启动API服务")
-		log.Info("服务器地址", "host", log.Cyan(opts.API.Host), "port", log.Cyan(opts.API.Port))
+		// 启动服务 — 输出清晰的访问信息
+		displayHost := opts.API.Host
+		if displayHost == "0.0.0.0" {
+			displayHost = "127.0.0.1"
+		}
+		log.CommandTitle("API 服务已启动")
+		log.Info("本地访问", "url", log.Cyan(fmt.Sprintf("http://%s:%d", displayHost, opts.API.Port)))
+		log.Info("API 密钥", "key", log.Cyan(opts.API.APIKey))
+		log.Info("API 文档", "url", log.Cyan(fmt.Sprintf("http://%s:%d/", displayHost, opts.API.Port)))
+		log.Info("健康检查", "url", log.Cyan(fmt.Sprintf("http://%s:%d/health", displayHost, opts.API.Port)))
+		log.Info("并发配置", "max_concurrent", log.Cyan(fmt.Sprintf("%d", opts.API.MaxConcurrent)), "queue_size", log.Cyan(fmt.Sprintf("%d", opts.API.QueueSize)))
 		return server.Run()
 	},
 }
