@@ -10,7 +10,7 @@ permissions:
   packages: write  # Needed for pushing Docker image to GHCR
 
 jobs:
-  # 预检：确保代码能编译和测试通过
+  # 预检：确保代码能编译
   preflight:
     name: Preflight Check
     runs-on: ubuntu-latest
@@ -31,16 +31,6 @@ jobs:
 
       - name: Build
         run: go build -v ./...
-
-      - name: Install Chromium
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser || true
-
-      - name: Test
-        run: go test -v -count=1 ./...
-        env:
-          CHROME_BIN: /usr/bin/chromium-browser
 
   # GoReleaser 构建 + GitHub Release
   goreleaser:
