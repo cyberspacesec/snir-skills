@@ -129,14 +129,30 @@ func createRunnerOptions(req ScreenshotRequest, serverOpts ServerOptions) runner
 	opts.Chrome.UserAgent = req.UserAgent
 	opts.Chrome.Proxy = req.Proxy
 	opts.Chrome.Headless = true
+	opts.Chrome.IgnoreCertErrors = req.IgnoreCertErrors
+
+	// 浏览器指纹
+	if req.Fingerprint.UserAgent != "" {
+		opts.Chrome.UserAgent = req.Fingerprint.UserAgent
+	}
+	opts.Chrome.AcceptLanguage = req.Fingerprint.AcceptLanguage
+	opts.Chrome.Platform = req.Fingerprint.Platform
+	opts.Chrome.Vendor = req.Fingerprint.Vendor
+	opts.Chrome.Plugins = req.Fingerprint.Plugins
+	opts.Chrome.WebGLVendor = req.Fingerprint.WebGLVendor
+	opts.Chrome.WebGLRenderer = req.Fingerprint.WebGLRenderer
+	opts.Chrome.CustomHeaders = req.Fingerprint.CustomHeaders
+	opts.Chrome.DisableWebRTC = req.Fingerprint.DisableWebRTC
+	opts.Chrome.SpoofScreenSize = req.Fingerprint.SpoofScreenSize
+	opts.Chrome.ScreenWidth = req.Fingerprint.ScreenWidth
+	opts.Chrome.ScreenHeight = req.Fingerprint.ScreenHeight
 
 	// 设置超时和延迟
 	if req.Timeout > 0 {
 		opts.Chrome.Timeout = req.Timeout
 	} else {
-		opts.Chrome.Timeout = 30 // 默认30秒
+		opts.Chrome.Timeout = 30
 	}
-
 	if req.Delay > 0 {
 		opts.Chrome.Delay = req.Delay
 	}
@@ -152,11 +168,64 @@ func createRunnerOptions(req ScreenshotRequest, serverOpts ServerOptions) runner
 	opts.Scan.BlacklistPatterns = serverOpts.BlacklistPatterns
 	opts.Scan.BlacklistFile = serverOpts.BlacklistFile
 
-	// 设置JavaScript选项
+	// JavaScript
 	opts.Scan.JavaScript = req.JavaScript
+	opts.Scan.JavaScriptFile = req.JavaScriptFile
+	opts.Scan.RunJSBefore = req.RunJSBefore
+	opts.Scan.RunJSAfter = req.RunJSAfter
+	if req.JavaScript != "" && !req.RunJSBefore && !req.RunJSAfter {
+		opts.Scan.RunJSAfter = true
+	}
 
-	// 忽略证书错误
-	opts.Chrome.IgnoreCertErrors = req.IgnoreCertErrors
+	// 元素选择
+	opts.Scan.Selector = req.Selector
+	opts.Scan.XPath = req.XPath
+	opts.Scan.CaptureFullPage = req.CaptureFullPage
+
+	// Cookie
+	if len(req.Cookies) > 0 {
+		for _, c := range req.Cookies {
+			opts.Scan.Cookies = append(opts.Scan.Cookies, runner.CustomCookie{
+				Name:     c.Name,
+				Value:    c.Value,
+				Domain:   c.Domain,
+				Path:     c.Path,
+				Secure:   c.Secure,
+				HttpOnly: c.HttpOnly,
+			})
+		}
+	}
+
+	// 交互动作
+	if len(req.Actions) > 0 {
+		for _, a := range req.Actions {
+			opts.Scan.Actions = append(opts.Scan.Actions, runner.InteractionAction{
+				Type:        a.Type,
+				Selector:    a.Selector,
+				XPath:       a.XPath,
+				Value:       a.Value,
+				WaitTime:    a.WaitTime,
+				WaitVisible: a.WaitVisible,
+			})
+		}
+	}
+
+	// 表单填写
+	if req.Form.Fields != nil {
+		opts.Scan.Form = runner.Form{
+			SubmitSelector:  req.Form.SubmitSelector,
+			SubmitXPath:     req.Form.SubmitXPath,
+			WaitAfterSubmit: req.Form.WaitAfterSubmit,
+		}
+		for _, f := range req.Form.Fields {
+			opts.Scan.Form.Fields = append(opts.Scan.Form.Fields, runner.FormField{
+				Selector: f.Selector,
+				XPath:    f.XPath,
+				Value:    f.Value,
+				Type:     f.Type,
+			})
+		}
+	}
 
 	return opts
 }
