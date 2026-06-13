@@ -79,6 +79,7 @@ type Options struct {
 		RunJSBefore     bool                // 在页面加载前执行JS
 		RunJSAfter      bool                // 在页面加载后执行JS
 		Cookies         []CustomCookie      // 自定义Cookie
+		CookiesFile      string              // Cookie持久化文件路径
 		Selector        string              // CSS选择器，用于元素截图
 		XPath           string              // XPath，用于元素截图
 		CaptureFullPage bool                // 是否捕获整个页面

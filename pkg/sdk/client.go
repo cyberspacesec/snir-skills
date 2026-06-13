@@ -43,8 +43,9 @@ import (
 // 其他 Go 项目通过 import 此包来复用截图能力
 // 内部持有 DriverPool，多个调用方共享同一个 Chrome 浏览器进程
 type Client struct {
-	pool *runner.DriverPool
-	opts ClientOptions
+	pool      *runner.DriverPool
+	opts      ClientOptions
+	cookieJar *runner.CookieJar // Cookie 持久化存储
 }
 
 // NewClient 创建一个新的截图客户端
@@ -108,6 +109,16 @@ func (c *Client) Screenshot(url string, screenshotOpts *ScreenshotOptions) (*mod
 func (c *Client) ScreenshotWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	runnerOpts := toRunnerOptions(c.opts)
 	runnerOpts = mergeWithScreenshotOptions(runnerOpts, screenshotOpts)
+
+	// 合并 CookieJar 中的 Cookie
+	if c.cookieJar != nil {
+		jarCookies := c.cookieJar.GetCookies(extractDomain(url))
+		if len(jarCookies) > 0 {
+			// 合并：jar Cookie 附加到 opts Cookie 之后（jar Cookie 优先级低）
+			allCookies := append(jarCookies, runnerOpts.Scan.Cookies...)
+			runnerOpts.Scan.Cookies = allCookies
+		}
+	}
 
 	result, err := c.pool.ScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
@@ -377,6 +388,51 @@ func (c *Client) ActiveCount() int {
 	return c.pool.ActiveCount()
 }
 
+// SetCookieJar 设置 Cookie 持久化存储
+// 设置后，截图时自动从 CookieJar 加载对应域名的 Cookie
+// 一次性 Cookie 获取后自动移除，持久化 Cookie 保留
+func (c *Client) SetCookieJar(jar *runner.CookieJar) {
+	c.cookieJar = jar
+}
+
+// CookieJar 返回当前的 Cookie 持久化存储
+func (c *Client) CookieJar() *runner.CookieJar {
+	return c.cookieJar
+}
+
+// AddCookie 添加 Cookie 到持久化存储
+// 如果没有 CookieJar，会自动创建一个内存中的 CookieJar
+func (c *Client) AddCookie(cookie runner.PersistentCookie) error {
+	if c.cookieJar == nil {
+		jar, err := runner.NewCookieJar("")
+		if err != nil {
+			return err
+		}
+		c.cookieJar = jar
+	}
+	return c.cookieJar.AddCookie(cookie)
+}
+
+// AddPersistentCookie 添加持久化 Cookie
+func (c *Client) AddPersistentCookie(name, value, domain string) error {
+	return c.AddCookie(runner.PersistentCookie{
+		Name:       name,
+		Value:      value,
+		Domain:     domain,
+		Persistent: true,
+	})
+}
+
+// AddOneTimeCookie 添加一次性 Cookie（获取后自动移除）
+func (c *Client) AddOneTimeCookie(name, value, domain string) error {
+	return c.AddCookie(runner.PersistentCookie{
+		Name:       name,
+		Value:      value,
+		Domain:     domain,
+		Persistent: false,
+	})
+}
+
 // Close 关闭客户端，释放浏览器进程
 // 调用后客户端不可再使用
 func (c *Client) Close() {
@@ -406,4 +462,25 @@ func (c *Client) ensureScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOpt
 		return opts
 	}
 	return &ScreenshotOptions{}
+}
+
+// extractDomain 从 URL 中提取域名
+func extractDomain(rawURL string) string {
+	// 简单提取：去掉协议和路径
+	u := rawURL
+	// 去掉协议
+	for _, prefix := range []string{"http://", "https://"} {
+		if len(u) > len(prefix) && u[:len(prefix)] == prefix {
+			u = u[len(prefix):]
+			break
+		}
+	}
+	// 去掉路径
+	for i, c := range u {
+		if c == '/' || c == ':' || c == '?' || c == '#' {
+			u = u[:i]
+			break
+		}
+	}
+	return u
 }

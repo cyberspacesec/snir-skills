@@ -166,6 +166,7 @@ func init() {
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.XPath, "xpath", "", log.Cyan("XPath截图 (仅截取匹配元素)"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.CaptureFullPage, "full-page", false, log.Cyan("截取完整页面 (包括滚动区域)"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.SaveNetwork, "save-network", false, log.Cyan("保存网络请求日志"))
+	scanCmd.PersistentFlags().StringVar(&opts.Scan.CookiesFile, "cookie-file", "", log.Cyan("Cookie 持久化文件路径 (JSON 格式，跨请求复用)"))
 
 	// 数据库相关选项
 	scanCmd.PersistentFlags().BoolVar(&opts.DB.Enable, "db", false, log.Cyan("启用数据库存储"))

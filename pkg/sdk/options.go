@@ -73,6 +73,9 @@ type ClientOptions struct {
 	DefaultBlacklist  bool     // 使用默认黑名单
 	BlacklistPatterns []string // 自定义黑名单规则
 	BlacklistFile     string   // 黑名单文件路径
+
+	// Cookie 持久化
+	CookieFile        string   // Cookie 持久化文件路径 (JSON 格式)
 }
 
 // DefaultClientOptions 返回默认客户端配置
