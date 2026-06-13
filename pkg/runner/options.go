@@ -29,6 +29,12 @@ type Options struct {
 		Headless         bool   // 是否使用无头模式
 		IgnoreCertErrors bool   // 是否忽略证书错误
 
+		// 代理池和轮换
+		ProxyList     []string      // 代理列表（多个代理地址轮换）
+		ProxyFile     string        // 代理文件路径（每行一个代理，支持热加载）
+		ProxyURL      string        // 代理 API URL（动态代理服务，每次请求获取新代理）
+		ProxyStrategy ProxyStrategy // 代理轮换策略：round-robin / random / sequential
+
 		// 高级浏览器控制
 		AcceptLanguage  string            // 接受的语言
 		Platform        string            // 平台

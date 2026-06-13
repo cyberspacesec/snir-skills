@@ -67,6 +67,9 @@ type DriverPool struct {
 
 	// 事件总线
 	events *eventBus
+
+	// 代理池
+	proxyProvider ProxyProvider
 }
 
 // NewDriverPool 创建一个新的 ChromeDP 连接池
@@ -211,6 +214,20 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 	// 使用传入的 opts 或池默认的 opts
 	if opts == nil {
 		opts = p.opts
+	}
+
+	// 代理轮换：从 ProxyProvider 获取代理
+	if p.proxyProvider != nil {
+		proxy, err := p.proxyProvider.GetProxy()
+		if err != nil {
+			log.Debug("获取代理失败，使用默认设置", "error", err)
+		} else if proxy != "" {
+			// 复制 opts 避免修改原始配置
+			proxyOpts := *opts
+			proxyOpts.Chrome.Proxy = proxy
+			opts = &proxyOpts
+			log.Debug("使用代理", "proxy", proxy, "provider", p.proxyProvider.Name())
+		}
 	}
 
 	// 在共享的浏览器进程中创建新 tab

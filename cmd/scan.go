@@ -149,6 +149,10 @@ func init() {
 	scanCmd.PersistentFlags().BoolVar(&opts.Chrome.Headless, "headless", true, log.Cyan("使用无头模式"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Chrome.IgnoreCertErrors, "ignore-cert-errors", false, log.Cyan("忽略证书错误"))
 	scanCmd.PersistentFlags().StringVar(&opts.Chrome.WSS, "wss", "", log.Cyan("远程Chrome WebSocket URL (如 ws://host:9222/devtools/browser/xxx)"))
+	scanCmd.PersistentFlags().StringSliceVar(&opts.Chrome.ProxyList, "proxy-list", []string{}, log.Cyan("代理列表 (可多次使用, 轮换使用)"))
+	scanCmd.PersistentFlags().StringVar(&opts.Chrome.ProxyFile, "proxy-file", "", log.Cyan("代理文件路径 (每行一个代理, 支持热加载)"))
+	scanCmd.PersistentFlags().StringVar(&opts.Chrome.ProxyURL, "proxy-url", "", log.Cyan("代理 API URL (动态代理服务, 每次获取新代理)"))
+	scanCmd.PersistentFlags().Var(&proxyStrategyFlag{&opts.Chrome.ProxyStrategy}, "proxy-strategy", log.Cyan("代理轮换策略: round-robin, random, sequential"))
 
 	// 扫描相关选项
 	scanCmd.PersistentFlags().IntVar(&opts.Scan.Threads, "threads", 2, log.Cyan("并发线程数"))
