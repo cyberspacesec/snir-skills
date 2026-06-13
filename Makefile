@@ -8,7 +8,7 @@ VERSION := v0.0.1
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date +%Y-%m-%d)
 BUILD_TIME := $(shell date +%H:%M:%S)
-LDFLAGS := -ldflags "-X github.com/cyberspacesec/go-snir/pkg/ascii.version=$(VERSION) -X github.com/cyberspacesec/go-snir/pkg/ascii.commit=$(COMMIT) -X github.com/cyberspacesec/go-snir/pkg/ascii.buildDate=$(BUILD_DATE) -X github.com/cyberspacesec/go-snir/pkg/ascii.buildTime=$(BUILD_TIME)"
+LDFLAGS := -ldflags "-X github.com/cyberspacesec/snir-skills/pkg/ascii.version=$(VERSION) -X github.com/cyberspacesec/snir-skills/pkg/ascii.commit=$(COMMIT) -X github.com/cyberspacesec/snir-skills/pkg/ascii.buildDate=$(BUILD_DATE) -X github.com/cyberspacesec/snir-skills/pkg/ascii.buildTime=$(BUILD_TIME)"
 
 # 构建可执行文件
 build:

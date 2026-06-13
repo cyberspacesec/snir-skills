@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 	"github.com/gorilla/mux"
 )
 

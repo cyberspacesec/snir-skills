@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cyberspacesec/go-snir/pkg/ascii"
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/ascii"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 var (

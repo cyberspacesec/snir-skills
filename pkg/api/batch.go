@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // HandleBatchScreenshot 批量处理多个URL的截图请求

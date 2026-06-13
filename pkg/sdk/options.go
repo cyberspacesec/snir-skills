@@ -3,7 +3,7 @@ package sdk
 import (
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 // ClientOptions SDK 客户端配置

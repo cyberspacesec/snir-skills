@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 // proxyStrategyFlag 实现 pflag.Value 接口

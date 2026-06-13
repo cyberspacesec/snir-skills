@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // TestHTMLOptions 测试HTML选项验证

@@ -3,8 +3,8 @@ package sdk
 import (
 	"fmt"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 // AutoConnectMode 自动连接模式返回的连接类型

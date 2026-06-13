@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/cyberspacesec/go-snir/pkg/api"
+	"github.com/cyberspacesec/snir-skills/pkg/api"
 )
 
 // 应用单个截图请求的配置选项

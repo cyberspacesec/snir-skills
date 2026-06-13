@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // ProxyProvider 代理提供者接口

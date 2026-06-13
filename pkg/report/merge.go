@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cyberspacesec/go-snir/pkg/islazy"
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/islazy"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // MergeOptions 包含报告合并选项

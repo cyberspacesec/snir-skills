@@ -9,8 +9,8 @@ import (
 
 	"github.com/chromedp/chromedp"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // PoolStats 连接池统计信息

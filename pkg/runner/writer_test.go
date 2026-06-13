@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // createTestResult creates a test result for all writer tests

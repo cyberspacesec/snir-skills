@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // TestIsValidExtension 测试文件扩展名验证

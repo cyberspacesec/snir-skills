@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // 全局单例池

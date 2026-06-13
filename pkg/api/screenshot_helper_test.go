@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 func TestEnsureProtocol(t *testing.T) {

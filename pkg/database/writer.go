@@ -3,8 +3,8 @@ package database
 import (
 	"fmt"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // DBWriter 实现 runner.Writer 接口，将结果写入数据库

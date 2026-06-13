@@ -3,7 +3,7 @@ package database
 import (
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // Screenshot 表示数据库中的截图记录

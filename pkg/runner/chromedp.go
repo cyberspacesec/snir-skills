@@ -17,8 +17,8 @@ import (
 
 	"github.com/chromedp/chromedp"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // ChromeDP implements the Driver interface using chromedp

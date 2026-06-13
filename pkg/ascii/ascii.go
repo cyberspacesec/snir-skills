@@ -18,7 +18,7 @@ var (
 )
 
 // ProjectURL 是项目的GitHub URL
-const ProjectURL = "https://github.com/cyberspacesec/go-snir"
+const ProjectURL = "https://github.com/cyberspacesec/snir-skills"
 
 // Logo 返回 go-snir 的 ASCII 艺术标志
 // 使用了颜色修饰以提高可读性

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // CreateAuthMiddleware 创建API认证中间件

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // ChromeInstance 表示一个已发现的 Chrome 实例

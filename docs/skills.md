@@ -188,7 +188,7 @@ go-snir 是一个基于 Chrome DevTools Protocol (CDP) 的网页截图与信息�
 ### 2.1 安装
 
 ```bash
-go get github.com/cyberspacesec/go-snir/pkg/sdk
+go get github.com/cyberspacesec/snir-skills/pkg/sdk
 ```
 
 ### 2.2 基本使用
@@ -198,7 +198,7 @@ package main
 
 import (
     "fmt"
-    "github.com/cyberspacesec/go-snir/pkg/sdk"
+    "github.com/cyberspacesec/snir-skills/pkg/sdk"
 )
 
 func main() {

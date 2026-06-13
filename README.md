@@ -18,7 +18,7 @@
 ### 从源码安装
 
 ```bash
-git clone https://github.com/cyberspacesec/go-snir.git
+git clone https://github.com/cyberspacesec/snir-skills.git
 cd go-web-screenshot
 go build
 ```

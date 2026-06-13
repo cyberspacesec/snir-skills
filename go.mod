@@ -1,4 +1,4 @@
-module github.com/cyberspacesec/go-snir
+module github.com/cyberspacesec/snir-skills
 
 go 1.23.0
 

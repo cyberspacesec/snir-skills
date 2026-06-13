@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 // SharedScreenshot 使用进程级共享池执行截图

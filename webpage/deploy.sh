@@ -21,7 +21,7 @@ git add .
 git commit -m "Deploy to GitHub Pages"
 
 # 强制推送到gh-pages分支
-git push -f git@github.com:cyberspacesec/go-snir.git master:gh-pages
+git push -f git@github.com:cyberspacesec/snir-skills.git master:gh-pages
 
 # 返回并清理
 cd ..

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 func TestClient_ScreenshotFullPage(t *testing.T) {

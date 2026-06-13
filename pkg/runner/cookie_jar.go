@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // CookieJar Cookie 持久化存储

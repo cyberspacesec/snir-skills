@@ -1,10 +1,9 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
+# GoReleaser 配置 — snir-skills
+# 文档: https://goreleaser.com
 version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
 
 builds:
@@ -17,35 +16,28 @@ builds:
       - freebsd
       - openbsd
       - netbsd
-      - dragonfly
-      - solaris
     goarch:
       - amd64
-      - 386
       - arm64
+      - 386
       - arm
-      - ppc64
-      - ppc64le
       - mips
       - mipsle
       - mips64
       - mips64le
-      - s390x
+      - ppc64le
       - riscv64
+      - s390x
     goarm:
       - 5
       - 6
       - 7
-    # 忽略不支持的平台组合
     ignore:
+      # macOS 只支持 amd64 和 arm64
       - goos: darwin
         goarch: 386
       - goos: darwin
         goarch: arm
-      - goos: darwin
-        goarch: ppc64
-      - goos: darwin
-        goarch: ppc64le
       - goos: darwin
         goarch: mips
       - goos: darwin
@@ -55,17 +47,16 @@ builds:
       - goos: darwin
         goarch: mips64le
       - goos: darwin
-        goarch: s390x
+        goarch: ppc64le
       - goos: darwin
         goarch: riscv64
+      - goos: darwin
+        goarch: s390x
+      # Windows 限制
       - goos: windows
         goarch: arm
         goarm: 5
       - goos: windows
-        goarch: ppc64
-      - goos: windows
-        goarch: ppc64le
-      - goos: windows
         goarch: mips
       - goos: windows
         goarch: mipsle
@@ -73,40 +64,60 @@ builds:
         goarch: mips64
       - goos: windows
         goarch: mips64le
+      - goos: windows
+        goarch: ppc64le
+      - goos: windows
+        goarch: riscv64
       - goos: windows
         goarch: s390x
-      - goos: windows
-        goarch: riscv64
-      - goos: solaris
-        goarch: 386
-      - goos: solaris
+      # FreeBSD 不支持 armv5
+      - goos: freebsd
         goarch: arm
-      - goos: solaris
-        goarch: arm64
-      - goos: solaris
-        goarch: ppc64
-      - goos: solaris
-        goarch: ppc64le
-      - goos: solaris
+        goarm: 5
+      - goos: freebsd
+        goarch: s390x
+      # OpenBSD 限制
+      - goos: openbsd
+        goarch: arm
+        goarm: 5
+      - goos: openbsd
         goarch: mips
-      - goos: solaris
+      - goos: openbsd
         goarch: mipsle
-      - goos: solaris
+      - goos: openbsd
         goarch: mips64
-      - goos: solaris
+      - goos: openbsd
         goarch: mips64le
-      - goos: solaris
-        goarch: riscv64
+      - goos: openbsd
+        goarch: ppc64le
+      - goos: openbsd
+        goarch: s390x
+      # NetBSD 限制
+      - goos: netbsd
+        goarch: arm
+        goarm: 5
+      - goos: netbsd
+        goarch: mips
+      - goos: netbsd
+        goarch: mipsle
+      - goos: netbsd
+        goarch: mips64
+      - goos: netbsd
+        goarch: mips64le
+      - goos: netbsd
+        goarch: ppc64le
+      - goos: netbsd
+        goarch: s390x
     ldflags:
       - -s -w
-      - -X github.com/cyberspacesec/go-snir/pkg/ascii.version={{.Version}}
-      - -X github.com/cyberspacesec/go-snir/pkg/ascii.commit={{.Commit}}
-      - -X github.com/cyberspacesec/go-snir/pkg/ascii.buildDate={{.Date}}
-      - -X github.com/cyberspacesec/go-snir/pkg/ascii.buildTime={{.Env.BUILD_TIME}}
+      - -X github.com/cyberspacesec/snir-skills/pkg/ascii.version={{.Version}}
+      - -X github.com/cyberspacesec/snir-skills/pkg/ascii.commit={{.Commit}}
+      - -X github.com/cyberspacesec/snir-skills/pkg/ascii.buildDate={{.Date}}
+      - -X github.com/cyberspacesec/snir-skills/pkg/ascii.buildTime={{.Env.BUILD_TIME}}
     binary: snir
     main: .
     id: "snir"
-    
+
 archives:
   - id: default
     name_template: >-
@@ -114,6 +125,7 @@ archives:
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "arm64" }}arm64
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     formats:
@@ -124,11 +136,11 @@ archives:
     files:
       - README.md
       - LICENSE*
-      - docs/*
+      - docs/superpowers/**
 
 checksum:
   name_template: 'checksums.txt'
-  
+
 changelog:
   sort: asc
   filters:
@@ -139,16 +151,113 @@ changelog:
       - '^chore:'
       - Merge pull request
       - Merge branch
-      
+
+# Linux 包管理器支持 (deb/rpm/archlinux)
+nfpms:
+  - id: snir-packages
+    package_name: snir
+    builds:
+      - snir
+    formats:
+      - deb
+      - rpm
+      - archlinux
+    maintainer: CyberSpaceSec <cyberspacesec@gmail.com>
+    homepage: https://github.com/cyberspacesec/snir-skills
+    description: |
+      基于 Chrome DevTools Protocol 的网页截图与信息收集工具。
+      支持单 URL/批量/网段截图、HTML/Cookie/网络请求收集、
+      JavaScript 执行、代理轮换、HTTP API 服务等。
+    license: MIT
+    section: utils
+    priority: optional
+    recommends:
+      - chromium | chromium-browser | google-chrome
+    contents:
+      - src: ./docs/superpowers/**
+        dst: /usr/share/doc/snir/superpowers
+
+# Homebrew 支持 (macOS/Linux)
 brews:
   - name: snir
     repository:
       owner: cyberspacesec
       name: homebrew-tap
-    homepage: "https://github.com/cyberspacesec/go-snir"
-    description: "一个强大的网页截图和信息收集工具"
+    homepage: "https://github.com/cyberspacesec/snir-skills"
+    description: "基于 CDP 的网页截图与信息收集工具"
     license: "MIT"
     install: |
       bin.install "snir"
     test: |
-      system "#{bin}/snir version" 
+      system "#{bin}/snir version"
+
+# Release 发布说明
+release:
+  github:
+    owner: cyberspacesec
+    name: snir-skills
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## snir {{.Tag}} 发布 🎉
+
+    基于 Chrome DevTools Protocol 的网页截图与信息收集工具。
+
+    ### 快速安装
+    ```bash
+    # Linux/macOS 一键安装（自动检测平台）
+    LATEST={{.Tag}}
+    OS=$(uname -s | sed 's/Linux/Linux/;s/Darwin/Darwin/;s/FreeBSD/FreeBSD/;s/OpenBSD/OpenBSD/;s/NetBSD/NetBSD/')
+    ARCH=$(uname -m | sed 's/x86_64/x86_64/;s/aarch64/arm64/;s/arm64/arm64/;s/armv.*/armv7/')
+    curl -L -o snir.tar.gz "https://github.com/cyberspacesec/snir-skills/releases/download/${LATEST}/snir-skills_${OS}_${ARCH}.tar.gz"
+    tar xzf snir.tar.gz snir && chmod +x snir && sudo mv snir /usr/local/bin/
+    ```
+
+    ### 支持的平台
+    | 操作系统 | 架构 | 下载文件名 |
+    |---------|------|-----------|
+    | Linux | x86_64 | `snir-skills_Linux_x86_64.tar.gz` |
+    | Linux | arm64 | `snir-skills_Linux_arm64.tar.gz` |
+    | Linux | i386 | `snir-skills_Linux_i386.tar.gz` |
+    | Linux | armv5/v6/v7 | `snir-skills_Linux_armvX.tar.gz` |
+    | Linux | mips/mipsle | `snir-skills_Linux_mips.tar.gz` |
+    | Linux | mips64/mips64le | `snir-skills_Linux_mips64.tar.gz` |
+    | Linux | ppc64le | `snir-skills_Linux_ppc64le.tar.gz` |
+    | Linux | riscv64 | `snir-skills_Linux_riscv64.tar.gz` |
+    | Linux | s390x | `snir-skills_Linux_s390x.tar.gz` |
+    | macOS | x86_64 | `snir-skills_Darwin_x86_64.tar.gz` |
+    | macOS | arm64 (Apple Silicon) | `snir-skills_Darwin_arm64.tar.gz` |
+    | Windows | x86_64 | `snir-skills_Windows_x86_64.zip` |
+    | Windows | arm64 | `snir-skills_Windows_arm64.zip` |
+    | Windows | i386 | `snir-skills_Windows_i386.zip` |
+    | FreeBSD | x86_64 | `snir-skills_FreeBSD_x86_64.tar.gz` |
+    | FreeBSD | arm64 | `snir-skills_FreeBSD_arm64.tar.gz` |
+    | FreeBSD | i386 | `snir-skills_FreeBSD_i386.tar.gz` |
+    | OpenBSD | x86_64 | `snir-skills_OpenBSD_x86_64.tar.gz` |
+    | OpenBSD | arm64 | `snir-skills_OpenBSD_arm64.tar.gz` |
+    | NetBSD | x86_64 | `snir-skills_NetBSD_x86_64.tar.gz` |
+    | NetBSD | arm64 | `snir-skills_NetBSD_arm64.tar.gz` |
+
+    > ⚠️ **注意**：Linux arm/mips/ppc64le/riscv64/s390x 构建为纯 Go 二进制（CGO_ENABLED=0），
+    > 截图功能需要本机安装 Chrome/Chromium；如无 Chrome 仍可使用 `--wss` 连接远程 Chrome。
+
+    ### Linux 包管理器安装
+    ```bash
+    # Debian/Ubuntu (.deb)
+    sudo dpkg -i snir_*.deb
+
+    # RHEL/CentOS/Fedora (.rpm)
+    sudo rpm -i snir_*.rpm
+
+    # Arch Linux
+    sudo pacman -U snir-*.pkg.tar.zst
+    ```
+
+    ### Docker
+    ```bash
+    docker pull ghcr.io/cyberspacesec/snir:latest
+    ```
+
+    ### 前置依赖
+    截图功能需要 Chrome/Chromium 浏览器。可通过 `--wss` 连接远程 Chrome 以避免本机安装。

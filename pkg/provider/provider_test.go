@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 func TestDefaultProviderOptions(t *testing.T) {

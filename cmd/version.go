@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cyberspacesec/go-snir/pkg/ascii"
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/ascii"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 var versionCmd = &cobra.Command{

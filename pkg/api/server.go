@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // 全局并发限制器

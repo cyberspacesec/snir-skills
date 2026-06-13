@@ -34,9 +34,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 // Client 是 go-snir 截图 SDK 的主入口

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cyberspacesec/go-snir/pkg/islazy"
-	"github.com/cyberspacesec/go-snir/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/islazy"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
 // ServerOptions 包含Web服务器选项

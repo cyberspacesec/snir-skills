@@ -1,6 +1,6 @@
 package sdk
 
-import "github.com/cyberspacesec/go-snir/pkg/models"
+import "github.com/cyberspacesec/snir-skills/pkg/models"
 
 // ResultWrapper 包装 models.Result 提供便捷访问方法
 type ResultWrapper struct {

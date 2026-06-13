@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/database"
-	"github.com/cyberspacesec/go-snir/pkg/islazy"
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/database"
+	"github.com/cyberspacesec/snir-skills/pkg/islazy"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 // JSONLWriter implements the Writer interface for JSONL files

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/log"
-	"github.com/cyberspacesec/go-snir/pkg/models"
-	"github.com/cyberspacesec/go-snir/pkg/runner"
+	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 	"github.com/gorilla/mux"
 )
 
@@ -123,7 +123,7 @@ func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 		Message: "GO-SNIR API 服务",
 		Data: map[string]interface{}{
 			"version":        "1.0.0",
-			"documentation":  "https://github.com/cyberspacesec/go-snir",
+			"documentation":  "https://github.com/cyberspacesec/snir-skills",
 			"endpoints":      []string{"/screenshot", "/batch", "/screenshots_list", "/stats", "/health"},
 			"screenshot_dir": s.Options.ScreenshotPath,
 		},

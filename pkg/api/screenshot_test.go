@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/gorilla/mux"
 )
 

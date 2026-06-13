@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyberspacesec/go-snir/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 func TestNewDriverPool(t *testing.T) {
