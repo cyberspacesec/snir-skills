@@ -15,14 +15,14 @@ import (
 
 // PoolStats 连接池统计信息
 type PoolStats struct {
-	ActiveCount    int       // 当前正在执行的截图数
-	MaxConcurrent  int       // 最大并发数
-	TotalScreenshots int64   // 总截图次数
-	FailedScreenshots int64  // 失败截图次数
-	ReconnectCount int64     // 浏览器重连次数
-	LastActive     time.Time // 最后一次截图时间
-	CreatedAt      time.Time // 池创建时间
-	Closed         bool      // 是否已关闭
+	ActiveCount       int       // 当前正在执行的截图数
+	MaxConcurrent     int       // 最大并发数
+	TotalScreenshots  int64     // 总截图次数
+	FailedScreenshots int64     // 失败截图次数
+	ReconnectCount    int64     // 浏览器重连次数
+	LastActive        time.Time // 最后一次截图时间
+	CreatedAt         time.Time // 池创建时间
+	Closed            bool      // 是否已关闭
 }
 
 // DriverPool 管理一组可复用的 Chrome 浏览器实例
@@ -44,10 +44,10 @@ type DriverPool struct {
 	sem chan struct{} // 信号量控制并发截图数
 
 	// 状态管理
-	mu          sync.RWMutex
-	active      atomic.Int32
-	closed      bool
-	closing     bool // 正在优雅关闭中
+	mu      sync.RWMutex
+	active  atomic.Int32
+	closed  bool
+	closing bool // 正在优雅关闭中
 
 	// 统计
 	totalScreenshots  atomic.Int64
@@ -57,9 +57,9 @@ type DriverPool struct {
 	createdAt         time.Time
 
 	// 空闲超时
-	idleTimeout    time.Duration // 0 表示不自动关闭
-	idleTimer      *time.Timer
-	idleMu         sync.Mutex
+	idleTimeout time.Duration // 0 表示不自动关闭
+	idleTimer   *time.Timer
+	idleMu      sync.Mutex
 
 	// 优雅关闭
 	shutdownCh chan struct{}
@@ -371,14 +371,14 @@ func (p *DriverPool) Stats() PoolStats {
 	}
 
 	return PoolStats{
-		ActiveCount:      int(p.active.Load()),
-		MaxConcurrent:    cap(p.sem),
-		TotalScreenshots: p.totalScreenshots.Load(),
+		ActiveCount:       int(p.active.Load()),
+		MaxConcurrent:     cap(p.sem),
+		TotalScreenshots:  p.totalScreenshots.Load(),
 		FailedScreenshots: p.failedScreenshots.Load(),
-		ReconnectCount:   p.reconnectCount.Load(),
-		LastActive:       lastActive,
-		CreatedAt:        p.createdAt,
-		Closed:           p.closed,
+		ReconnectCount:    p.reconnectCount.Load(),
+		LastActive:        lastActive,
+		CreatedAt:         p.createdAt,
+		Closed:            p.closed,
 	}
 }
 

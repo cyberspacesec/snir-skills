@@ -132,7 +132,8 @@ archives:
       - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE*
@@ -156,7 +157,7 @@ changelog:
 nfpms:
   - id: snir-packages
     package_name: snir
-    builds:
+    ids:
       - snir
     formats:
       - deb
@@ -178,18 +179,21 @@ nfpms:
         dst: /usr/share/doc/snir/superpowers
 
 # Homebrew 支持 (macOS/Linux)
-brews:
-  - name: snir
-    repository:
-      owner: cyberspacesec
-      name: homebrew-tap
-    homepage: "https://github.com/cyberspacesec/snir-skills"
-    description: "基于 CDP 的网页截图与信息收集工具"
-    license: "MIT"
-    install: |
-      bin.install "snir"
-    test: |
-      system "#{bin}/snir version"
+# 注意: brews 需要单独的 homebrew-tap 仓库和 token
+# 启用前请确保 HOMEBREW_TAP_GITHUB_TOKEN 已在 GitHub Secrets 中配置
+# brews:
+#   - name: snir
+#     directory: Formula
+#     repository:
+#       owner: cyberspacesec
+#       name: homebrew-tap
+#     homepage: "https://github.com/cyberspacesec/snir-skills"
+#     description: "基于 CDP 的网页截图与信息收集工具"
+#     license: "MIT"
+#     install: |
+#       bin.install "snir"
+#     test: |
+#       system "#{bin}/snir version"
 
 # Release 发布说明
 release:

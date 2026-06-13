@@ -262,5 +262,3 @@ func ExportResultCookiesToNetscape(filePath string, resultCookies []models.Cooki
 
 	return SaveNetscapeCookieFile(filePath, cookies)
 }
-
-

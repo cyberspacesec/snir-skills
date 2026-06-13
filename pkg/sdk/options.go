@@ -10,20 +10,20 @@ import (
 // 控制浏览器行为、截图参数、数据收集等
 type ClientOptions struct {
 	// Chrome 浏览器配置
-	ChromePath    string // Chrome 可执行文件路径
-	Headless      bool   // 无头模式（默认 true）
-	WindowWidth   int    // 窗口宽度（默认 1280）
-	WindowHeight  int    // 窗口高度（默认 800）
-	UserAgent     string // 自定义 User-Agent
-	Proxy         string // 代理服务器地址
-	WSSURL        string // 远程 Chrome WebSocket URL
-	IgnoreCertErrors bool // 忽略证书错误
+	ChromePath       string // Chrome 可执行文件路径
+	Headless         bool   // 无头模式（默认 true）
+	WindowWidth      int    // 窗口宽度（默认 1280）
+	WindowHeight     int    // 窗口高度（默认 800）
+	UserAgent        string // 自定义 User-Agent
+	Proxy            string // 代理服务器地址
+	WSSURL           string // 远程 Chrome WebSocket URL
+	IgnoreCertErrors bool   // 忽略证书错误
 
 	// 浏览器指纹配置（反检测）
-	AcceptLanguage   string            // Accept-Language 头（如 "zh-CN,zh;q=0.9"）
-	Platform         string            // 平台标识（如 "Win32"）
-	Vendor           string            // 浏览器厂商（如 "Google Inc."）
-	Plugins          []string          // 浏览器插件列表
+	AcceptLanguage  string            // Accept-Language 头（如 "zh-CN,zh;q=0.9"）
+	Platform        string            // 平台标识（如 "Win32"）
+	Vendor          string            // 浏览器厂商（如 "Google Inc."）
+	Plugins         []string          // 浏览器插件列表
 	WebGLVendor     string            // WebGL 厂商（如 "Intel Inc."）
 	WebGLRenderer   string            // WebGL 渲染器（如 "Intel Iris"）
 	CustomHeaders   map[string]string // 自定义 HTTP 头
@@ -33,14 +33,14 @@ type ClientOptions struct {
 	ScreenHeight    int               // 伪造屏幕高度
 
 	// 截图配置
-	MaxConcurrent    int    // 最大并发截图数（默认 2）
-	ScreenshotPath   string // 截图保存路径
-	ScreenshotFormat string // 截图格式 png/jpeg
-	ScreenshotQuality int   // JPEG 截图质量（1-100，默认 90）
-	SkipSave         bool   // 跳过保存到磁盘
-	CaptureFullPage  bool   // 全页截图（含滚动区域）
-	Selector         string // CSS 选择器截图
-	XPath            string // XPath 截图
+	MaxConcurrent     int    // 最大并发截图数（默认 2）
+	ScreenshotPath    string // 截图保存路径
+	ScreenshotFormat  string // 截图格式 png/jpeg
+	ScreenshotQuality int    // JPEG 截图质量（1-100，默认 90）
+	SkipSave          bool   // 跳过保存到磁盘
+	CaptureFullPage   bool   // 全页截图（含滚动区域）
+	Selector          string // CSS 选择器截图
+	XPath             string // XPath 截图
 
 	// 超时配置
 	Timeout time.Duration // 页面加载超时
@@ -52,11 +52,11 @@ type ClientOptions struct {
 	RunJSBefore    bool   // 在页面加载前执行 JS
 
 	// 数据收集
-	SaveHTML     bool // 保存 HTML 源码
-	SaveHeaders  bool // 保存 HTTP 头
-	SaveConsole  bool // 保存控制台日志
-	SaveCookies  bool // 保存 Cookie
-	SaveNetwork  bool // 保存网络请求日志
+	SaveHTML    bool // 保存 HTML 源码
+	SaveHeaders bool // 保存 HTTP 头
+	SaveConsole bool // 保存控制台日志
+	SaveCookies bool // 保存 Cookie
+	SaveNetwork bool // 保存网络请求日志
 
 	// 重试配置
 	MaxRetries int // 最大重试次数（默认 1）
@@ -75,26 +75,26 @@ type ClientOptions struct {
 	BlacklistFile     string   // 黑名单文件路径
 
 	// Cookie 持久化
-	CookieFile        string   // Cookie 持久化文件路径 (JSON 格式)
+	CookieFile string // Cookie 持久化文件路径 (JSON 格式)
 }
 
 // DefaultClientOptions 返回默认客户端配置
 func DefaultClientOptions() ClientOptions {
 	return ClientOptions{
-		Headless:         true,
-		WindowWidth:      1280,
-		WindowHeight:     800,
-		Timeout:          30 * time.Second,
-		MaxConcurrent:    2,
-		ScreenshotPath:   "screenshots",
-		ScreenshotFormat: "png",
+		Headless:          true,
+		WindowWidth:       1280,
+		WindowHeight:      800,
+		Timeout:           30 * time.Second,
+		MaxConcurrent:     2,
+		ScreenshotPath:    "screenshots",
+		ScreenshotFormat:  "png",
 		ScreenshotQuality: 90,
-		SkipSave:         false,
-		IgnoreCertErrors: false,
-		CaptureFullPage:  false,
-		MaxRetries:       1,
-		EnableBlacklist:  true,
-		DefaultBlacklist: true,
+		SkipSave:          false,
+		IgnoreCertErrors:  false,
+		CaptureFullPage:   false,
+		MaxRetries:        1,
+		EnableBlacklist:   true,
+		DefaultBlacklist:  true,
 	}
 }
 
@@ -110,10 +110,10 @@ type ScreenshotOptions struct {
 	Proxy     string // 代理（覆盖 ClientOptions）
 
 	// 截图覆盖
-	Selector         string // CSS 选择器
-	XPath            string // XPath
-	CaptureFullPage  bool   // 全页截图
-	ScreenshotQuality int   // JPEG 质量
+	Selector          string // CSS 选择器
+	XPath             string // XPath
+	CaptureFullPage   bool   // 全页截图
+	ScreenshotQuality int    // JPEG 质量
 
 	// JavaScript
 	JavaScript     string // 在页面上执行的 JavaScript

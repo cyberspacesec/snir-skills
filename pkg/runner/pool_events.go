@@ -28,13 +28,13 @@ const (
 
 // PoolEvent 池事件
 type PoolEvent struct {
-	Type      PoolEventType  // 事件类型
-	URL       string         // 截图 URL（仅截图相关事件）
-	Duration  time.Duration  // 截图耗时（仅截图完成/失败事件）
-	Error     error          // 错误信息（仅失败事件）
-	ReconnectCount int64     // 重连次数（仅重连事件）
-	Timestamp time.Time      // 事件时间
-	Result    *models.Result // 截图结果（仅完成事件）
+	Type           PoolEventType  // 事件类型
+	URL            string         // 截图 URL（仅截图相关事件）
+	Duration       time.Duration  // 截图耗时（仅截图完成/失败事件）
+	Error          error          // 错误信息（仅失败事件）
+	ReconnectCount int64          // 重连次数（仅重连事件）
+	Timestamp      time.Time      // 事件时间
+	Result         *models.Result // 截图结果（仅完成事件）
 }
 
 // PoolEventHandler 池事件回调函数
@@ -115,9 +115,9 @@ func (eb *eventBus) emitScreenshotFailed(url string, duration time.Duration, err
 // emitReconnect 触发浏览器重连事件
 func (eb *eventBus) emitReconnect(reconnectCount int64) {
 	eb.emit(PoolEvent{
-		Type:            EventReconnect,
-		ReconnectCount:  reconnectCount,
-		Timestamp:       time.Now(),
+		Type:           EventReconnect,
+		ReconnectCount: reconnectCount,
+		Timestamp:      time.Now(),
 	})
 }
 

@@ -14,8 +14,8 @@ const (
 
 // Result is a Go-Web-Screenshot result
 type Result struct {
-	Path     string    `json:"path"` // 截图文件存储路径
-	ID uint `json:"id" gorm:"primarykey"`
+	Path string `json:"path"` // 截图文件存储路径
+	ID   uint   `json:"id" gorm:"primarykey"`
 
 	URL                   string    `json:"url"`
 	ProbedAt              time.Time `json:"probed_at"`
@@ -29,7 +29,6 @@ type Result struct {
 	PerceptionHash        string    `json:"perception_hash" gorm:"index"`
 	PerceptionHashGroupId uint      `json:"perception_hash_group_id" gorm:"index"`
 	Screenshot            string    `json:"screenshot"`
-
 
 	// Name of the screenshot file
 	Filename string `json:"filename"` // 截图文件名

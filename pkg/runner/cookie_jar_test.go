@@ -195,10 +195,10 @@ func TestCookieJar_Clear(t *testing.T) {
 
 	jar, _ := NewCookieJar(cookieFile)
 	jar.AddCookie(PersistentCookie{
-		Name:       "a", Value: "1", Domain: ".a.com", Persistent: true,
+		Name: "a", Value: "1", Domain: ".a.com", Persistent: true,
 	})
 	jar.AddCookie(PersistentCookie{
-		Name:       "b", Value: "2", Domain: ".b.com", Persistent: true,
+		Name: "b", Value: "2", Domain: ".b.com", Persistent: true,
 	})
 
 	jar.Clear()
@@ -293,7 +293,6 @@ func TestCookieJar_FileDoesNotExist(t *testing.T) {
 	// 清理
 	os.Remove("/tmp/nonexistent_dir/cookies_test.json")
 }
-
 
 func TestDomainMatches(t *testing.T) {
 	tests := []struct {

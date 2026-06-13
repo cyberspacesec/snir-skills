@@ -41,13 +41,13 @@ import (
 // ProviderOptions CDP Provider 配置
 type ProviderOptions struct {
 	// Chrome 配置
-	ChromePath    string // Chrome 可执行文件路径（留空则自动查找）
-	Headless      bool   // 是否使用无头模式（默认 true）
-	WindowWidth   int    // 窗口宽度（默认 1280）
-	WindowHeight  int    // 窗口高度（默认 800）
-	UserAgent     string // 自定义 User-Agent
-	Proxy         string // 代理服务器地址
-	IgnoreCertErrors bool // 忽略证书错误
+	ChromePath       string // Chrome 可执行文件路径（留空则自动查找）
+	Headless         bool   // 是否使用无头模式（默认 true）
+	WindowWidth      int    // 窗口宽度（默认 1280）
+	WindowHeight     int    // 窗口高度（默认 800）
+	UserAgent        string // 自定义 User-Agent
+	Proxy            string // 代理服务器地址
+	IgnoreCertErrors bool   // 忽略证书错误
 
 	// Provider 服务配置
 	Host string // Provider 监听地址（默认 "0.0.0.0"）
@@ -80,13 +80,13 @@ func DefaultProviderOptions() ProviderOptions {
 // Provider CDP Provider 服务
 // 管理 Chrome 实例的生命周期，通过 HTTP API 暴露 WebSocket URL
 type Provider struct {
-	opts       ProviderOptions
-	pool       *runner.DriverPool
-	server     *http.Server
-	mu         sync.RWMutex
-	ready      bool
-	startedAt  time.Time
-	requests   int64
+	opts      ProviderOptions
+	pool      *runner.DriverPool
+	server    *http.Server
+	mu        sync.RWMutex
+	ready     bool
+	startedAt time.Time
+	requests  int64
 }
 
 // NewProvider 创建一个新的 CDP Provider
@@ -233,14 +233,14 @@ func (p *Provider) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	info := map[string]interface{}{
-		"name":         "go-snir CDP Provider",
-		"version":      "1.0.0",
-		"description":  "共享 Chrome/CDP 实例，供多个工具/服务复用",
-		"ws_endpoint":  p.getWebSocketURL(r),
+		"name":        "go-snir CDP Provider",
+		"version":     "1.0.0",
+		"description": "共享 Chrome/CDP 实例，供多个工具/服务复用",
+		"ws_endpoint": p.getWebSocketURL(r),
 		"endpoints": map[string]string{
-			"GET /ws":         "获取 WebSocket URL（用于远程连接）",
-			"GET /health":     "健康检查",
-			"GET /stats":      "连接池统计信息",
+			"GET /ws":          "获取 WebSocket URL（用于远程连接）",
+			"GET /health":      "健康检查",
+			"GET /stats":       "连接池统计信息",
 			"POST /screenshot": "直接截图（无需客户端）",
 		},
 	}
@@ -256,7 +256,7 @@ func (p *Provider) handleWebSocketURL(w http.ResponseWriter, r *http.Request) {
 	wsURL := p.getWebSocketURL(r)
 
 	response := map[string]interface{}{
-		"ws_url":       wsURL,
+		"ws_url":         wsURL,
 		"max_concurrent": p.opts.MaxConcurrent,
 		"usage": map[string]string{
 			"go":   `client, _ := sdk.NewRemoteClient("` + wsURL + `", 4)`,
@@ -274,10 +274,10 @@ func (p *Provider) handleHealth(w http.ResponseWriter, r *http.Request) {
 	stats := p.pool.Stats()
 
 	response := map[string]interface{}{
-		"status":    "ok",
-		"ready":     p.ready,
-		"closed":    stats.Closed,
-		"uptime":    time.Since(p.startedAt).String(),
+		"status": "ok",
+		"ready":  p.ready,
+		"closed": stats.Closed,
+		"uptime": time.Since(p.startedAt).String(),
 	}
 
 	if stats.Closed {

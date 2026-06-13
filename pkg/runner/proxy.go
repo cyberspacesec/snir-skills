@@ -46,7 +46,7 @@ func (p *StaticProxy) Name() string {
 // ProxyList 代理列表轮换
 // 从给定的代理列表中按策略轮换：顺序、随机、轮询
 type ProxyList struct {
-	proxies []string
+	proxies  []string
 	strategy ProxyStrategy
 	index    int
 	mu       sync.Mutex
@@ -87,7 +87,7 @@ func (p *ProxyList) GetProxy() (string, error) {
 
 	switch p.strategy {
 	case ProxyRoundRobin:
-		proxy := p.proxies[p.index % len(p.proxies)]
+		proxy := p.proxies[p.index%len(p.proxies)]
 		p.index++
 		return proxy, nil
 	case ProxyRandom:
@@ -296,7 +296,7 @@ func (p *ProxyAPI) GetProxy() (string, error) {
 		// 如果 API 失败，尝试使用缓存
 		p.cacheMu.Lock()
 		if len(p.cache) > 0 {
-			proxy := p.cache[p.cacheIdx % len(p.cache)]
+			proxy := p.cache[p.cacheIdx%len(p.cache)]
 			p.cacheIdx++
 			p.cacheMu.Unlock()
 			log.Warn("代理 API 请求失败，使用缓存", "error", err, "proxy", proxy)

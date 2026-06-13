@@ -24,11 +24,11 @@ type Config struct {
 // Scanner 表示扫描器
 // 负责执行网站扫描和截图操作
 type Scanner struct {
-	Config    *Config            // 扫描配置
-	Driver    runner.Driver      // 浏览器驱动
-	Writers   []runner.Writer    // 结果写入器
-	Runner    *runner.Runner     // 运行器
-	CookieJar *runner.CookieJar  // Cookie 持久化存储
+	Config    *Config           // 扫描配置
+	Driver    runner.Driver     // 浏览器驱动
+	Writers   []runner.Writer   // 结果写入器
+	Runner    *runner.Runner    // 运行器
+	CookieJar *runner.CookieJar // Cookie 持久化存储
 }
 
 // NewScanner 创建一个新的扫描器
@@ -90,8 +90,8 @@ func NewScanner(config *Config) (*Scanner, error) {
 	// 解析内联 Cookie 字符串
 	if len(config.Options.Scan.CookieStrings) > 0 {
 		for _, cs := range config.Options.Scan.CookieStrings {
-		parsed := runner.ParseCookieHeader(cs, "")
-		config.Options.Scan.Cookies = append(config.Options.Scan.Cookies, parsed...)
+			parsed := runner.ParseCookieHeader(cs, "")
+			config.Options.Scan.Cookies = append(config.Options.Scan.Cookies, parsed...)
 		}
 		log.Info("内联 Cookie 已解析", "count", len(config.Options.Scan.CookieStrings))
 	}

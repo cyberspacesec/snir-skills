@@ -94,23 +94,23 @@ func TestCustomCookie_ToSetCookieString(t *testing.T) {
 		contains []string
 	}{
 		{
-			name:   "basic",
-			cookie: CustomCookie{Name: "session", Value: "abc"},
+			name:     "basic",
+			cookie:   CustomCookie{Name: "session", Value: "abc"},
 			contains: []string{"session=abc"},
 		},
 		{
-			name:   "with domain and path",
-			cookie: CustomCookie{Name: "id", Value: "1", Domain: ".example.com", Path: "/api"},
+			name:     "with domain and path",
+			cookie:   CustomCookie{Name: "id", Value: "1", Domain: ".example.com", Path: "/api"},
 			contains: []string{"id=1", "Domain=.example.com", "Path=/api"},
 		},
 		{
-			name:   "secure and httponly",
-			cookie: CustomCookie{Name: "auth", Value: "x", Secure: true, HttpOnly: true},
+			name:     "secure and httponly",
+			cookie:   CustomCookie{Name: "auth", Value: "x", Secure: true, HttpOnly: true},
 			contains: []string{"auth=x", "Secure", "HttpOnly"},
 		},
 		{
-			name:   "samesite",
-			cookie: CustomCookie{Name: "c", Value: "v", SameSite: "Strict"},
+			name:     "samesite",
+			cookie:   CustomCookie{Name: "c", Value: "v", SameSite: "Strict"},
 			contains: []string{"c=v", "SameSite=Strict"},
 		},
 	}

@@ -81,16 +81,16 @@ type ScreenshotRequest struct {
 	IgnoreCertErrors bool   `json:"ignore_cert_errors,omitempty"`
 
 	// 高级浏览器控制
-	JavaScript     string             `json:"javascript,omitempty"`      // 注入的JS代码
-	JavaScriptFile string             `json:"javascript_file,omitempty"` // JS文件路径
-	RunJSBefore    bool               `json:"run_js_before,omitempty"`   // 在页面加载前执行
-	RunJSAfter     bool               `json:"run_js_after,omitempty"`    // 在页面加载后执行
-	Fingerprint    BrowserFingerprint `json:"fingerprint,omitempty"`     // 浏览器指纹配置
-	Cookies        []CustomCookie     `json:"cookies,omitempty"`         // 自定义Cookie
-	CookieFile     string            `json:"cookie_file,omitempty"`      // Cookie持久化文件路径 (JSON格式)
-	CookieImport   string            `json:"cookie_import,omitempty"`    // 导入Netscape格式Cookie文件
-	CookieWriteBack bool             `json:"cookie_write_back,omitempty"` // 截图后写回Cookie到文件
-	CookieHeader    string            `json:"cookie_header,omitempty"`    // Cookie Header 格式 (name=value; name2=value2)
+	JavaScript      string             `json:"javascript,omitempty"`        // 注入的JS代码
+	JavaScriptFile  string             `json:"javascript_file,omitempty"`   // JS文件路径
+	RunJSBefore     bool               `json:"run_js_before,omitempty"`     // 在页面加载前执行
+	RunJSAfter      bool               `json:"run_js_after,omitempty"`      // 在页面加载后执行
+	Fingerprint     BrowserFingerprint `json:"fingerprint,omitempty"`       // 浏览器指纹配置
+	Cookies         []CustomCookie     `json:"cookies,omitempty"`           // 自定义Cookie
+	CookieFile      string             `json:"cookie_file,omitempty"`       // Cookie持久化文件路径 (JSON格式)
+	CookieImport    string             `json:"cookie_import,omitempty"`     // 导入Netscape格式Cookie文件
+	CookieWriteBack bool               `json:"cookie_write_back,omitempty"` // 截图后写回Cookie到文件
+	CookieHeader    string             `json:"cookie_header,omitempty"`     // Cookie Header 格式 (name=value; name2=value2)
 
 	// 高级元素选择和交互
 	Selector        string              `json:"selector,omitempty"`          // CSS选择器
@@ -113,16 +113,16 @@ type BatchScreenshotRequest struct {
 	IgnoreCertErrors bool     `json:"ignore_cert_errors,omitempty"`
 
 	// 高级浏览器控制
-	JavaScript     string             `json:"javascript,omitempty"`      // 注入的JS代码
-	JavaScriptFile string             `json:"javascript_file,omitempty"` // JS文件路径
-	RunJSBefore    bool               `json:"run_js_before,omitempty"`   // 在页面加载前执行
-	RunJSAfter     bool               `json:"run_js_after,omitempty"`    // 在页面加载后执行
-	Fingerprint    BrowserFingerprint `json:"fingerprint,omitempty"`     // 浏览器指纹配置
-	Cookies         []CustomCookie     `json:"cookies,omitempty"`         // 自定义Cookie
-	CookieFile      string             `json:"cookie_file,omitempty"`      // Cookie持久化文件路径
-	CookieImport    string             `json:"cookie_import,omitempty"`    // 导入Netscape格式Cookie文件
+	JavaScript      string             `json:"javascript,omitempty"`        // 注入的JS代码
+	JavaScriptFile  string             `json:"javascript_file,omitempty"`   // JS文件路径
+	RunJSBefore     bool               `json:"run_js_before,omitempty"`     // 在页面加载前执行
+	RunJSAfter      bool               `json:"run_js_after,omitempty"`      // 在页面加载后执行
+	Fingerprint     BrowserFingerprint `json:"fingerprint,omitempty"`       // 浏览器指纹配置
+	Cookies         []CustomCookie     `json:"cookies,omitempty"`           // 自定义Cookie
+	CookieFile      string             `json:"cookie_file,omitempty"`       // Cookie持久化文件路径
+	CookieImport    string             `json:"cookie_import,omitempty"`     // 导入Netscape格式Cookie文件
 	CookieWriteBack bool               `json:"cookie_write_back,omitempty"` // 截图后写回Cookie
-	CookieHeader    string             `json:"cookie_header,omitempty"`    // Cookie Header 格式 (name=value; name2=value2)
+	CookieHeader    string             `json:"cookie_header,omitempty"`     // Cookie Header 格式 (name=value; name2=value2)
 
 	// 高级元素选择和交互
 	Selector        string              `json:"selector,omitempty"`          // CSS选择器
@@ -157,10 +157,10 @@ type ServerOptions struct {
 type Server struct {
 	Options          ServerOptions
 	Router           *mux.Router
-	concurrencyLimit interface{}          // 并发限制器
-	shutdownCh       chan struct{}        // 关闭通道
-	serverStartTime  time.Time            // 服务器启动时间
-	pool             *runner.DriverPool   // 浏览器连接池，复用 Chrome 进程
+	concurrencyLimit interface{}        // 并发限制器
+	shutdownCh       chan struct{}      // 关闭通道
+	serverStartTime  time.Time          // 服务器启动时间
+	pool             *runner.DriverPool // 浏览器连接池，复用 Chrome 进程
 }
 
 // MemoryWriter 内存写入器实现 runner.Writer 接口

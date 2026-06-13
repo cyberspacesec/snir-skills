@@ -239,15 +239,15 @@ func TestClient_ScreenshotHTML(t *testing.T) {
 
 func TestResultWrapper(t *testing.T) {
 	r := &models.Result{
-		Title:         "Test Page",
-		ResponseCode:  200,
-		HTML:          "<html></html>",
-		Screenshot:    "/tmp/test.png",
-		Failed:        false,
-		Headers:       []models.Header{{Name: "Content-Type", Value: "text/html"}},
-		Cookies:       []models.Cookie{{Name: "session", Value: "abc"}},
-		Console:       []models.ConsoleLog{{Level: "error", Message: "test error"}},
-		Technologies:  []models.Technology{{Name: "React", Version: "18"}},
+		Title:        "Test Page",
+		ResponseCode: 200,
+		HTML:         "<html></html>",
+		Screenshot:   "/tmp/test.png",
+		Failed:       false,
+		Headers:      []models.Header{{Name: "Content-Type", Value: "text/html"}},
+		Cookies:      []models.Cookie{{Name: "session", Value: "abc"}},
+		Console:      []models.ConsoleLog{{Level: "error", Message: "test error"}},
+		Technologies: []models.Technology{{Name: "React", Version: "18"}},
 	}
 
 	w := WrapResult(r)

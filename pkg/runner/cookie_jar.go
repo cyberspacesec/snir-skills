@@ -31,9 +31,9 @@ type PersistentCookie struct {
 	HttpOnly bool   `json:"http_only,omitempty"`
 
 	// 持久化控制
-	Persistent bool   `json:"persistent"`             // true=持久化保存，false=一次性使用
-	ExpiresAt  int64  `json:"expires_at,omitempty"`   // Unix 时间戳，0=永不过期
-	Source     string `json:"source,omitempty"`        // 来源标记：manual/api/file/session
+	Persistent bool   `json:"persistent"`           // true=持久化保存，false=一次性使用
+	ExpiresAt  int64  `json:"expires_at,omitempty"` // Unix 时间戳，0=永不过期
+	Source     string `json:"source,omitempty"`     // 来源标记：manual/api/file/session
 }
 
 // IsExpired 检查 Cookie 是否已过期
@@ -346,7 +346,6 @@ func CookieJarToCustomCookies(jar *CookieJar, domain string) []CustomCookie {
 	}
 	return jar.GetCookies(domain)
 }
-
 
 // domainMatches 检查请求域名是否匹配 Cookie 域名
 // 遵循 RFC 6265 的域名匹配规则：

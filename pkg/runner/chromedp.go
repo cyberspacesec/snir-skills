@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-
-
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/network"
@@ -463,7 +461,6 @@ func (c *ChromeDP) Close() {
 		c.cancel()
 	}
 }
-
 
 // parseSameSite 将字符串转为 network.CookieSameSite
 func parseSameSite(s string) network.CookieSameSite {

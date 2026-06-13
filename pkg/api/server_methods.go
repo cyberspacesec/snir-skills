@@ -173,11 +173,11 @@ func (s *Server) HandleStats(w http.ResponseWriter, r *http.Request) {
 	if s.pool != nil {
 		poolStats := s.pool.Stats()
 		stats["pool"] = map[string]interface{}{
-			"active_screenshots":  poolStats.ActiveCount,
-			"total_screenshots":   poolStats.TotalScreenshots,
-			"failed_screenshots":  poolStats.FailedScreenshots,
-			"reconnect_count":     poolStats.ReconnectCount,
-			"closed":              poolStats.Closed,
+			"active_screenshots": poolStats.ActiveCount,
+			"total_screenshots":  poolStats.TotalScreenshots,
+			"failed_screenshots": poolStats.FailedScreenshots,
+			"reconnect_count":    poolStats.ReconnectCount,
+			"closed":             poolStats.Closed,
 		}
 	}
 
