@@ -1,7 +1,7 @@
-# snir — Web Screenshot & Intelligence Collector
+# snir — 网页截图与信息收集工具
 
 <p align="center">
-  <strong>Chrome DevTools Protocol powered screenshot tool with multi-modal integration</strong>
+  <strong>基于 Chrome DevTools Protocol 的网页截图工具，支持多种接入方式</strong>
 </p>
 
 <p align="center">
@@ -11,18 +11,20 @@
   <img src="https://img.shields.io/github/actions/workflow/status/cyberspacesec/snir-skills/ci.yml?branch=main&style=flat-square" alt="CI">
 </p>
 
+[English](README.md) | 简体中文
+
 ---
 
-## Integration Methods
+## 接入方式
 
-### 1. 🤖 SKILLS (AI Agent Integration) — Recommended
+### 1. 🤖 SKILLS（AI Agent 集成）— 推荐方式
 
-SKILLS provides progressive-disclosure documentation that AI agents can use to autonomously install and operate snir without any prior Go knowledge.
+SKILLS 提供渐进式披露文档，AI Agent 可自主安装和操作 snir，无需预装 Go SDK。
 
-**One-click install for AI agents:**
+**AI Agent 一键安装：**
 
 ```bash
-# Auto-detect platform and install the latest release
+# 自动检测平台并安装最新版本
 LATEST=$(curl -s https://api.github.com/repos/cyberspacesec/snir-skills/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 OS=$(uname -s | sed 's/Linux/Linux/;s/Darwin/Darwin/;s/FreeBSD/Freebsd/;s/OpenBSD/Openbsd/;s/NetBSD/Netbsd/')
 ARCH=$(uname -m | sed 's/x86_64/x86_64/;s/aarch64/arm64/;s/arm64/arm64/')
@@ -31,12 +33,12 @@ tar xzf snir.tar.gz snir && chmod +x snir && sudo mv snir /usr/local/bin/
 snir version
 ```
 
-📖 **Full SKILLS documentation:** [`docs/superpowers/SKILLS.md`](docs/superpowers/SKILLS.md)
+📖 **完整 SKILLS 文档：** [`docs/superpowers/SKILLS.md`](docs/superpowers/SKILLS.md)
 
-Per-command docs with progressive disclosure (quick start → common options → advanced → full reference):
+每个命令的渐进式文档（快速上手 → 常用选项 → 高级选项 → 完整参数参考）：
 
-| Command | Document |
-|---------|----------|
+| 命令 | 文档 |
+|------|------|
 | `scan` | [`scan.md`](docs/superpowers/scan.md) |
 | `api` | [`api.md`](docs/superpowers/api.md) |
 | `provider` | [`provider.md`](docs/superpowers/provider.md) |
@@ -47,16 +49,16 @@ Per-command docs with progressive disclosure (quick start → common options →
 ### 2. 🖥️ CLI
 
 ```bash
-# Single URL screenshot
+# 单 URL 截图
 snir scan example.com
 
-# Batch from file
+# 从文件批量截图
 snir scan file -f urls.txt
 
-# CIDR network scan
+# 网段扫描
 snir scan cidr 192.168.1.0/24
 
-# Full-page screenshot with data collection
+# 全页截图 + 数据收集
 snir scan example.com --full-page --save-html --save-headers --save-cookies
 ```
 
@@ -72,63 +74,63 @@ result, _ := client.Screenshot("https://example.com", nil)
 fmt.Println(result.Title)
 ```
 
-📖 [Go SDK documentation](docs/skills.md#二go-sdk-集成)
+📖 [Go SDK 文档](docs/skills.md#二go-sdk-集成)
 
 ### 4. 🌐 HTTP API
 
 ```bash
-# Start API server
+# 启动 API 服务
 snir api --port 8080 --api-key secret
 
-# Screenshot via API
+# 通过 API 截图
 curl -X POST http://localhost:8080/screenshot \
   -H "X-API-Key: secret" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
 ```
 
-📖 [HTTP API documentation](docs/superpowers/api.md)
+📖 [HTTP API 文档](docs/superpowers/api.md)
 
-### 5. 🔌 CDP Provider (Share Chrome across processes)
+### 5. 🔌 CDP Provider（跨进程共享 Chrome）
 
 ```bash
 snir provider --port 9223 --idle-timeout 5m
-# Other tools connect via: --wss ws://host:9222/devtools/browser/xxx
+# 其他工具通过 --wss ws://host:9222/devtools/browser/xxx 连接
 ```
 
-📖 [Provider documentation](docs/superpowers/provider.md)
+📖 [Provider 文档](docs/superpowers/provider.md)
 
 ---
 
-## Features
+## 功能特点
 
-- **Screenshot** — Full-page, element-level (CSS selector / XPath), PNG/JPEG with quality control
-- **Intelligence** — HTML source, HTTP headers, cookies, console logs, network requests
-- **Browser interaction** — JavaScript execution, form filling, click/scroll/input actions
-- **Browser fingerprinting** — Custom User-Agent, WebGL, platform, language, WebRTC disable
-- **Chrome reuse** — Connection pool, singleton pool, remote connection, auto-discovery
-- **Proxy rotation** — Proxy list, proxy file (hot-reload), proxy API, round-robin/random/sequential strategies
-- **Cookie management** — Persistent JSON cookie jar, Netscape format import/export, inline cookies
-- **Output** — JSONL, CSV, SQLite database, stdout
-- **Cross-platform** — 43 platform combinations (Linux/Windows/macOS/FreeBSD/OpenBSD/NetBSD × amd64/arm64/386/arm/mips/ppc64le/riscv64/s390x)
+- **截图** — 全页/元素级（CSS 选择器 / XPath），支持 PNG/JPEG 及质量控制
+- **信息收集** — HTML 源码、HTTP 头、Cookie、控制台日志、网络请求
+- **浏览器交互** — JavaScript 执行、表单填写、点击/滚动/输入操作
+- **浏览器指纹** — 自定义 User-Agent、WebGL、平台、语言、WebRTC 禁用
+- **Chrome 复用** — 连接池、单例池、远程连接、自动发现
+- **代理轮换** — 代理列表、代理文件（热加载）、代理 API、轮换策略
+- **Cookie 管理** — 持久化 JSON Cookie Jar、Netscape 格式导入/导出、内联 Cookie
+- **输出** — JSONL、CSV、SQLite 数据库、控制台
+- **跨平台** — 43 个平台组合（Linux/Windows/macOS/FreeBSD/OpenBSD/NetBSD × amd64/arm64/386/arm/mips/ppc64le/riscv64/s390x）
 
 ---
 
-## Installation
+## 安装
 
-### Pre-built binaries (no Go required)
+### 预编译二进制（无需 Go）
 
-Download from [GitHub Releases](https://github.com/cyberspacesec/snir-skills/releases/latest):
+从 [GitHub Releases](https://github.com/cyberspacesec/snir-skills/releases/latest) 下载：
 
-| Platform | Command |
-|----------|---------|
+| 平台 | 命令 |
+|------|------|
 | **Linux x86_64** | `curl -L https://github.com/cyberspacesec/snir-skills/releases/latest/download/snir-skills_Linux_x86_64.tar.gz \| tar xz snir` |
 | **macOS arm64** | `curl -L https://github.com/cyberspacesec/snir-skills/releases/latest/download/snir-skills_Darwin_arm64.tar.gz \| tar xz snir` |
-| **Windows x86_64** | Download `snir-skills_Windows_x86_64.zip` from [Releases](https://github.com/cyberspacesec/snir-skills/releases/latest) |
+| **Windows x86_64** | 从 [Releases](https://github.com/cyberspacesec/snir-skills/releases/latest) 下载 `snir-skills_Windows_x86_64.zip` |
 
-### Linux packages (deb/rpm/archlinux)
+### Linux 包管理器（deb/rpm/archlinux）
 
-Available in every [Release](https://github.com/cyberspacesec/snir-skills/releases/latest):
+每个 [Release](https://github.com/cyberspacesec/snir-skills/releases/latest) 中提供：
 
 ```bash
 sudo dpkg -i snir_*.deb        # Debian/Ubuntu
@@ -143,16 +145,16 @@ docker pull ghcr.io/cyberspacesec/snir:latest
 docker run --rm ghcr.io/cyberspacesec/snir:latest scan example.com
 ```
 
-### From source (requires Go 1.23+)
+### 从源码编译（需要 Go 1.23+）
 
 ```bash
 git clone https://github.com/cyberspacesec/snir-skills.git
 cd snir-skills && make build
 ```
 
-### Prerequisite
+### 前置依赖
 
-Screenshot requires Chrome/Chromium. Or use `--wss` to connect to a remote Chrome instance.
+截图功能需要 Chrome/Chromium。也可以通过 `--wss` 连接远程 Chrome 实例。
 
 ```bash
 sudo apt install chromium-browser   # Debian/Ubuntu
@@ -161,50 +163,44 @@ brew install --cask google-chrome   # macOS
 
 ---
 
-## Quick Examples
+## 常用示例
 
 ```bash
-# Single URL
+# 单 URL 截图
 snir scan example.com
 
-# With timeout and proxy
+# 指定超时和代理
 snir scan example.com --timeout 60 --proxy http://127.0.0.1:8080
 
-# Full-page + collect everything
+# 全页截图 + 收集所有信息
 snir scan example.com --full-page --save-html --save-headers --save-cookies --save-network
 
-# Element screenshot (CSS selector)
+# 元素截图（CSS 选择器）
 snir scan example.com --selector "#dashboard-panel"
 
-# Execute JavaScript before screenshot
+# 截图前执行 JavaScript
 snir scan example.com --js "document.querySelectorAll('.popup').forEach(el => el.remove());"
 
-# Batch scan with proxy rotation
+# 批量扫描 + 代理轮换
 snir scan file -f urls.txt --threads 10 --proxy-file proxies.txt --proxy-strategy random
 
-# Output to JSONL + database
+# 输出为 JSONL + 数据库
 snir scan file -f urls.txt --write-jsonl --db --db-path results.db
 ```
 
 ---
 
-## Documentation
+## 文档
 
-| Document | Description |
-|----------|-------------|
-| [SKILLS Index](docs/superpowers/SKILLS.md) | AI agent integration — install, commands, all 70 CLI flags |
-| [Full Capabilities](docs/skills.md) | CLI + Go SDK + HTTP API + Provider complete reference |
-| [Quick Examples](docs/quick_examples.md) | Copy-paste examples for common scenarios |
-| [Usage Examples](docs/usage_examples.md) | Detailed examples with explanations |
+| 文档 | 说明 |
+|------|------|
+| [SKILLS 索引](docs/superpowers/SKILLS.md) | AI Agent 集成 — 安装、命令、全部 70 个 CLI 标志 |
+| [完整能力文档](docs/skills.md) | CLI + Go SDK + HTTP API + Provider 完整参考 |
+| [快速示例](docs/quick_examples.md) | 常见场景的复制粘贴示例 |
+| [使用示例](docs/usage_examples.md) | 带解释的详细示例 |
 
 ---
 
-## License
+## 许可证
 
 [MIT](LICENSE)
-
----
-
-## 简体中文
-
-[点击查看中文文档](README.zh-CN.md)
