@@ -954,6 +954,99 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("browser environment helpers", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		data, _, err := client.ScreenshotWithDeviceEmulationBytes("https://example.com", 412, 915, 2.75, true, true, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithDeviceEmulationBytes() error = %v", err)
+		}
+		if string(data) != "png" ||
+			pool.lastOptions.Chrome.WindowX != 412 ||
+			pool.lastOptions.Chrome.WindowY != 915 ||
+			pool.lastOptions.Chrome.DeviceScaleFactor != 2.75 ||
+			!pool.lastOptions.Chrome.IsMobile ||
+			!pool.lastOptions.Chrome.HasTouch ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("device emulation bytes data/options = %q/%+v/%+v", data, pool.lastOptions.Chrome, pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotWithMobileEmulation("https://example.com", 3, nil); err != nil {
+			t.Fatalf("ScreenshotWithMobileEmulation() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.DeviceScaleFactor != 3 ||
+			!pool.lastOptions.Chrome.IsMobile ||
+			!pool.lastOptions.Chrome.HasTouch {
+			t.Fatalf("mobile emulation options = %+v", pool.lastOptions.Chrome)
+		}
+
+		if _, err := client.ScreenshotWithTouchEmulation("https://example.com", false, NewScreenshotOptions(
+			WithMobileEmulation(2),
+		)); err != nil {
+			t.Fatalf("ScreenshotWithTouchEmulation() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.HasTouch || !pool.lastOptions.Chrome.IsMobile {
+			t.Fatalf("touch emulation options = %+v", pool.lastOptions.Chrome)
+		}
+
+		if _, _, err := client.ScreenshotWithIgnoreCertErrorsBytes("https://example.com", nil); err != nil {
+			t.Fatalf("ScreenshotWithIgnoreCertErrorsBytes() error = %v", err)
+		}
+		if !pool.lastOptions.Chrome.IgnoreCertErrors ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("ignore cert bytes options = %+v/%+v", pool.lastOptions.Chrome, pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotWithPlugins("https://example.com", []string{"Chrome PDF Viewer", "Native Client"}, nil); err != nil {
+			t.Fatalf("ScreenshotWithPlugins() error = %v", err)
+		}
+		if len(pool.lastOptions.Chrome.Plugins) != 2 ||
+			pool.lastOptions.Chrome.Plugins[0] != "Chrome PDF Viewer" {
+			t.Fatalf("plugins = %+v", pool.lastOptions.Chrome.Plugins)
+		}
+
+		if _, err := client.ScreenshotWithDisabledWebRTC("https://example.com", nil); err != nil {
+			t.Fatalf("ScreenshotWithDisabledWebRTC() error = %v", err)
+		}
+		if !pool.lastOptions.Chrome.DisableWebRTC {
+			t.Fatalf("DisableWebRTC = %t", pool.lastOptions.Chrome.DisableWebRTC)
+		}
+
+		if _, _, err := client.ScreenshotWithSpoofedScreenBytes("https://example.com", 1920, 1080, nil); err != nil {
+			t.Fatalf("ScreenshotWithSpoofedScreenBytes() error = %v", err)
+		}
+		if !pool.lastOptions.Chrome.SpoofScreenSize ||
+			pool.lastOptions.Chrome.ScreenWidth != 1920 ||
+			pool.lastOptions.Chrome.ScreenHeight != 1080 ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("spoofed screen bytes options = %+v/%+v", pool.lastOptions.Chrome, pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotWithCookieStrings("https://example.com/path", []string{
+			"sid=abc",
+			"theme=dark; lang=zh",
+		}, nil); err != nil {
+			t.Fatalf("ScreenshotWithCookieStrings() error = %v", err)
+		}
+		if len(pool.lastOptions.Scan.Cookies) != 3 ||
+			pool.lastOptions.Scan.Cookies[0].Name != "sid" ||
+			pool.lastOptions.Scan.Cookies[0].Domain != "example.com" ||
+			pool.lastOptions.Scan.Cookies[2].Name != "lang" {
+			t.Fatalf("cookie strings cookies = %+v", pool.lastOptions.Scan.Cookies)
+		}
+
+		if _, _, err := client.ScreenshotWithDefaultBlacklistBytes("https://example.com", NewScreenshotOptions(
+			WithNoBlacklist(),
+		)); err != nil {
+			t.Fatalf("ScreenshotWithDefaultBlacklistBytes() error = %v", err)
+		}
+		if !pool.lastOptions.Scan.EnableBlacklist || !pool.lastOptions.Scan.DefaultBlacklist ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("default blacklist bytes options = %+v", pool.lastOptions.Scan)
+		}
+	})
+
 	t.Run("device viewport js file", func(t *testing.T) {
 		pool := &fakeDriverPool{}
 		client := &Client{pool: pool, opts: DefaultClientOptions()}
@@ -2353,6 +2446,100 @@ func TestSharedWrappers_Unit(t *testing.T) {
 		if last.Scan.MaxRetries != 4 ||
 			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
 			t.Fatalf("retries bytes options = %+v", last.Scan)
+		}
+	})
+
+	t.Run("browser environment helpers map options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var last runner.Options
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			last = *opts
+			return &models.Result{URL: target, ScreenshotBytes: []byte("png")}, nil
+		}
+
+		data, _, err := SharedScreenshotWithDeviceEmulationBytes("https://example.com", 412, 915, 2.75, true, true, nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotWithDeviceEmulationBytes() error = %v", err)
+		}
+		if string(data) != "png" ||
+			last.Chrome.WindowX != 412 ||
+			last.Chrome.WindowY != 915 ||
+			last.Chrome.DeviceScaleFactor != 2.75 ||
+			!last.Chrome.IsMobile ||
+			!last.Chrome.HasTouch ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("device emulation bytes data/options = %q/%+v/%+v", data, last.Chrome, last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithMobileEmulation("https://example.com", 3, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithMobileEmulation() error = %v", err)
+		}
+		if last.Chrome.DeviceScaleFactor != 3 || !last.Chrome.IsMobile || !last.Chrome.HasTouch {
+			t.Fatalf("mobile emulation options = %+v", last.Chrome)
+		}
+
+		if _, err := SharedScreenshotWithTouchEmulation("https://example.com", false, NewScreenshotOptions(
+			WithMobileEmulation(2),
+		)); err != nil {
+			t.Fatalf("SharedScreenshotWithTouchEmulation() error = %v", err)
+		}
+		if last.Chrome.HasTouch || !last.Chrome.IsMobile {
+			t.Fatalf("touch emulation options = %+v", last.Chrome)
+		}
+
+		if _, _, err := SharedScreenshotWithIgnoreCertErrorsBytes("https://example.com", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithIgnoreCertErrorsBytes() error = %v", err)
+		}
+		if !last.Chrome.IgnoreCertErrors ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("ignore cert bytes options = %+v/%+v", last.Chrome, last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithPlugins("https://example.com", []string{"Chrome PDF Viewer", "Native Client"}, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithPlugins() error = %v", err)
+		}
+		if len(last.Chrome.Plugins) != 2 || last.Chrome.Plugins[0] != "Chrome PDF Viewer" {
+			t.Fatalf("plugins = %+v", last.Chrome.Plugins)
+		}
+
+		if _, err := SharedScreenshotWithDisabledWebRTC("https://example.com", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithDisabledWebRTC() error = %v", err)
+		}
+		if !last.Chrome.DisableWebRTC {
+			t.Fatalf("DisableWebRTC = %t", last.Chrome.DisableWebRTC)
+		}
+
+		if _, _, err := SharedScreenshotWithSpoofedScreenBytes("https://example.com", 1920, 1080, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithSpoofedScreenBytes() error = %v", err)
+		}
+		if !last.Chrome.SpoofScreenSize ||
+			last.Chrome.ScreenWidth != 1920 ||
+			last.Chrome.ScreenHeight != 1080 ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("spoofed screen bytes options = %+v/%+v", last.Chrome, last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithCookieStrings("https://example.com/path", []string{
+			"sid=abc",
+			"theme=dark; lang=zh",
+		}, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookieStrings() error = %v", err)
+		}
+		if len(last.Scan.Cookies) != 3 ||
+			last.Scan.Cookies[0].Name != "sid" ||
+			last.Scan.Cookies[0].Domain != "example.com" ||
+			last.Scan.Cookies[2].Name != "lang" {
+			t.Fatalf("cookie strings cookies = %+v", last.Scan.Cookies)
+		}
+
+		if _, _, err := SharedScreenshotWithDefaultBlacklistBytes("https://example.com", NewScreenshotOptions(
+			WithNoBlacklist(),
+		)); err != nil {
+			t.Fatalf("SharedScreenshotWithDefaultBlacklistBytes() error = %v", err)
+		}
+		if !last.Scan.EnableBlacklist || !last.Scan.DefaultBlacklist ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("default blacklist bytes options = %+v", last.Scan)
 		}
 	})
 

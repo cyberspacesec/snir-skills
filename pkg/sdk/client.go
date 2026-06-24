@@ -477,6 +477,104 @@ func (c *Client) ScreenshotWithFingerprintBytes(url string, platform, vendor, we
 	return c.ScreenshotBytes(url, opts)
 }
 
+// ScreenshotWithDeviceEmulation 使用自定义设备参数截图。
+func (c *Client) ScreenshotWithDeviceEmulation(url string, width, height int, scaleFactor float64, isMobile, hasTouch bool, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithDeviceEmulation(width, height, scaleFactor, isMobile, hasTouch)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithDeviceEmulationBytes 使用自定义设备参数截图，并返回图片字节。
+func (c *Client) ScreenshotWithDeviceEmulationBytes(url string, width, height int, scaleFactor float64, isMobile, hasTouch bool, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithDeviceEmulation(width, height, scaleFactor, isMobile, hasTouch)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithMobileEmulation 使用移动端和触摸仿真截图。
+func (c *Client) ScreenshotWithMobileEmulation(url string, scaleFactor float64, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithMobileEmulation(scaleFactor)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithMobileEmulationBytes 使用移动端和触摸仿真截图，并返回图片字节。
+func (c *Client) ScreenshotWithMobileEmulationBytes(url string, scaleFactor float64, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithMobileEmulation(scaleFactor)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithTouchEmulation 使用指定触摸仿真状态截图。
+func (c *Client) ScreenshotWithTouchEmulation(url string, enabled bool, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithTouchEmulation(enabled)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithTouchEmulationBytes 使用指定触摸仿真状态截图，并返回图片字节。
+func (c *Client) ScreenshotWithTouchEmulationBytes(url string, enabled bool, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithTouchEmulation(enabled)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithIgnoreCertErrors 忽略证书错误后截图。
+func (c *Client) ScreenshotWithIgnoreCertErrors(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithIgnoreCertErrors()(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithIgnoreCertErrorsBytes 忽略证书错误后截图，并返回图片字节。
+func (c *Client) ScreenshotWithIgnoreCertErrorsBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithIgnoreCertErrors()(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithPlugins 使用指定 navigator.plugins 指纹截图。
+func (c *Client) ScreenshotWithPlugins(url string, plugins []string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithPlugins(plugins...)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithPluginsBytes 使用指定 navigator.plugins 指纹截图，并返回图片字节。
+func (c *Client) ScreenshotWithPluginsBytes(url string, plugins []string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithPlugins(plugins...)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithDisabledWebRTC 禁用 WebRTC API 后截图。
+func (c *Client) ScreenshotWithDisabledWebRTC(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithDisableWebRTC()(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithDisabledWebRTCBytes 禁用 WebRTC API 后截图，并返回图片字节。
+func (c *Client) ScreenshotWithDisabledWebRTCBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithDisableWebRTC()(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithSpoofedScreen 使用伪造屏幕尺寸截图。
+func (c *Client) ScreenshotWithSpoofedScreen(url string, width, height int, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithSpoofedScreen(width, height)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithSpoofedScreenBytes 使用伪造屏幕尺寸截图，并返回图片字节。
+func (c *Client) ScreenshotWithSpoofedScreenBytes(url string, width, height int, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithSpoofedScreen(width, height)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotWithCookieHeader 使用 Cookie header 注入认证状态后截图。
 func (c *Client) ScreenshotWithCookieHeader(url string, header string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)
@@ -488,6 +586,20 @@ func (c *Client) ScreenshotWithCookieHeader(url string, header string, screensho
 func (c *Client) ScreenshotWithCookieHeaderBytes(url string, header string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)
 	WithCookieHeader(header)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithCookieStrings 注入多个 Cookie header 后截图。
+func (c *Client) ScreenshotWithCookieStrings(url string, headers []string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieStrings(headers...)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookieStringsBytes 注入多个 Cookie header 后截图，并返回图片字节。
+func (c *Client) ScreenshotWithCookieStringsBytes(url string, headers []string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieStrings(headers...)(opts)
 	return c.ScreenshotBytes(url, opts)
 }
 
@@ -574,6 +686,20 @@ func (c *Client) ScreenshotWithoutBlacklist(url string, screenshotOpts *Screensh
 func (c *Client) ScreenshotWithoutBlacklistBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)
 	WithNoBlacklist()(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithDefaultBlacklist 使用内置 URL 黑名单规则截图。
+func (c *Client) ScreenshotWithDefaultBlacklist(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithDefaultBlacklist()(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithDefaultBlacklistBytes 使用内置 URL 黑名单规则截图，并返回图片字节。
+func (c *Client) ScreenshotWithDefaultBlacklistBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithDefaultBlacklist()(opts)
 	return c.ScreenshotBytes(url, opts)
 }
 

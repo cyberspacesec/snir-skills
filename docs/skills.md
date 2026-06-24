@@ -650,14 +650,40 @@ result, err = client.ScreenshotWithFingerprint(
 )
 
 result, err = client.ScreenshotWithCookieHeader("https://example.com/dashboard", "session=abc", nil)
+result, err = client.ScreenshotWithCookieStrings("https://example.com/dashboard", []string{
+    "session=abc",
+    "theme=dark; lang=zh",
+}, nil)
 imgBytes, result, err = client.ScreenshotWithCookieExportBytes("https://example.com", "out-cookies.txt", nil)
 
 result, err = client.ScreenshotWithBlacklist("https://example.com", []string{"*.internal.*"}, nil)
+result, err = client.ScreenshotWithDefaultBlacklist("https://example.com", nil)
 imgBytes, result, err = client.ScreenshotWithoutBlacklistBytes("https://example.com", nil)
 imgBytes, result, err = client.ScreenshotWithRetriesBytes("https://example.com", 3, nil)
 ```
 
-共享池也提供对应方法：`SharedScreenshotWithProxy`、`SharedScreenshotWithProxyList`、`SharedScreenshotWithProxyFile`、`SharedScreenshotWithProxyURL`、`SharedScreenshotWithCustomHeaders`、`SharedScreenshotWithUserAgent`、`SharedScreenshotWithAcceptLanguage`、`SharedScreenshotWithFingerprint`、`SharedScreenshotWithCookieHeader`、`SharedScreenshotWithCookieFile`、`SharedScreenshotWithCookieImport`、`SharedScreenshotWithCookieExport`、`SharedScreenshotWithBlacklist`、`SharedScreenshotWithBlacklistFile`、`SharedScreenshotWithoutBlacklist`、`SharedScreenshotWithRetries` 及其字节返回版本。
+共享池也提供对应方法：`SharedScreenshotWithProxy`、`SharedScreenshotWithProxyList`、`SharedScreenshotWithProxyFile`、`SharedScreenshotWithProxyURL`、`SharedScreenshotWithCustomHeaders`、`SharedScreenshotWithUserAgent`、`SharedScreenshotWithAcceptLanguage`、`SharedScreenshotWithFingerprint`、`SharedScreenshotWithCookieHeader`、`SharedScreenshotWithCookieStrings`、`SharedScreenshotWithCookieFile`、`SharedScreenshotWithCookieImport`、`SharedScreenshotWithCookieExport`、`SharedScreenshotWithBlacklist`、`SharedScreenshotWithBlacklistFile`、`SharedScreenshotWithDefaultBlacklist`、`SharedScreenshotWithoutBlacklist`、`SharedScreenshotWithRetries` 及其字节返回版本。
+
+#### 浏览器环境和反检测
+
+```go
+result, err := client.ScreenshotWithDeviceEmulation(
+    "https://example.com", 412, 915, 2.75, true, true, nil,
+)
+imgBytes, result, err := client.ScreenshotWithMobileEmulationBytes("https://example.com", 3, nil)
+
+result, err = client.ScreenshotWithTouchEmulation("https://example.com", false, nil)
+result, err = client.ScreenshotWithIgnoreCertErrors("https://self-signed.example", nil)
+result, err = client.ScreenshotWithPlugins(
+    "https://example.com",
+    []string{"Chrome PDF Viewer", "Native Client"},
+    nil,
+)
+result, err = client.ScreenshotWithDisabledWebRTC("https://example.com", nil)
+imgBytes, result, err = client.ScreenshotWithSpoofedScreenBytes("https://example.com", 1920, 1080, nil)
+```
+
+共享池也提供对应方法：`SharedScreenshotWithDeviceEmulation`、`SharedScreenshotWithMobileEmulation`、`SharedScreenshotWithTouchEmulation`、`SharedScreenshotWithIgnoreCertErrors`、`SharedScreenshotWithPlugins`、`SharedScreenshotWithDisabledWebRTC`、`SharedScreenshotWithSpoofedScreen` 及其字节返回版本。
 
 #### 全证据采集
 

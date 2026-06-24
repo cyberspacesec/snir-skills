@@ -333,6 +333,104 @@ func SharedScreenshotWithFingerprintBytes(url string, platform, vendor, webGLVen
 	return SharedScreenshotBytes(url, screenshotOpts)
 }
 
+// SharedScreenshotWithDeviceEmulation 使用共享池按自定义设备参数截图。
+func SharedScreenshotWithDeviceEmulation(url string, width, height int, scaleFactor float64, isMobile, hasTouch bool, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithDeviceEmulation(width, height, scaleFactor, isMobile, hasTouch)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDeviceEmulationBytes 使用共享池按自定义设备参数截图，并返回图片字节。
+func SharedScreenshotWithDeviceEmulationBytes(url string, width, height int, scaleFactor float64, isMobile, hasTouch bool, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithDeviceEmulation(width, height, scaleFactor, isMobile, hasTouch)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithMobileEmulation 使用共享池按移动端和触摸仿真截图。
+func SharedScreenshotWithMobileEmulation(url string, scaleFactor float64, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithMobileEmulation(scaleFactor)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithMobileEmulationBytes 使用共享池按移动端和触摸仿真截图，并返回图片字节。
+func SharedScreenshotWithMobileEmulationBytes(url string, scaleFactor float64, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithMobileEmulation(scaleFactor)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithTouchEmulation 使用共享池按指定触摸仿真状态截图。
+func SharedScreenshotWithTouchEmulation(url string, enabled bool, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithTouchEmulation(enabled)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithTouchEmulationBytes 使用共享池按指定触摸仿真状态截图，并返回图片字节。
+func SharedScreenshotWithTouchEmulationBytes(url string, enabled bool, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithTouchEmulation(enabled)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithIgnoreCertErrors 使用共享池忽略证书错误后截图。
+func SharedScreenshotWithIgnoreCertErrors(url string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithIgnoreCertErrors()(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithIgnoreCertErrorsBytes 使用共享池忽略证书错误后截图，并返回图片字节。
+func SharedScreenshotWithIgnoreCertErrorsBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithIgnoreCertErrors()(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithPlugins 使用共享池按指定 navigator.plugins 指纹截图。
+func SharedScreenshotWithPlugins(url string, plugins []string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithPlugins(plugins...)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithPluginsBytes 使用共享池按指定 navigator.plugins 指纹截图，并返回图片字节。
+func SharedScreenshotWithPluginsBytes(url string, plugins []string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithPlugins(plugins...)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDisabledWebRTC 使用共享池禁用 WebRTC API 后截图。
+func SharedScreenshotWithDisabledWebRTC(url string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithDisableWebRTC()(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDisabledWebRTCBytes 使用共享池禁用 WebRTC API 后截图，并返回图片字节。
+func SharedScreenshotWithDisabledWebRTCBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithDisableWebRTC()(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithSpoofedScreen 使用共享池按伪造屏幕尺寸截图。
+func SharedScreenshotWithSpoofedScreen(url string, width, height int, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithSpoofedScreen(width, height)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithSpoofedScreenBytes 使用共享池按伪造屏幕尺寸截图，并返回图片字节。
+func SharedScreenshotWithSpoofedScreenBytes(url string, width, height int, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithSpoofedScreen(width, height)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
 // SharedScreenshotWithCookieHeader 使用共享池注入 Cookie header 后截图。
 func SharedScreenshotWithCookieHeader(url string, header string, opts *ScreenshotOptions) (*models.Result, error) {
 	screenshotOpts := ensureSharedScreenshotOptions(opts)
@@ -344,6 +442,20 @@ func SharedScreenshotWithCookieHeader(url string, header string, opts *Screensho
 func SharedScreenshotWithCookieHeaderBytes(url string, header string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
 	screenshotOpts := ensureSharedScreenshotOptions(opts)
 	WithCookieHeader(header)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieStrings 使用共享池注入多个 Cookie header 后截图。
+func SharedScreenshotWithCookieStrings(url string, headers []string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieStrings(headers...)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieStringsBytes 使用共享池注入多个 Cookie header 后截图，并返回图片字节。
+func SharedScreenshotWithCookieStringsBytes(url string, headers []string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieStrings(headers...)(screenshotOpts)
 	return SharedScreenshotBytes(url, screenshotOpts)
 }
 
@@ -430,6 +542,20 @@ func SharedScreenshotWithoutBlacklist(url string, opts *ScreenshotOptions) (*mod
 func SharedScreenshotWithoutBlacklistBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
 	screenshotOpts := ensureSharedScreenshotOptions(opts)
 	WithNoBlacklist()(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDefaultBlacklist 使用共享池按内置 URL 黑名单规则截图。
+func SharedScreenshotWithDefaultBlacklist(url string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithDefaultBlacklist()(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDefaultBlacklistBytes 使用共享池按内置 URL 黑名单规则截图，并返回图片字节。
+func SharedScreenshotWithDefaultBlacklistBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithDefaultBlacklist()(screenshotOpts)
 	return SharedScreenshotBytes(url, screenshotOpts)
 }
 
