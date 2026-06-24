@@ -721,6 +721,74 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("evidence output timing helpers", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{
+			Headers:         []models.Header{{Name: "Content-Type", Value: "text/html"}},
+			Console:         []models.ConsoleLog{{Level: "error", Message: "boom"}},
+			Network:         []models.NetworkLog{{URL: "https://example.com/api", StatusCode: 200}},
+			ScreenshotBytes: []byte("jpeg"),
+		}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		headers, result, err := client.ScreenshotHeaders("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotHeaders() error = %v", err)
+		}
+		if len(headers) != 1 || headers[0].Name != "Content-Type" || result == nil {
+			t.Fatalf("headers/result = %+v/%+v", headers, result)
+		}
+		if !pool.lastOptions.Scan.SaveHeaders {
+			t.Fatal("ScreenshotHeaders() did not enable headers")
+		}
+
+		data, _, err := client.ScreenshotConsoleBytes("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotConsoleBytes() error = %v", err)
+		}
+		if string(data) != "jpeg" || !pool.lastOptions.Scan.SaveConsole ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("console bytes/options = %q/%+v", data, pool.lastOptions.Scan)
+		}
+
+		network, _, err := client.ScreenshotNetwork("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotNetwork() error = %v", err)
+		}
+		if len(network) != 1 || network[0].StatusCode != 200 || !pool.lastOptions.Scan.SaveNetwork {
+			t.Fatalf("network/options = %+v/%+v", network, pool.lastOptions.Scan)
+		}
+
+		data, _, err = client.ScreenshotWithFormatBytes("https://example.com", "jpeg", 82, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithFormatBytes() error = %v", err)
+		}
+		if string(data) != "jpeg" || pool.lastOptions.Scan.ScreenshotFormat != "jpeg" ||
+			pool.lastOptions.Scan.ScreenshotQuality != 82 {
+			t.Fatalf("format bytes/options = %q/%+v", data, pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotToPath("https://example.com", "captures/example", nil); err != nil {
+			t.Fatalf("ScreenshotToPath() error = %v", err)
+		}
+		if pool.lastOptions.Scan.ScreenshotPath != "captures/example" {
+			t.Fatalf("ScreenshotPath = %q", pool.lastOptions.Scan.ScreenshotPath)
+		}
+
+		if _, _, err := client.ScreenshotWithDelayBytes("https://example.com", 3*time.Second, nil); err != nil {
+			t.Fatalf("ScreenshotWithDelayBytes() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.Delay != 3 {
+			t.Fatalf("Delay = %d", pool.lastOptions.Chrome.Delay)
+		}
+
+		if _, err := client.ScreenshotWithTimeout("https://example.com", 17*time.Second, nil); err != nil {
+			t.Fatalf("ScreenshotWithTimeout() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.Timeout != 17 {
+			t.Fatalf("Timeout = %d", pool.lastOptions.Chrome.Timeout)
+		}
+	})
+
 	t.Run("device viewport js file", func(t *testing.T) {
 		pool := &fakeDriverPool{}
 		client := &Client{pool: pool, opts: DefaultClientOptions()}
@@ -2138,6 +2206,88 @@ func TestSharedWrappers_Unit(t *testing.T) {
 		}
 		if html != "<html></html>" || result == nil {
 			t.Fatalf("SharedScreenshotHTML() html/result = %q/%+v", html, result)
+		}
+	})
+
+	t.Run("evidence output timing helpers", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var got runner.Options
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			got = *opts
+			return &models.Result{
+				URL:             target,
+				Headers:         []models.Header{{Name: "Server", Value: "snir"}},
+				Console:         []models.ConsoleLog{{Level: "warn", Message: "careful"}},
+				Network:         []models.NetworkLog{{URL: target + "/asset.js", StatusCode: 304}},
+				ScreenshotBytes: []byte("jpeg"),
+			}, nil
+		}
+
+		headers, result, err := SharedScreenshotHeaders("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotHeaders() error = %v", err)
+		}
+		if len(headers) != 1 || headers[0].Name != "Server" || result == nil {
+			t.Fatalf("headers/result = %+v/%+v", headers, result)
+		}
+		if !got.Scan.SaveHeaders {
+			t.Fatal("SharedScreenshotHeaders() did not enable headers")
+		}
+
+		data, _, err := SharedScreenshotConsoleBytes("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotConsoleBytes() error = %v", err)
+		}
+		if string(data) != "jpeg" {
+			t.Fatalf("console bytes = %q", data)
+		}
+		if !got.Scan.SaveConsole || !got.Scan.ReturnScreenshotBytes || !got.Scan.ScreenshotSkipSave {
+			t.Fatalf("console byte options = %+v", got.Scan)
+		}
+
+		network, _, err := SharedScreenshotNetwork("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotNetwork() error = %v", err)
+		}
+		if len(network) != 1 || network[0].StatusCode != 304 {
+			t.Fatalf("network = %+v", network)
+		}
+		if !got.Scan.SaveNetwork {
+			t.Fatalf("network options = %+v", got.Scan)
+		}
+
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			got = *opts
+			return &models.Result{URL: target, ScreenshotBytes: []byte("jpeg")}, nil
+		}
+
+		if _, _, err := SharedScreenshotWithFormatBytes("https://example.com", "jpeg", 77, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithFormatBytes() error = %v", err)
+		}
+		if got.Scan.ScreenshotFormat != "jpeg" || got.Scan.ScreenshotQuality != 77 ||
+			!got.Scan.ReturnScreenshotBytes || !got.Scan.ScreenshotSkipSave {
+			t.Fatalf("format byte options = %+v", got.Scan)
+		}
+
+		if _, err := SharedScreenshotToPath("https://example.com", "captures/shared", nil); err != nil {
+			t.Fatalf("SharedScreenshotToPath() error = %v", err)
+		}
+		if got.Scan.ScreenshotPath != "captures/shared" {
+			t.Fatalf("ScreenshotPath = %q", got.Scan.ScreenshotPath)
+		}
+
+		if _, _, err := SharedScreenshotWithDelayBytes("https://example.com", 4*time.Second, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithDelayBytes() error = %v", err)
+		}
+		if got.Chrome.Delay != 4 {
+			t.Fatalf("Delay = %d", got.Chrome.Delay)
+		}
+
+		if _, err := SharedScreenshotWithTimeout("https://example.com", 19*time.Second, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithTimeout() error = %v", err)
+		}
+		if got.Chrome.Timeout != 19 {
+			t.Fatalf("Timeout = %d", got.Chrome.Timeout)
 		}
 	})
 

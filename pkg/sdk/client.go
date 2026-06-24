@@ -257,6 +257,114 @@ func (c *Client) ScreenshotHTML(url string, screenshotOpts *ScreenshotOptions) (
 	return result.HTML, result, nil
 }
 
+// ScreenshotHeaders 截图并收集 HTTP 头。
+func (c *Client) ScreenshotHeaders(url string, screenshotOpts *ScreenshotOptions) ([]models.Header, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveHeaders = true
+
+	result, err := c.Screenshot(url, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Headers, result, nil
+}
+
+// ScreenshotHeadersBytes 截图、收集 HTTP 头，并返回图片字节。
+func (c *Client) ScreenshotHeadersBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveHeaders = true
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotConsole 截图并收集浏览器控制台日志。
+func (c *Client) ScreenshotConsole(url string, screenshotOpts *ScreenshotOptions) ([]models.ConsoleLog, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveConsole = true
+
+	result, err := c.Screenshot(url, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Console, result, nil
+}
+
+// ScreenshotConsoleBytes 截图、收集浏览器控制台日志，并返回图片字节。
+func (c *Client) ScreenshotConsoleBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveConsole = true
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotNetwork 截图并收集网络请求日志。
+func (c *Client) ScreenshotNetwork(url string, screenshotOpts *ScreenshotOptions) ([]models.NetworkLog, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveNetwork = true
+
+	result, err := c.Screenshot(url, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Network, result, nil
+}
+
+// ScreenshotNetworkBytes 截图、收集网络请求日志，并返回图片字节。
+func (c *Client) ScreenshotNetworkBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveNetwork = true
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithFormat 使用指定图片格式和质量截图。
+func (c *Client) ScreenshotWithFormat(url string, format string, quality int, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.ScreenshotFormat = format
+	opts.ScreenshotQuality = quality
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithFormatBytes 使用指定图片格式和质量截图，并返回图片字节。
+func (c *Client) ScreenshotWithFormatBytes(url string, format string, quality int, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.ScreenshotFormat = format
+	opts.ScreenshotQuality = quality
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotToPath 使用指定输出目录或文件路径保存截图。
+func (c *Client) ScreenshotToPath(url string, path string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.ScreenshotPath = path
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithDelay 等待指定时间后截图。
+func (c *Client) ScreenshotWithDelay(url string, delay time.Duration, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Delay = delay
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithDelayBytes 等待指定时间后截图，并返回图片字节。
+func (c *Client) ScreenshotWithDelayBytes(url string, delay time.Duration, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Delay = delay
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithTimeout 使用指定页面加载超时截图。
+func (c *Client) ScreenshotWithTimeout(url string, timeout time.Duration, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Timeout = timeout
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithTimeoutBytes 使用指定页面加载超时截图，并返回图片字节。
+func (c *Client) ScreenshotWithTimeoutBytes(url string, timeout time.Duration, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Timeout = timeout
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotWithActions 截图前执行交互动作序列
 // 适用于需要点击按钮、填写表单、滚动页面等交互后再截图的场景
 //

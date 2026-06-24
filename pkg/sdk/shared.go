@@ -113,6 +113,114 @@ func SharedScreenshotHTML(url string, opts *ScreenshotOptions) (string, *models.
 	return result.HTML, result, nil
 }
 
+// SharedScreenshotHeaders 使用共享池截图并收集 HTTP 头。
+func SharedScreenshotHeaders(url string, opts *ScreenshotOptions) ([]models.Header, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveHeaders = true
+
+	result, err := SharedScreenshot(url, screenshotOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Headers, result, nil
+}
+
+// SharedScreenshotHeadersBytes 使用共享池截图、收集 HTTP 头，并返回图片字节。
+func SharedScreenshotHeadersBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveHeaders = true
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotConsole 使用共享池截图并收集浏览器控制台日志。
+func SharedScreenshotConsole(url string, opts *ScreenshotOptions) ([]models.ConsoleLog, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveConsole = true
+
+	result, err := SharedScreenshot(url, screenshotOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Console, result, nil
+}
+
+// SharedScreenshotConsoleBytes 使用共享池截图、收集浏览器控制台日志，并返回图片字节。
+func SharedScreenshotConsoleBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveConsole = true
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotNetwork 使用共享池截图并收集网络请求日志。
+func SharedScreenshotNetwork(url string, opts *ScreenshotOptions) ([]models.NetworkLog, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveNetwork = true
+
+	result, err := SharedScreenshot(url, screenshotOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Network, result, nil
+}
+
+// SharedScreenshotNetworkBytes 使用共享池截图、收集网络请求日志，并返回图片字节。
+func SharedScreenshotNetworkBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveNetwork = true
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithFormat 使用共享池按指定图片格式和质量截图。
+func SharedScreenshotWithFormat(url string, format string, quality int, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.ScreenshotFormat = format
+	screenshotOpts.ScreenshotQuality = quality
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithFormatBytes 使用共享池按指定图片格式和质量截图，并返回图片字节。
+func SharedScreenshotWithFormatBytes(url string, format string, quality int, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.ScreenshotFormat = format
+	screenshotOpts.ScreenshotQuality = quality
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotToPath 使用共享池将截图保存到指定输出目录或文件路径。
+func SharedScreenshotToPath(url string, path string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.ScreenshotPath = path
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDelay 使用共享池等待指定时间后截图。
+func SharedScreenshotWithDelay(url string, delay time.Duration, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Delay = delay
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithDelayBytes 使用共享池等待指定时间后截图，并返回图片字节。
+func SharedScreenshotWithDelayBytes(url string, delay time.Duration, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Delay = delay
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithTimeout 使用共享池按指定页面加载超时截图。
+func SharedScreenshotWithTimeout(url string, timeout time.Duration, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Timeout = timeout
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithTimeoutBytes 使用共享池按指定页面加载超时截图，并返回图片字节。
+func SharedScreenshotWithTimeoutBytes(url string, timeout time.Duration, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Timeout = timeout
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
 // SharedScreenshotWithActions 使用共享池在截图前执行交互动作序列。
 func SharedScreenshotWithActions(url string, actions []runner.InteractionAction, opts *ScreenshotOptions) (*models.Result, error) {
 	screenshotOpts := ensureSharedScreenshotOptions(opts)

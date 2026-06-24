@@ -616,6 +616,23 @@ html, result, err := client.ScreenshotHTML("https://example.com", nil)
 fmt.Printf("HTML 长度: %d\n", len(html))
 ```
 
+#### 单项证据、输出格式和等待控制
+
+```go
+headers, result, err := client.ScreenshotHeaders("https://example.com", nil)
+consoleLogs, result, err := client.ScreenshotConsole("https://example.com", nil)
+networkLogs, result, err := client.ScreenshotNetwork("https://example.com", nil)
+
+result, err = client.ScreenshotWithFormat("https://example.com", "jpeg", 85, nil)
+imgBytes, result, err := client.ScreenshotWithFormatBytes("https://example.com", "jpeg", 85, nil)
+result, err = client.ScreenshotToPath("https://example.com", "captures/example", nil)
+
+result, err = client.ScreenshotWithDelay("https://example.com", 2*time.Second, nil)
+imgBytes, result, err = client.ScreenshotWithTimeoutBytes("https://example.com", 15*time.Second, nil)
+```
+
+共享池也提供对应方法：`SharedScreenshotHeaders`、`SharedScreenshotConsole`、`SharedScreenshotNetwork`、`SharedScreenshotWithFormat`、`SharedScreenshotToPath`、`SharedScreenshotWithDelay`、`SharedScreenshotWithTimeout` 及其字节返回版本。
+
 #### 全证据采集
 
 ```go
