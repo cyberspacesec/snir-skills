@@ -221,6 +221,232 @@ func SharedScreenshotWithTimeoutBytes(url string, timeout time.Duration, opts *S
 	return SharedScreenshotBytes(url, screenshotOpts)
 }
 
+// SharedScreenshotWithProxy 使用共享池通过指定代理截图。
+func SharedScreenshotWithProxy(url string, proxy string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxy(proxy)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyBytes 使用共享池通过指定代理截图，并返回图片字节。
+func SharedScreenshotWithProxyBytes(url string, proxy string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxy(proxy)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyList 使用共享池按代理列表和轮换策略截图。
+func SharedScreenshotWithProxyList(url string, strategy runner.ProxyStrategy, proxies []string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxyList(strategy, proxies...)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyListBytes 使用共享池按代理列表和轮换策略截图，并返回图片字节。
+func SharedScreenshotWithProxyListBytes(url string, strategy runner.ProxyStrategy, proxies []string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxyList(strategy, proxies...)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyFile 使用共享池按代理文件和轮换策略截图。
+func SharedScreenshotWithProxyFile(url string, path string, strategy runner.ProxyStrategy, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxyFile(path, strategy)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyFileBytes 使用共享池按代理文件和轮换策略截图，并返回图片字节。
+func SharedScreenshotWithProxyFileBytes(url string, path string, strategy runner.ProxyStrategy, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxyFile(path, strategy)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyURL 使用共享池按动态代理 API 和轮换策略截图。
+func SharedScreenshotWithProxyURL(url string, proxyURL string, strategy runner.ProxyStrategy, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxyURL(proxyURL, strategy)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithProxyURLBytes 使用共享池按动态代理 API 和轮换策略截图，并返回图片字节。
+func SharedScreenshotWithProxyURLBytes(url string, proxyURL string, strategy runner.ProxyStrategy, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithProxyURL(proxyURL, strategy)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCustomHeaders 使用共享池按自定义请求头截图。
+func SharedScreenshotWithCustomHeaders(url string, headers map[string]string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCustomHeaders(headers)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCustomHeadersBytes 使用共享池按自定义请求头截图，并返回图片字节。
+func SharedScreenshotWithCustomHeadersBytes(url string, headers map[string]string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCustomHeaders(headers)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithUserAgent 使用共享池按指定 User-Agent 截图。
+func SharedScreenshotWithUserAgent(url string, userAgent string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithUserAgent(userAgent)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithUserAgentBytes 使用共享池按指定 User-Agent 截图，并返回图片字节。
+func SharedScreenshotWithUserAgentBytes(url string, userAgent string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithUserAgent(userAgent)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithAcceptLanguage 使用共享池按指定 Accept-Language 截图。
+func SharedScreenshotWithAcceptLanguage(url string, language string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithAcceptLanguage(language)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithAcceptLanguageBytes 使用共享池按指定 Accept-Language 截图，并返回图片字节。
+func SharedScreenshotWithAcceptLanguageBytes(url string, language string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithAcceptLanguage(language)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithFingerprint 使用共享池按浏览器指纹覆盖截图。
+func SharedScreenshotWithFingerprint(url string, platform, vendor, webGLVendor, webGLRenderer string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithFingerprint(platform, vendor, webGLVendor, webGLRenderer)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithFingerprintBytes 使用共享池按浏览器指纹覆盖截图，并返回图片字节。
+func SharedScreenshotWithFingerprintBytes(url string, platform, vendor, webGLVendor, webGLRenderer string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithFingerprint(platform, vendor, webGLVendor, webGLRenderer)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieHeader 使用共享池注入 Cookie header 后截图。
+func SharedScreenshotWithCookieHeader(url string, header string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieHeader(header)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieHeaderBytes 使用共享池注入 Cookie header 后截图，并返回图片字节。
+func SharedScreenshotWithCookieHeaderBytes(url string, header string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieHeader(header)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieFile 使用共享池按持久化 JSON CookieJar 截图。
+func SharedScreenshotWithCookieFile(url string, path string, writeBack bool, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieFile(path)(screenshotOpts)
+	screenshotOpts.CookieWriteBack = writeBack
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieFileBytes 使用共享池按持久化 JSON CookieJar 截图，并返回图片字节。
+func SharedScreenshotWithCookieFileBytes(url string, path string, writeBack bool, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieFile(path)(screenshotOpts)
+	screenshotOpts.CookieWriteBack = writeBack
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieImport 使用共享池导入 Netscape/Mozilla Cookie 文件后截图。
+func SharedScreenshotWithCookieImport(url string, path string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieImport(path)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieImportBytes 使用共享池导入 Netscape/Mozilla Cookie 文件后截图，并返回图片字节。
+func SharedScreenshotWithCookieImportBytes(url string, path string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieImport(path)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieExport 使用共享池截图后导出 Cookie 到 Netscape/Mozilla Cookie 文件。
+func SharedScreenshotWithCookieExport(url string, path string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieExport(path)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookieExportBytes 使用共享池截图后导出 Cookie 到 Netscape/Mozilla Cookie 文件，并返回图片字节。
+func SharedScreenshotWithCookieExportBytes(url string, path string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithCookieExport(path)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithBlacklist 使用共享池按自定义 URL 黑名单规则截图。
+func SharedScreenshotWithBlacklist(url string, patterns []string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithBlacklist(patterns...)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithBlacklistBytes 使用共享池按自定义 URL 黑名单规则截图，并返回图片字节。
+func SharedScreenshotWithBlacklistBytes(url string, patterns []string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithBlacklist(patterns...)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithBlacklistFile 使用共享池按 URL 黑名单文件截图。
+func SharedScreenshotWithBlacklistFile(url string, path string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithBlacklistFile(path)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithBlacklistFileBytes 使用共享池按 URL 黑名单文件截图，并返回图片字节。
+func SharedScreenshotWithBlacklistFileBytes(url string, path string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithBlacklistFile(path)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithoutBlacklist 使用共享池禁用 URL 黑名单后截图。
+func SharedScreenshotWithoutBlacklist(url string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithNoBlacklist()(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithoutBlacklistBytes 使用共享池禁用 URL 黑名单后截图，并返回图片字节。
+func SharedScreenshotWithoutBlacklistBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithNoBlacklist()(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithRetries 使用共享池按指定最大重试次数截图。
+func SharedScreenshotWithRetries(url string, maxRetries int, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithMaxRetries(maxRetries)(screenshotOpts)
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithRetriesBytes 使用共享池按指定最大重试次数截图，并返回图片字节。
+func SharedScreenshotWithRetriesBytes(url string, maxRetries int, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	WithMaxRetries(maxRetries)(screenshotOpts)
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
 // SharedScreenshotWithActions 使用共享池在截图前执行交互动作序列。
 func SharedScreenshotWithActions(url string, actions []runner.InteractionAction, opts *ScreenshotOptions) (*models.Result, error) {
 	screenshotOpts := ensureSharedScreenshotOptions(opts)

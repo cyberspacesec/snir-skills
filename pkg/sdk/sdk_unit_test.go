@@ -789,6 +789,171 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("request profile helpers", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{
+			ScreenshotBytes: []byte("png"),
+			Cookies:         []models.Cookie{{Name: "exported", Value: "1", Domain: "example.com", Path: "/"}},
+		}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		data, _, err := client.ScreenshotWithProxyListBytes("https://example.com", runner.ProxyRoundRobin, []string{
+			"http://a:8080",
+			"http://b:8080",
+		}, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithProxyListBytes() error = %v", err)
+		}
+		if string(data) != "png" || len(pool.lastOptions.Chrome.ProxyList) != 2 ||
+			pool.lastOptions.Chrome.ProxyStrategy != runner.ProxyRoundRobin ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("proxy list bytes data/options = %q/%+v/%+v", data, pool.lastOptions.Chrome, pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotWithProxy("https://example.com", "http://static:8080", NewScreenshotOptions(
+			WithProxyList(runner.ProxyRandom, "http://old:8080"),
+		)); err != nil {
+			t.Fatalf("ScreenshotWithProxy() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.Proxy != "http://static:8080" ||
+			len(pool.lastOptions.Chrome.ProxyList) != 0 {
+			t.Fatalf("proxy override options = %+v", pool.lastOptions.Chrome)
+		}
+
+		if _, err := client.ScreenshotWithProxyFile("https://example.com", "proxies.txt", runner.ProxyRandom, nil); err != nil {
+			t.Fatalf("ScreenshotWithProxyFile() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.ProxyFile != "proxies.txt" ||
+			pool.lastOptions.Chrome.ProxyStrategy != runner.ProxyRandom {
+			t.Fatalf("proxy file options = %+v", pool.lastOptions.Chrome)
+		}
+
+		if _, _, err := client.ScreenshotWithProxyURLBytes("https://example.com", "https://proxy-api.example/list", runner.ProxyRoundRobin, nil); err != nil {
+			t.Fatalf("ScreenshotWithProxyURLBytes() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.ProxyURL != "https://proxy-api.example/list" ||
+			pool.lastOptions.Chrome.ProxyStrategy != runner.ProxyRoundRobin {
+			t.Fatalf("proxy url options = %+v", pool.lastOptions.Chrome)
+		}
+
+		headers := map[string]string{"X-Test": "1"}
+		if _, err := client.ScreenshotWithCustomHeaders("https://example.com", headers, nil); err != nil {
+			t.Fatalf("ScreenshotWithCustomHeaders() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.CustomHeaders["X-Test"] != "1" {
+			t.Fatalf("CustomHeaders = %+v", pool.lastOptions.Chrome.CustomHeaders)
+		}
+
+		if _, err := client.ScreenshotWithUserAgent("https://example.com", "snir-test-agent", nil); err != nil {
+			t.Fatalf("ScreenshotWithUserAgent() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.UserAgent != "snir-test-agent" {
+			t.Fatalf("UserAgent = %q", pool.lastOptions.Chrome.UserAgent)
+		}
+
+		if _, err := client.ScreenshotWithAcceptLanguage("https://example.com", "zh-CN,zh;q=0.9", nil); err != nil {
+			t.Fatalf("ScreenshotWithAcceptLanguage() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.AcceptLanguage != "zh-CN,zh;q=0.9" {
+			t.Fatalf("AcceptLanguage = %q", pool.lastOptions.Chrome.AcceptLanguage)
+		}
+
+		if _, err := client.ScreenshotWithFingerprint("https://example.com", "Linux x86_64", "Google Inc.", "Mesa", "llvmpipe", nil); err != nil {
+			t.Fatalf("ScreenshotWithFingerprint() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.Platform != "Linux x86_64" ||
+			pool.lastOptions.Chrome.Vendor != "Google Inc." ||
+			pool.lastOptions.Chrome.WebGLVendor != "Mesa" ||
+			pool.lastOptions.Chrome.WebGLRenderer != "llvmpipe" {
+			t.Fatalf("fingerprint options = %+v", pool.lastOptions.Chrome)
+		}
+
+		if _, err := client.ScreenshotWithCookieHeader("https://example.com/path", "sid=abc; theme=dark", nil); err != nil {
+			t.Fatalf("ScreenshotWithCookieHeader() error = %v", err)
+		}
+		if len(pool.lastOptions.Scan.Cookies) != 2 ||
+			pool.lastOptions.Scan.Cookies[0].Name != "sid" ||
+			pool.lastOptions.Scan.Cookies[0].Domain != "example.com" {
+			t.Fatalf("cookie header cookies = %+v", pool.lastOptions.Scan.Cookies)
+		}
+
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		if _, _, err := client.ScreenshotWithCookieFileBytes("https://example.com", jarPath, true, nil); err != nil {
+			t.Fatalf("ScreenshotWithCookieFileBytes() error = %v", err)
+		}
+		if pool.lastOptions.Scan.CookiesFile != jarPath || !pool.lastOptions.Scan.CookieWriteBack ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("cookie file bytes options = %+v", pool.lastOptions.Scan)
+		}
+
+		importFile := filepath.Join(t.TempDir(), "cookies.txt")
+		importContent := "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tFALSE\t0\timported\tyes\n"
+		if err := os.WriteFile(importFile, []byte(importContent), 0644); err != nil {
+			t.Fatalf("write import cookie file: %v", err)
+		}
+		if _, err := client.ScreenshotWithCookieImport("https://example.com", importFile, nil); err != nil {
+			t.Fatalf("ScreenshotWithCookieImport() error = %v", err)
+		}
+		if pool.lastOptions.Scan.CookieImport != importFile ||
+			len(pool.lastOptions.Scan.Cookies) != 1 ||
+			pool.lastOptions.Scan.Cookies[0].Name != "imported" {
+			t.Fatalf("cookie import options = %+v", pool.lastOptions.Scan)
+		}
+
+		exportFile := filepath.Join(t.TempDir(), "export.txt")
+		if _, _, err := client.ScreenshotWithCookieExportBytes("https://example.com", exportFile, nil); err != nil {
+			t.Fatalf("ScreenshotWithCookieExportBytes() error = %v", err)
+		}
+		if pool.lastOptions.Scan.CookieExport != exportFile || !pool.lastOptions.Scan.SaveCookies ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("cookie export bytes options = %+v", pool.lastOptions.Scan)
+		}
+		exported, err := runner.LoadNetscapeCookieFile(exportFile)
+		if err != nil {
+			t.Fatalf("LoadNetscapeCookieFile() error = %v", err)
+		}
+		if len(exported) != 1 || exported[0].Name != "exported" {
+			t.Fatalf("exported cookies = %+v", exported)
+		}
+
+		if _, err := client.ScreenshotWithBlacklist("https://example.com", []string{"blocked.example"}, nil); err != nil {
+			t.Fatalf("ScreenshotWithBlacklist() error = %v", err)
+		}
+		if !pool.lastOptions.Scan.EnableBlacklist || pool.lastOptions.Scan.DefaultBlacklist ||
+			len(pool.lastOptions.Scan.BlacklistPatterns) != 1 ||
+			pool.lastOptions.Scan.BlacklistPatterns[0] != "blocked.example" {
+			t.Fatalf("blacklist options = %+v", pool.lastOptions.Scan)
+		}
+
+		blacklistFile := filepath.Join(t.TempDir(), "blacklist.txt")
+		if err := os.WriteFile(blacklistFile, []byte("blocked.example\n"), 0644); err != nil {
+			t.Fatalf("write blacklist file: %v", err)
+		}
+		if _, _, err := client.ScreenshotWithBlacklistFileBytes("https://example.com", blacklistFile, nil); err != nil {
+			t.Fatalf("ScreenshotWithBlacklistFileBytes() error = %v", err)
+		}
+		if !pool.lastOptions.Scan.EnableBlacklist || pool.lastOptions.Scan.BlacklistFile != blacklistFile ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("blacklist file bytes options = %+v", pool.lastOptions.Scan)
+		}
+
+		blockedOpts := NewScreenshotOptions(WithBlacklist("example.com"))
+		if _, err := client.ScreenshotWithoutBlacklist("https://example.com", blockedOpts); err != nil {
+			t.Fatalf("ScreenshotWithoutBlacklist() error = %v", err)
+		}
+		if pool.lastOptions.Scan.EnableBlacklist || pool.lastOptions.Scan.DefaultBlacklist ||
+			len(pool.lastOptions.Scan.BlacklistPatterns) != 0 || pool.lastOptions.Scan.BlacklistFile != "" {
+			t.Fatalf("without blacklist options = %+v", pool.lastOptions.Scan)
+		}
+
+		if _, _, err := client.ScreenshotWithRetriesBytes("https://example.com", 4, nil); err != nil {
+			t.Fatalf("ScreenshotWithRetriesBytes() error = %v", err)
+		}
+		if pool.lastOptions.Scan.MaxRetries != 4 ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("retries bytes options = %+v", pool.lastOptions.Scan)
+		}
+	})
+
 	t.Run("device viewport js file", func(t *testing.T) {
 		pool := &fakeDriverPool{}
 		client := &Client{pool: pool, opts: DefaultClientOptions()}
@@ -2021,6 +2186,173 @@ func TestSharedWrappers_Unit(t *testing.T) {
 		}
 		if len(last.Scan.Cookies) != 1 || last.Scan.Cookies[0].Name != "session" {
 			t.Fatalf("cookies = %+v", last.Scan.Cookies)
+		}
+	})
+
+	t.Run("request profile helpers map options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var last runner.Options
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			last = *opts
+			return &models.Result{
+				URL:             target,
+				ScreenshotBytes: []byte("png"),
+				Cookies:         []models.Cookie{{Name: "exported", Value: "1", Domain: "example.com", Path: "/"}},
+			}, nil
+		}
+
+		if _, err := SharedScreenshotWithProxy("https://example.com", "http://static:8080", NewScreenshotOptions(
+			WithProxyList(runner.ProxyRandom, "http://old:8080"),
+		)); err != nil {
+			t.Fatalf("SharedScreenshotWithProxy() error = %v", err)
+		}
+		if last.Chrome.Proxy != "http://static:8080" || len(last.Chrome.ProxyList) != 0 {
+			t.Fatalf("proxy options = %+v", last.Chrome)
+		}
+
+		data, _, err := SharedScreenshotWithProxyListBytes("https://example.com", runner.ProxyRoundRobin, []string{
+			"http://a:8080",
+			"http://b:8080",
+		}, nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotWithProxyListBytes() error = %v", err)
+		}
+		if string(data) != "png" || len(last.Chrome.ProxyList) != 2 ||
+			last.Chrome.ProxyStrategy != runner.ProxyRoundRobin ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("proxy list bytes data/options = %q/%+v/%+v", data, last.Chrome, last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithProxyFile("https://example.com", "proxies.txt", runner.ProxyRandom, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithProxyFile() error = %v", err)
+		}
+		if last.Chrome.ProxyFile != "proxies.txt" || last.Chrome.ProxyStrategy != runner.ProxyRandom {
+			t.Fatalf("proxy file options = %+v", last.Chrome)
+		}
+
+		if _, _, err := SharedScreenshotWithProxyURLBytes("https://example.com", "https://proxy-api.example/list", runner.ProxyRoundRobin, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithProxyURLBytes() error = %v", err)
+		}
+		if last.Chrome.ProxyURL != "https://proxy-api.example/list" ||
+			last.Chrome.ProxyStrategy != runner.ProxyRoundRobin {
+			t.Fatalf("proxy url options = %+v", last.Chrome)
+		}
+
+		if _, err := SharedScreenshotWithCustomHeaders("https://example.com", map[string]string{"X-Test": "1"}, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCustomHeaders() error = %v", err)
+		}
+		if last.Chrome.CustomHeaders["X-Test"] != "1" {
+			t.Fatalf("CustomHeaders = %+v", last.Chrome.CustomHeaders)
+		}
+
+		if _, err := SharedScreenshotWithUserAgent("https://example.com", "snir-test-agent", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithUserAgent() error = %v", err)
+		}
+		if last.Chrome.UserAgent != "snir-test-agent" {
+			t.Fatalf("UserAgent = %q", last.Chrome.UserAgent)
+		}
+
+		if _, err := SharedScreenshotWithAcceptLanguage("https://example.com", "zh-CN,zh;q=0.9", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithAcceptLanguage() error = %v", err)
+		}
+		if last.Chrome.AcceptLanguage != "zh-CN,zh;q=0.9" {
+			t.Fatalf("AcceptLanguage = %q", last.Chrome.AcceptLanguage)
+		}
+
+		if _, err := SharedScreenshotWithFingerprint("https://example.com", "Linux x86_64", "Google Inc.", "Mesa", "llvmpipe", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithFingerprint() error = %v", err)
+		}
+		if last.Chrome.Platform != "Linux x86_64" ||
+			last.Chrome.Vendor != "Google Inc." ||
+			last.Chrome.WebGLVendor != "Mesa" ||
+			last.Chrome.WebGLRenderer != "llvmpipe" {
+			t.Fatalf("fingerprint options = %+v", last.Chrome)
+		}
+
+		if _, err := SharedScreenshotWithCookieHeader("https://example.com/path", "sid=abc; theme=dark", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookieHeader() error = %v", err)
+		}
+		if len(last.Scan.Cookies) != 2 ||
+			last.Scan.Cookies[0].Name != "sid" ||
+			last.Scan.Cookies[0].Domain != "example.com" {
+			t.Fatalf("cookie header cookies = %+v", last.Scan.Cookies)
+		}
+
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		if _, _, err := SharedScreenshotWithCookieFileBytes("https://example.com", jarPath, true, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookieFileBytes() error = %v", err)
+		}
+		if last.Scan.CookiesFile != jarPath || !last.Scan.CookieWriteBack ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("cookie file bytes options = %+v", last.Scan)
+		}
+
+		importFile := filepath.Join(t.TempDir(), "cookies.txt")
+		importContent := "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tFALSE\t0\timported\tyes\n"
+		if err := os.WriteFile(importFile, []byte(importContent), 0644); err != nil {
+			t.Fatalf("write import cookie file: %v", err)
+		}
+		if _, err := SharedScreenshotWithCookieImport("https://example.com", importFile, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookieImport() error = %v", err)
+		}
+		if last.Scan.CookieImport != importFile ||
+			len(last.Scan.Cookies) != 1 ||
+			last.Scan.Cookies[0].Name != "imported" {
+			t.Fatalf("cookie import options = %+v", last.Scan)
+		}
+
+		exportFile := filepath.Join(t.TempDir(), "export.txt")
+		if data, _, err = SharedScreenshotWithCookieExportBytes("https://example.com", exportFile, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookieExportBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.CookieExport != exportFile || !last.Scan.SaveCookies ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("cookie export bytes data/options = %q/%+v", data, last.Scan)
+		}
+		exported, err := runner.LoadNetscapeCookieFile(exportFile)
+		if err != nil {
+			t.Fatalf("LoadNetscapeCookieFile() error = %v", err)
+		}
+		if len(exported) != 1 || exported[0].Name != "exported" {
+			t.Fatalf("exported cookies = %+v", exported)
+		}
+
+		if _, err := SharedScreenshotWithBlacklist("https://example.com", []string{"blocked.example"}, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithBlacklist() error = %v", err)
+		}
+		if !last.Scan.EnableBlacklist || last.Scan.DefaultBlacklist ||
+			len(last.Scan.BlacklistPatterns) != 1 ||
+			last.Scan.BlacklistPatterns[0] != "blocked.example" {
+			t.Fatalf("blacklist options = %+v", last.Scan)
+		}
+
+		blacklistFile := filepath.Join(t.TempDir(), "blacklist.txt")
+		if err := os.WriteFile(blacklistFile, []byte("blocked.example\n"), 0644); err != nil {
+			t.Fatalf("write blacklist file: %v", err)
+		}
+		if _, _, err := SharedScreenshotWithBlacklistFileBytes("https://example.com", blacklistFile, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithBlacklistFileBytes() error = %v", err)
+		}
+		if !last.Scan.EnableBlacklist || last.Scan.BlacklistFile != blacklistFile ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("blacklist file bytes options = %+v", last.Scan)
+		}
+
+		blockedOpts := NewScreenshotOptions(WithBlacklist("example.com"))
+		if _, err := SharedScreenshotWithoutBlacklist("https://example.com", blockedOpts); err != nil {
+			t.Fatalf("SharedScreenshotWithoutBlacklist() error = %v", err)
+		}
+		if last.Scan.EnableBlacklist || last.Scan.DefaultBlacklist ||
+			len(last.Scan.BlacklistPatterns) != 0 || last.Scan.BlacklistFile != "" {
+			t.Fatalf("without blacklist options = %+v", last.Scan)
+		}
+
+		if _, _, err := SharedScreenshotWithRetriesBytes("https://example.com", 4, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithRetriesBytes() error = %v", err)
+		}
+		if last.Scan.MaxRetries != 4 ||
+			!last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+			t.Fatalf("retries bytes options = %+v", last.Scan)
 		}
 	})
 

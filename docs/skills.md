@@ -633,6 +633,32 @@ imgBytes, result, err = client.ScreenshotWithTimeoutBytes("https://example.com",
 
 共享池也提供对应方法：`SharedScreenshotHeaders`、`SharedScreenshotConsole`、`SharedScreenshotNetwork`、`SharedScreenshotWithFormat`、`SharedScreenshotToPath`、`SharedScreenshotWithDelay`、`SharedScreenshotWithTimeout` 及其字节返回版本。
 
+#### 代理、请求身份、Cookie 和黑名单
+
+```go
+imgBytes, result, err := client.ScreenshotWithProxyListBytes(
+    "https://example.com",
+    runner.ProxyRoundRobin,
+    []string{"http://a:8080", "http://b:8080"},
+    nil,
+)
+
+result, err = client.ScreenshotWithUserAgent("https://example.com", "snir-agent", nil)
+result, err = client.ScreenshotWithAcceptLanguage("https://example.com", "zh-CN,zh;q=0.9", nil)
+result, err = client.ScreenshotWithFingerprint(
+    "https://example.com", "Win32", "Google Inc.", "Intel Inc.", "Intel Iris", nil,
+)
+
+result, err = client.ScreenshotWithCookieHeader("https://example.com/dashboard", "session=abc", nil)
+imgBytes, result, err = client.ScreenshotWithCookieExportBytes("https://example.com", "out-cookies.txt", nil)
+
+result, err = client.ScreenshotWithBlacklist("https://example.com", []string{"*.internal.*"}, nil)
+imgBytes, result, err = client.ScreenshotWithoutBlacklistBytes("https://example.com", nil)
+imgBytes, result, err = client.ScreenshotWithRetriesBytes("https://example.com", 3, nil)
+```
+
+共享池也提供对应方法：`SharedScreenshotWithProxy`、`SharedScreenshotWithProxyList`、`SharedScreenshotWithProxyFile`、`SharedScreenshotWithProxyURL`、`SharedScreenshotWithCustomHeaders`、`SharedScreenshotWithUserAgent`、`SharedScreenshotWithAcceptLanguage`、`SharedScreenshotWithFingerprint`、`SharedScreenshotWithCookieHeader`、`SharedScreenshotWithCookieFile`、`SharedScreenshotWithCookieImport`、`SharedScreenshotWithCookieExport`、`SharedScreenshotWithBlacklist`、`SharedScreenshotWithBlacklistFile`、`SharedScreenshotWithoutBlacklist`、`SharedScreenshotWithRetries` 及其字节返回版本。
+
 #### 全证据采集
 
 ```go

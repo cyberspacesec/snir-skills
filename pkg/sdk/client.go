@@ -365,6 +365,232 @@ func (c *Client) ScreenshotWithTimeoutBytes(url string, timeout time.Duration, s
 	return c.ScreenshotBytes(url, opts)
 }
 
+// ScreenshotWithProxy 使用指定代理截图。
+func (c *Client) ScreenshotWithProxy(url string, proxy string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxy(proxy)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithProxyBytes 使用指定代理截图，并返回图片字节。
+func (c *Client) ScreenshotWithProxyBytes(url string, proxy string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxy(proxy)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithProxyList 使用代理列表和轮换策略截图。
+func (c *Client) ScreenshotWithProxyList(url string, strategy runner.ProxyStrategy, proxies []string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxyList(strategy, proxies...)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithProxyListBytes 使用代理列表和轮换策略截图，并返回图片字节。
+func (c *Client) ScreenshotWithProxyListBytes(url string, strategy runner.ProxyStrategy, proxies []string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxyList(strategy, proxies...)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithProxyFile 使用代理文件和轮换策略截图。
+func (c *Client) ScreenshotWithProxyFile(url string, path string, strategy runner.ProxyStrategy, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxyFile(path, strategy)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithProxyFileBytes 使用代理文件和轮换策略截图，并返回图片字节。
+func (c *Client) ScreenshotWithProxyFileBytes(url string, path string, strategy runner.ProxyStrategy, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxyFile(path, strategy)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithProxyURL 使用动态代理 API 和轮换策略截图。
+func (c *Client) ScreenshotWithProxyURL(url string, proxyURL string, strategy runner.ProxyStrategy, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxyURL(proxyURL, strategy)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithProxyURLBytes 使用动态代理 API 和轮换策略截图，并返回图片字节。
+func (c *Client) ScreenshotWithProxyURLBytes(url string, proxyURL string, strategy runner.ProxyStrategy, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithProxyURL(proxyURL, strategy)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithCustomHeaders 使用自定义请求头截图。
+func (c *Client) ScreenshotWithCustomHeaders(url string, headers map[string]string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCustomHeaders(headers)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCustomHeadersBytes 使用自定义请求头截图，并返回图片字节。
+func (c *Client) ScreenshotWithCustomHeadersBytes(url string, headers map[string]string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCustomHeaders(headers)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithUserAgent 使用指定 User-Agent 截图。
+func (c *Client) ScreenshotWithUserAgent(url string, userAgent string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithUserAgent(userAgent)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithUserAgentBytes 使用指定 User-Agent 截图，并返回图片字节。
+func (c *Client) ScreenshotWithUserAgentBytes(url string, userAgent string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithUserAgent(userAgent)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithAcceptLanguage 使用指定 Accept-Language 截图。
+func (c *Client) ScreenshotWithAcceptLanguage(url string, language string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithAcceptLanguage(language)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithAcceptLanguageBytes 使用指定 Accept-Language 截图，并返回图片字节。
+func (c *Client) ScreenshotWithAcceptLanguageBytes(url string, language string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithAcceptLanguage(language)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithFingerprint 使用浏览器指纹覆盖截图。
+func (c *Client) ScreenshotWithFingerprint(url string, platform, vendor, webGLVendor, webGLRenderer string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithFingerprint(platform, vendor, webGLVendor, webGLRenderer)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithFingerprintBytes 使用浏览器指纹覆盖截图，并返回图片字节。
+func (c *Client) ScreenshotWithFingerprintBytes(url string, platform, vendor, webGLVendor, webGLRenderer string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithFingerprint(platform, vendor, webGLVendor, webGLRenderer)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithCookieHeader 使用 Cookie header 注入认证状态后截图。
+func (c *Client) ScreenshotWithCookieHeader(url string, header string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieHeader(header)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookieHeaderBytes 使用 Cookie header 注入认证状态后截图，并返回图片字节。
+func (c *Client) ScreenshotWithCookieHeaderBytes(url string, header string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieHeader(header)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithCookieFile 使用持久化 JSON CookieJar 截图。
+func (c *Client) ScreenshotWithCookieFile(url string, path string, writeBack bool, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieFile(path)(opts)
+	opts.CookieWriteBack = writeBack
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookieFileBytes 使用持久化 JSON CookieJar 截图，并返回图片字节。
+func (c *Client) ScreenshotWithCookieFileBytes(url string, path string, writeBack bool, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieFile(path)(opts)
+	opts.CookieWriteBack = writeBack
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithCookieImport 导入 Netscape/Mozilla Cookie 文件后截图。
+func (c *Client) ScreenshotWithCookieImport(url string, path string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieImport(path)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookieImportBytes 导入 Netscape/Mozilla Cookie 文件后截图，并返回图片字节。
+func (c *Client) ScreenshotWithCookieImportBytes(url string, path string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieImport(path)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithCookieExport 截图后导出 Cookie 到 Netscape/Mozilla Cookie 文件。
+func (c *Client) ScreenshotWithCookieExport(url string, path string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieExport(path)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookieExportBytes 截图后导出 Cookie 到 Netscape/Mozilla Cookie 文件，并返回图片字节。
+func (c *Client) ScreenshotWithCookieExportBytes(url string, path string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithCookieExport(path)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithBlacklist 使用自定义 URL 黑名单规则截图。
+func (c *Client) ScreenshotWithBlacklist(url string, patterns []string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithBlacklist(patterns...)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithBlacklistBytes 使用自定义 URL 黑名单规则截图，并返回图片字节。
+func (c *Client) ScreenshotWithBlacklistBytes(url string, patterns []string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithBlacklist(patterns...)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithBlacklistFile 使用 URL 黑名单文件截图。
+func (c *Client) ScreenshotWithBlacklistFile(url string, path string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithBlacklistFile(path)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithBlacklistFileBytes 使用 URL 黑名单文件截图，并返回图片字节。
+func (c *Client) ScreenshotWithBlacklistFileBytes(url string, path string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithBlacklistFile(path)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithoutBlacklist 禁用 URL 黑名单后截图。
+func (c *Client) ScreenshotWithoutBlacklist(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithNoBlacklist()(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithoutBlacklistBytes 禁用 URL 黑名单后截图，并返回图片字节。
+func (c *Client) ScreenshotWithoutBlacklistBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithNoBlacklist()(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotWithRetries 使用指定最大重试次数截图。
+func (c *Client) ScreenshotWithRetries(url string, maxRetries int, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithMaxRetries(maxRetries)(opts)
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithRetriesBytes 使用指定最大重试次数截图，并返回图片字节。
+func (c *Client) ScreenshotWithRetriesBytes(url string, maxRetries int, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithMaxRetries(maxRetries)(opts)
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotWithActions 截图前执行交互动作序列
 // 适用于需要点击按钮、填写表单、滚动页面等交互后再截图的场景
 //
