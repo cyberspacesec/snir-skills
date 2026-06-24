@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
@@ -57,6 +58,9 @@ func CloneScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOptions {
 	}
 	if opts.Actions != nil {
 		cloned.Actions = append([]runner.InteractionAction(nil), opts.Actions...)
+	}
+	if opts.Form.Fields != nil {
+		cloned.Form.Fields = append([]runner.FormField(nil), opts.Form.Fields...)
 	}
 	if opts.BlacklistPatterns != nil {
 		cloned.BlacklistPatterns = append(make([]string, 0, len(opts.BlacklistPatterns)), opts.BlacklistPatterns...)
@@ -508,6 +512,119 @@ func WithActions(actions ...runner.InteractionAction) ScreenshotOption {
 func WithForm(form runner.Form) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.Form = form
+	}
+}
+
+// ActionClick clicks an element matched by a CSS selector.
+func ActionClick(selector string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "click", Selector: selector}
+}
+
+// ActionClickXPath clicks an element matched by XPath.
+func ActionClickXPath(xpath string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "click", XPath: xpath}
+}
+
+// ActionType sends text to an element matched by a CSS selector.
+func ActionType(selector, value string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "type", Selector: selector, Value: value}
+}
+
+// ActionTypeXPath sends text to an element matched by XPath.
+func ActionTypeXPath(xpath, value string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "type", XPath: xpath, Value: value}
+}
+
+// ActionScroll scrolls an element matched by a CSS selector by pixels.
+func ActionScroll(selector string, pixels int) runner.InteractionAction {
+	return runner.InteractionAction{Type: "scroll", Selector: selector, Value: strconv.Itoa(pixels)}
+}
+
+// ActionWait waits for duration before continuing the interaction sequence.
+func ActionWait(duration time.Duration) runner.InteractionAction {
+	return runner.InteractionAction{Type: "wait", WaitTime: int(duration / time.Millisecond)}
+}
+
+// ActionWaitVisible waits until a CSS selector is visible.
+func ActionWaitVisible(selector string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "wait", Selector: selector, WaitVisible: true}
+}
+
+// ActionWaitVisibleXPath waits until an XPath target is visible.
+func ActionWaitVisibleXPath(xpath string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "wait", XPath: xpath, WaitVisible: true}
+}
+
+// ActionHover hovers over an element matched by a CSS selector.
+func ActionHover(selector string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "hover", Selector: selector}
+}
+
+// ActionHoverXPath hovers over an element matched by XPath.
+func ActionHoverXPath(xpath string) runner.InteractionAction {
+	return runner.InteractionAction{Type: "hover", XPath: xpath}
+}
+
+// FormInput creates a text input form field for a CSS selector.
+func FormInput(selector, value string) runner.FormField {
+	return runner.FormField{Type: "input", Selector: selector, Value: value}
+}
+
+// FormInputXPath creates a text input form field for an XPath target.
+func FormInputXPath(xpath, value string) runner.FormField {
+	return runner.FormField{Type: "input", XPath: xpath, Value: value}
+}
+
+// FormSelect creates a select form field for a CSS selector.
+func FormSelect(selector, value string) runner.FormField {
+	return runner.FormField{Type: "select", Selector: selector, Value: value}
+}
+
+// FormSelectXPath creates a select form field for an XPath target.
+func FormSelectXPath(xpath, value string) runner.FormField {
+	return runner.FormField{Type: "select", XPath: xpath, Value: value}
+}
+
+// FormCheckbox creates a checkbox form field for a CSS selector.
+func FormCheckbox(selector string) runner.FormField {
+	return runner.FormField{Type: "checkbox", Selector: selector}
+}
+
+// FormCheckboxXPath creates a checkbox form field for an XPath target.
+func FormCheckboxXPath(xpath string) runner.FormField {
+	return runner.FormField{Type: "checkbox", XPath: xpath}
+}
+
+// FormRadio creates a radio form field for a CSS selector.
+func FormRadio(selector string) runner.FormField {
+	return runner.FormField{Type: "radio", Selector: selector}
+}
+
+// FormRadioXPath creates a radio form field for an XPath target.
+func FormRadioXPath(xpath string) runner.FormField {
+	return runner.FormField{Type: "radio", XPath: xpath}
+}
+
+// NewForm creates a form fill configuration without a submit action.
+func NewForm(fields ...runner.FormField) runner.Form {
+	return runner.Form{Fields: fields}
+}
+
+// FormWithSubmit creates a form fill configuration and clicks a CSS submit target.
+func FormWithSubmit(submitSelector string, waitAfterSubmit time.Duration, fields ...runner.FormField) runner.Form {
+	return runner.Form{
+		Fields:          fields,
+		SubmitSelector:  submitSelector,
+		WaitAfterSubmit: int(waitAfterSubmit / time.Millisecond),
+	}
+}
+
+// FormWithSubmitXPath creates a form fill configuration and clicks an XPath submit target.
+func FormWithSubmitXPath(submitXPath string, waitAfterSubmit time.Duration, fields ...runner.FormField) runner.Form {
+	return runner.Form{
+		Fields:          fields,
+		SubmitXPath:     submitXPath,
+		WaitAfterSubmit: int(waitAfterSubmit / time.Millisecond),
 	}
 }
 

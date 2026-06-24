@@ -521,7 +521,7 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	if len(so.Actions) > 0 {
 		base.Scan.Actions = so.Actions
 	}
-	if so.Form.Fields != nil {
+	if formHasConfig(so.Form) {
 		base.Scan.Form = so.Form
 	}
 
@@ -548,6 +548,13 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 
 	return base
+}
+
+func formHasConfig(form runner.Form) bool {
+	return form.Fields != nil ||
+		form.SubmitSelector != "" ||
+		form.SubmitXPath != "" ||
+		form.WaitAfterSubmit > 0
 }
 
 func applyDevicePreset(device string, opts *runner.Options) {

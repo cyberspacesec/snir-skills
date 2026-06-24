@@ -445,9 +445,9 @@ result, err := client.ScreenshotWithJS("https://example.com",
 
 ```go
 actions := []runner.InteractionAction{
-    {Type: "type", Selector: "#search", Value: "go-snir"},
-    {Type: "click", Selector: "#search-btn"},
-    {Type: "wait", WaitTime: 2},
+    sdk.ActionType("#search", "go-snir"),
+    sdk.ActionClick("#search-btn"),
+    sdk.ActionWait(2 * time.Second),
 }
 result, err := client.ScreenshotWithActions("https://example.com", actions, nil)
 ```
@@ -455,14 +455,10 @@ result, err := client.ScreenshotWithActions("https://example.com", actions, nil)
 #### 表单填写后截图
 
 ```go
-form := runner.Form{
-    Fields: []runner.FormField{
-        {Selector: "#username", Value: "admin"},
-        {Selector: "#password", Value: "pass123"},
-    },
-    SubmitSelector: "#login-btn",
-    WaitAfterSubmit: 3,
-}
+form := sdk.FormWithSubmit("#login-btn", 3*time.Second,
+    sdk.FormInput("#username", "admin"),
+    sdk.FormInput("#password", "pass123"),
+)
 result, err := client.ScreenshotWithForm("https://example.com/login", form, nil)
 ```
 
@@ -575,8 +571,8 @@ opts := &sdk.ScreenshotOptions{
     CookieExport:    "out-cookies.txt",               // 结果 Cookie 导出
     CookieWriteBack: true,                            // 写回 SDK CookieJar
     Actions: []runner.InteractionAction{              // 交互动作
-        {Type: "click", Selector: "#accept"},
-        {Type: "wait", WaitTime: 2},
+        sdk.ActionClick("#accept"),
+        sdk.ActionWait(2 * time.Second),
     },
     MaxRetries: 3,                                    // 重试次数
 }
@@ -634,8 +630,27 @@ result, err = client.Capture(
         Name: "session", Value: "abc", Domain: "example.com",
     }),
     sdk.WithActions(
-        runner.InteractionAction{Type: "wait", WaitTime: 1000},
+        sdk.ActionWait(time.Second),
     ),
+)
+
+// 搜索交互后截图
+result, err = client.Capture(
+    "https://example.com/search",
+    sdk.WithActions(
+        sdk.ActionType("#q", "snir"),
+        sdk.ActionClick("#search"),
+        sdk.ActionWait(1500*time.Millisecond),
+    ),
+)
+
+// 表单填写、提交并等待结果页
+result, err = client.Capture(
+    "https://example.com/login",
+    sdk.WithForm(sdk.FormWithSubmit("#login", 2*time.Second,
+        sdk.FormInput("#user", "admin"),
+        sdk.FormInput("#password", "secret"),
+    )),
 )
 
 // 单次截图覆盖指纹

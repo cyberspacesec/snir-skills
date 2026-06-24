@@ -819,6 +819,13 @@ func TestMergeWithScreenshotOptions_Form(t *testing.T) {
 	if len(merged.Scan.Form.Fields) != 1 {
 		t.Errorf("Form.Fields len = %d, want 1", len(merged.Scan.Form.Fields))
 	}
+
+	submitOnly := mergeWithScreenshotOptions(base, &ScreenshotOptions{
+		Form: runner.Form{SubmitSelector: "#continue", WaitAfterSubmit: 500},
+	})
+	if submitOnly.Scan.Form.SubmitSelector != "#continue" || submitOnly.Scan.Form.WaitAfterSubmit != 500 {
+		t.Errorf("submit-only form not merged: %+v", submitOnly.Scan.Form)
+	}
 }
 
 func TestMergeWithScreenshotOptions_MaxRetries(t *testing.T) {

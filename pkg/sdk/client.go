@@ -261,9 +261,9 @@ func (c *Client) ScreenshotHTML(url string, screenshotOpts *ScreenshotOptions) (
 // 示例:
 //
 //	actions := []runner.InteractionAction{
-//	    {Type: "type", Selector: "#search", Value: "go-snir"},
-//	    {Type: "click", Selector: "#search-btn"},
-//	    {Type: "wait", WaitTime: 2},
+//	    sdk.ActionType("#search", "go-snir"),
+//	    sdk.ActionClick("#search-btn"),
+//	    sdk.ActionWait(2 * time.Second),
 //	}
 //	result, _ := client.ScreenshotWithActions("https://example.com", actions, nil)
 func (c *Client) ScreenshotWithActions(url string, actions []runner.InteractionAction, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
@@ -277,14 +277,10 @@ func (c *Client) ScreenshotWithActions(url string, actions []runner.InteractionA
 //
 // 示例:
 //
-//	form := runner.Form{
-//	    Fields: []runner.FormField{
-//	        {Selector: "#username", Value: "admin"},
-//	        {Selector: "#password", Value: "pass123"},
-//	    },
-//	    SubmitSelector: "#login-btn",
-//	    WaitAfterSubmit: 3,
-//	}
+//	form := sdk.FormWithSubmit("#login-btn", 3*time.Second,
+//	    sdk.FormInput("#username", "admin"),
+//	    sdk.FormInput("#password", "pass123"),
+//	)
 //	result, _ := client.ScreenshotWithForm("https://example.com/login", form, nil)
 func (c *Client) ScreenshotWithForm(url string, form runner.Form, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)

@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func makeTestOptions() Options {
@@ -317,6 +319,33 @@ func TestEncodeScreenshot(t *testing.T) {
 
 	if _, err := encodeScreenshot(input.Bytes(), "gif", 90); err == nil {
 		t.Fatal("unsupported format should return error")
+	}
+}
+
+func TestBuildInteractionActions(t *testing.T) {
+	tasks := buildInteractionActions([]InteractionAction{
+		{Type: "wait", WaitTime: 250},
+		{Type: "wait"},
+		{Type: "wait", Selector: "#ready", WaitVisible: true},
+		{Type: "click"},
+		{Type: "scroll", XPath: "//main", Value: "100"},
+		{Type: "hover", XPath: "//nav"},
+	})
+
+	if len(tasks) != 4 {
+		t.Fatalf("buildInteractionActions returned %d tasks, want 4", len(tasks))
+	}
+
+	start := time.Now()
+	if err := tasks[0].Do(context.Background()); err != nil {
+		t.Fatalf("wait action returned error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 200*time.Millisecond {
+		t.Fatalf("wait action elapsed %v, want at least 200ms", elapsed)
+	}
+
+	if got := buildInteractionActions(nil); got != nil {
+		t.Fatalf("buildInteractionActions(nil) = %v, want nil", got)
 	}
 }
 

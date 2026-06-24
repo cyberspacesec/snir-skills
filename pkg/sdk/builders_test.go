@@ -9,8 +9,8 @@ import (
 
 func TestNewScreenshotOptions(t *testing.T) {
 	cookie := runner.CustomCookie{Name: "session", Value: "abc", Domain: "example.com"}
-	action := runner.InteractionAction{Type: "click", Selector: "#submit"}
-	form := runner.Form{SubmitSelector: "#login"}
+	action := ActionClick("#submit")
+	form := FormWithSubmit("#login", time.Second, FormInput("#user", "admin"))
 
 	opts := NewScreenshotOptions(
 		WithTimeout(11*time.Second),
@@ -121,7 +121,8 @@ func TestNewScreenshotOptions(t *testing.T) {
 	if len(opts.Actions) != 1 || opts.Actions[0].Selector != "#submit" {
 		t.Fatalf("actions = %+v", opts.Actions)
 	}
-	if opts.Form.SubmitSelector != "#login" {
+	if opts.Form.SubmitSelector != "#login" || opts.Form.WaitAfterSubmit != 1000 ||
+		len(opts.Form.Fields) != 1 || opts.Form.Fields[0].Selector != "#user" {
 		t.Fatalf("form = %+v", opts.Form)
 	}
 	if opts.MaxRetries != 3 {
@@ -152,6 +153,69 @@ func TestNewScreenshotOptions(t *testing.T) {
 		noBlacklistOpts.DefaultBlacklist == nil || *noBlacklistOpts.DefaultBlacklist ||
 		len(noBlacklistOpts.BlacklistPatterns) != 0 || noBlacklistOpts.BlacklistFile != "" {
 		t.Fatalf("WithNoBlacklist = %+v", noBlacklistOpts)
+	}
+}
+
+func TestInteractionAndFormBuilders(t *testing.T) {
+	actions := []runner.InteractionAction{
+		ActionClick("#login"),
+		ActionClickXPath("//button"),
+		ActionType("#user", "admin"),
+		ActionTypeXPath("//input[@name='password']", "secret"),
+		ActionScroll("#panel", 240),
+		ActionWait(1500 * time.Millisecond),
+		ActionWaitVisible("#ready"),
+		ActionWaitVisibleXPath("//main"),
+		ActionHover("#menu"),
+		ActionHoverXPath("//nav"),
+	}
+
+	assertAction := func(index int, actionType, selector, xpath, value string, waitTime int, waitVisible bool) {
+		t.Helper()
+		action := actions[index]
+		if action.Type != actionType || action.Selector != selector || action.XPath != xpath ||
+			action.Value != value || action.WaitTime != waitTime || action.WaitVisible != waitVisible {
+			t.Fatalf("actions[%d] = %+v", index, action)
+		}
+	}
+
+	assertAction(0, "click", "#login", "", "", 0, false)
+	assertAction(1, "click", "", "//button", "", 0, false)
+	assertAction(2, "type", "#user", "", "admin", 0, false)
+	assertAction(3, "type", "", "//input[@name='password']", "secret", 0, false)
+	assertAction(4, "scroll", "#panel", "", "240", 0, false)
+	assertAction(5, "wait", "", "", "", 1500, false)
+	assertAction(6, "wait", "#ready", "", "", 0, true)
+	assertAction(7, "wait", "", "//main", "", 0, true)
+	assertAction(8, "hover", "#menu", "", "", 0, false)
+	assertAction(9, "hover", "", "//nav", "", 0, false)
+
+	form := FormWithSubmitXPath(
+		"//button[@type='submit']",
+		2*time.Second,
+		FormInput("#user", "admin"),
+		FormInputXPath("//input[@name='password']", "secret"),
+		FormSelect("#role", "admin"),
+		FormSelectXPath("//select[@name='tenant']", "default"),
+		FormCheckbox("#remember"),
+		FormCheckboxXPath("//input[@type='checkbox']"),
+		FormRadio("#choice"),
+		FormRadioXPath("//input[@type='radio']"),
+	)
+
+	if form.SubmitXPath != "//button[@type='submit']" || form.WaitAfterSubmit != 2000 || len(form.Fields) != 8 {
+		t.Fatalf("form = %+v", form)
+	}
+	if form.Fields[0].Type != "input" || form.Fields[0].Selector != "#user" || form.Fields[0].Value != "admin" {
+		t.Fatalf("input field = %+v", form.Fields[0])
+	}
+	if form.Fields[4].Type != "checkbox" || form.Fields[4].Selector != "#remember" {
+		t.Fatalf("checkbox field = %+v", form.Fields[4])
+	}
+
+	noSubmit := NewForm(FormRadio("#yes"))
+	if len(noSubmit.Fields) != 1 || noSubmit.Fields[0].Type != "radio" {
+		t.Fatalf("NewForm = %+v", noSubmit)
 	}
 }
 
@@ -207,6 +271,7 @@ func TestCloneScreenshotOptions(t *testing.T) {
 		Cookies:           []runner.CustomCookie{{Name: "session", Value: "abc"}},
 		CookieStrings:     []string{"sid=abc"},
 		Actions:           []runner.InteractionAction{{Type: "click", Selector: "#submit"}},
+		Form:              runner.Form{Fields: []runner.FormField{{Selector: "#user", Value: "admin"}}},
 		BlacklistPatterns: []string{"example.com"},
 		IsMobile:          boolPtr(true),
 		HasTouch:          boolPtr(false),
@@ -229,6 +294,7 @@ func TestCloneScreenshotOptions(t *testing.T) {
 	cloned.Cookies[0].Value = "changed"
 	cloned.CookieStrings[0] = "sid=changed"
 	cloned.Actions[0].Selector = "#changed"
+	cloned.Form.Fields[0].Value = "changed"
 	cloned.BlacklistPatterns[0] = "changed.com"
 	*cloned.IsMobile = false
 	*cloned.HasTouch = true
@@ -239,7 +305,8 @@ func TestCloneScreenshotOptions(t *testing.T) {
 	if opts.ProxyList[0] != "http://a:8080" || opts.Ports[0] != 80 ||
 		opts.Plugins[0] != "PDF Viewer" || opts.CustomHeaders["X-Test"] != "1" ||
 		opts.Cookies[0].Value != "abc" || opts.CookieStrings[0] != "sid=abc" ||
-		opts.Actions[0].Selector != "#submit" || opts.BlacklistPatterns[0] != "example.com" ||
+		opts.Actions[0].Selector != "#submit" || opts.Form.Fields[0].Value != "admin" ||
+		opts.BlacklistPatterns[0] != "example.com" ||
 		!*opts.IsMobile || *opts.HasTouch || !*opts.EnableBlacklist || *opts.DefaultBlacklist ||
 		!*opts.HTTP || *opts.HTTPS {
 		t.Fatalf("CloneScreenshotOptions shared mutable fields: original=%+v cloned=%+v", opts, cloned)

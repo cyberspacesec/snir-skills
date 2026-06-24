@@ -287,83 +287,7 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 		tasks = append(tasks, chromedp.Sleep(time.Duration(c.opts.Chrome.Delay)*time.Second))
 	}
 
-	// 处理交互操作
-	if len(c.opts.Scan.Actions) > 0 {
-		for _, action := range c.opts.Scan.Actions {
-			// 确定选择方式
-			var sel interface{}
-			var by chromedp.QueryOption
-
-			if action.Selector != "" {
-				sel = action.Selector
-				by = chromedp.ByQuery
-			} else if action.XPath != "" {
-				sel = action.XPath
-				by = chromedp.BySearch
-			} else {
-				continue
-			}
-
-			// 根据操作类型执行不同动作
-			switch action.Type {
-			case "click":
-				tasks = append(tasks, chromedp.Click(sel, by))
-			case "type":
-				tasks = append(tasks, chromedp.SendKeys(sel, action.Value, by))
-			case "scroll":
-				scrollJS := fmt.Sprintf(`
-					const el = document.querySelector("%s");
-					if(el) { el.scrollBy(0, %s); }
-				`, action.Selector, action.Value)
-				tasks = append(tasks, chromedp.Evaluate(scrollJS, nil))
-			case "wait":
-				if action.WaitVisible {
-					tasks = append(tasks, chromedp.WaitVisible(sel, by))
-				} else {
-					waitTime := 1000
-					if action.WaitTime > 0 {
-						waitTime = action.WaitTime
-					}
-					tasks = append(tasks, chromedp.Sleep(time.Duration(waitTime)*time.Millisecond))
-				}
-			case "hover":
-				if action.Selector != "" {
-					hoverJS := fmt.Sprintf(`
-						(function() {
-							const element = document.querySelector("%s");
-							if (element) {
-								const mouseoverEvent = new MouseEvent('mouseover', {
-									bubbles: true,
-									cancelable: true,
-									view: window
-								});
-								element.dispatchEvent(mouseoverEvent);
-								return true;
-							}
-							return false;
-						})()`, action.Selector)
-					tasks = append(tasks, chromedp.Evaluate(hoverJS, nil))
-				} else if action.XPath != "" {
-					hoverJS := fmt.Sprintf(`
-						(function() {
-							const result = document.evaluate("%s", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-							const element = result.singleNodeValue;
-							if (element) {
-								const mouseoverEvent = new MouseEvent('mouseover', {
-									bubbles: true,
-									cancelable: true,
-									view: window
-								});
-								element.dispatchEvent(mouseoverEvent);
-								return true;
-							}
-							return false;
-						})()`, action.XPath)
-					tasks = append(tasks, chromedp.Evaluate(hoverJS, nil))
-				}
-			}
-		}
-	}
+	tasks = append(tasks, buildInteractionActions(c.opts.Scan.Actions)...)
 
 	// 表单填充
 	if len(c.opts.Scan.Form.Fields) > 0 {
@@ -597,6 +521,92 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 	}
 
 	return result, nil
+}
+
+func buildInteractionActions(actions []InteractionAction) []chromedp.Action {
+	if len(actions) == 0 {
+		return nil
+	}
+
+	tasks := make([]chromedp.Action, 0, len(actions))
+	for _, action := range actions {
+		if action.Type == "wait" && !action.WaitVisible {
+			waitTime := 1000
+			if action.WaitTime > 0 {
+				waitTime = action.WaitTime
+			}
+			tasks = append(tasks, chromedp.Sleep(time.Duration(waitTime)*time.Millisecond))
+			continue
+		}
+
+		var sel interface{}
+		var by chromedp.QueryOption
+
+		if action.Selector != "" {
+			sel = action.Selector
+			by = chromedp.ByQuery
+		} else if action.XPath != "" {
+			sel = action.XPath
+			by = chromedp.BySearch
+		} else {
+			continue
+		}
+
+		switch action.Type {
+		case "click":
+			tasks = append(tasks, chromedp.Click(sel, by))
+		case "type":
+			tasks = append(tasks, chromedp.SendKeys(sel, action.Value, by))
+		case "scroll":
+			if action.Selector == "" {
+				continue
+			}
+			scrollJS := fmt.Sprintf(`
+				const el = document.querySelector("%s");
+				if(el) { el.scrollBy(0, %s); }
+			`, action.Selector, action.Value)
+			tasks = append(tasks, chromedp.Evaluate(scrollJS, nil))
+		case "wait":
+			tasks = append(tasks, chromedp.WaitVisible(sel, by))
+		case "hover":
+			if action.Selector != "" {
+				hoverJS := fmt.Sprintf(`
+					(function() {
+						const element = document.querySelector("%s");
+						if (element) {
+							const mouseoverEvent = new MouseEvent('mouseover', {
+								bubbles: true,
+								cancelable: true,
+								view: window
+							});
+							element.dispatchEvent(mouseoverEvent);
+							return true;
+						}
+						return false;
+					})()`, action.Selector)
+				tasks = append(tasks, chromedp.Evaluate(hoverJS, nil))
+			} else if action.XPath != "" {
+				hoverJS := fmt.Sprintf(`
+					(function() {
+						const result = document.evaluate("%s", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+						const element = result.singleNodeValue;
+						if (element) {
+							const mouseoverEvent = new MouseEvent('mouseover', {
+								bubbles: true,
+								cancelable: true,
+								view: window
+							});
+							element.dispatchEvent(mouseoverEvent);
+							return true;
+						}
+						return false;
+					})()`, action.XPath)
+				tasks = append(tasks, chromedp.Evaluate(hoverJS, nil))
+			}
+		}
+	}
+
+	return tasks
 }
 
 // Close implements the Driver interface
