@@ -38,9 +38,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/cyberspacesec/snir-skills/pkg/islazy"
 	"github.com/cyberspacesec/snir-skills/pkg/log"
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
@@ -638,6 +640,69 @@ func (c *Client) BatchScreenshotRequestsBytesWithContext(ctx context.Context, re
 	return results
 }
 
+// BatchScreenshotEvidenceBundles captures each URL with full evidence and writes one bundle directory per URL.
+func (c *Client) BatchScreenshotEvidenceBundles(urls []string, dir string, screenshotOpts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	return c.BatchScreenshotEvidenceBundlesWithContext(context.Background(), urls, dir, screenshotOpts)
+}
+
+// BatchScreenshotEvidenceBundlesWithContext supports cancellation while writing one evidence bundle per URL.
+func (c *Client) BatchScreenshotEvidenceBundlesWithContext(ctx context.Context, urls []string, dir string, screenshotOpts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	results := make([]BatchEvidenceBundleResult, len(urls))
+	var wg sync.WaitGroup
+
+	for i, url := range urls {
+		wg.Add(1)
+		go func(idx int, target string) {
+			defer wg.Done()
+
+			bundleDir := batchEvidenceBundleDir(dir, idx, "", target)
+			bundle, result, err := c.ScreenshotEvidenceBundleWithContext(ctx, target, bundleDir, screenshotOpts)
+			results[idx] = BatchEvidenceBundleResult{
+				URL:    target,
+				Dir:    bundleDir,
+				Bundle: bundle,
+				Result: result,
+				Error:  err,
+			}
+		}(i, url)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// BatchScreenshotRequestsEvidenceBundles captures each request with its own options and writes evidence bundles.
+func (c *Client) BatchScreenshotRequestsEvidenceBundles(requests []ScreenshotRequest, dir string) []BatchEvidenceBundleResult {
+	return c.BatchScreenshotRequestsEvidenceBundlesWithContext(context.Background(), requests, dir)
+}
+
+// BatchScreenshotRequestsEvidenceBundlesWithContext supports cancellation for per-request evidence bundle capture.
+func (c *Client) BatchScreenshotRequestsEvidenceBundlesWithContext(ctx context.Context, requests []ScreenshotRequest, dir string) []BatchEvidenceBundleResult {
+	results := make([]BatchEvidenceBundleResult, len(requests))
+	var wg sync.WaitGroup
+
+	for i, request := range requests {
+		wg.Add(1)
+		go func(idx int, req ScreenshotRequest) {
+			defer wg.Done()
+
+			bundleDir := batchEvidenceBundleDir(dir, idx, req.Name, req.URL)
+			bundle, result, err := c.ScreenshotEvidenceBundleWithContext(ctx, req.URL, bundleDir, req.Options)
+			results[idx] = BatchEvidenceBundleResult{
+				Name:   req.Name,
+				URL:    req.URL,
+				Dir:    bundleDir,
+				Bundle: bundle,
+				Result: result,
+				Error:  err,
+			}
+		}(i, request)
+	}
+
+	wg.Wait()
+	return results
+}
+
 // BatchScreenshotTargets expands bare hosts/IPs by configured schemes and ports, then captures each URL.
 func (c *Client) BatchScreenshotTargets(targets []string, screenshotOpts *ScreenshotOptions) []BatchResult {
 	return c.BatchScreenshotTargetsWithContext(context.Background(), targets, screenshotOpts)
@@ -658,6 +723,17 @@ func (c *Client) BatchScreenshotTargetsBytes(targets []string, screenshotOpts *S
 func (c *Client) BatchScreenshotTargetsBytesWithContext(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions) []BatchBytesResult {
 	expanded := c.ExpandTargets(targets, screenshotOpts)
 	return c.BatchScreenshotBytesWithContext(ctx, expanded, screenshotOpts)
+}
+
+// BatchScreenshotTargetsEvidenceBundles expands bare hosts/IPs, then writes evidence bundles for each expanded URL.
+func (c *Client) BatchScreenshotTargetsEvidenceBundles(targets []string, dir string, screenshotOpts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	return c.BatchScreenshotTargetsEvidenceBundlesWithContext(context.Background(), targets, dir, screenshotOpts)
+}
+
+// BatchScreenshotTargetsEvidenceBundlesWithContext supports cancellation while writing expanded target evidence bundles.
+func (c *Client) BatchScreenshotTargetsEvidenceBundlesWithContext(ctx context.Context, targets []string, dir string, screenshotOpts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	expanded := c.ExpandTargets(targets, screenshotOpts)
+	return c.BatchScreenshotEvidenceBundlesWithContext(ctx, expanded, dir, screenshotOpts)
 }
 
 // BatchScreenshotStreaming 流式批量截图
@@ -745,6 +821,44 @@ func (c *Client) BatchScreenshotBytesStreaming(ctx context.Context, urls []strin
 	return ch
 }
 
+// BatchScreenshotEvidenceBundlesStreaming streams evidence bundle results as each URL completes.
+func (c *Client) BatchScreenshotEvidenceBundlesStreaming(ctx context.Context, urls []string, dir string, screenshotOpts *ScreenshotOptions) <-chan BatchEvidenceBundleResult {
+	ch := make(chan BatchEvidenceBundleResult, len(urls))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for i, url := range urls {
+			bundleDir := batchEvidenceBundleDir(dir, i, "", url)
+			select {
+			case <-ctx.Done():
+				ch <- BatchEvidenceBundleResult{URL: url, Dir: bundleDir, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(target string, targetDir string) {
+				defer wg.Done()
+
+				bundle, result, err := c.ScreenshotEvidenceBundleWithContext(ctx, target, targetDir, screenshotOpts)
+				ch <- BatchEvidenceBundleResult{
+					URL:    target,
+					Dir:    targetDir,
+					Bundle: bundle,
+					Result: result,
+					Error:  err,
+				}
+			}(url, bundleDir)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
 // BatchScreenshotRequestsStreaming streams per-request screenshot results as each one completes.
 func (c *Client) BatchScreenshotRequestsStreaming(ctx context.Context, requests []ScreenshotRequest) <-chan BatchResult {
 	ch := make(chan BatchResult, len(requests))
@@ -818,6 +932,45 @@ func (c *Client) BatchScreenshotRequestsBytesStreaming(ctx context.Context, requ
 	return ch
 }
 
+// BatchScreenshotRequestsEvidenceBundlesStreaming streams per-request evidence bundle results as each one completes.
+func (c *Client) BatchScreenshotRequestsEvidenceBundlesStreaming(ctx context.Context, requests []ScreenshotRequest, dir string) <-chan BatchEvidenceBundleResult {
+	ch := make(chan BatchEvidenceBundleResult, len(requests))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for i, request := range requests {
+			bundleDir := batchEvidenceBundleDir(dir, i, request.Name, request.URL)
+			select {
+			case <-ctx.Done():
+				ch <- BatchEvidenceBundleResult{Name: request.Name, URL: request.URL, Dir: bundleDir, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(req ScreenshotRequest, targetDir string) {
+				defer wg.Done()
+
+				bundle, result, err := c.ScreenshotEvidenceBundleWithContext(ctx, req.URL, targetDir, req.Options)
+				ch <- BatchEvidenceBundleResult{
+					Name:   req.Name,
+					URL:    req.URL,
+					Dir:    targetDir,
+					Bundle: bundle,
+					Result: result,
+					Error:  err,
+				}
+			}(request, bundleDir)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
 // BatchScreenshotTargetsStreaming expands bare hosts/IPs, then streams each screenshot result as it completes.
 func (c *Client) BatchScreenshotTargetsStreaming(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions) <-chan BatchResult {
 	expanded := c.ExpandTargets(targets, screenshotOpts)
@@ -828,6 +981,12 @@ func (c *Client) BatchScreenshotTargetsStreaming(ctx context.Context, targets []
 func (c *Client) BatchScreenshotTargetsBytesStreaming(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions) <-chan BatchBytesResult {
 	expanded := c.ExpandTargets(targets, screenshotOpts)
 	return c.BatchScreenshotBytesStreaming(ctx, expanded, screenshotOpts)
+}
+
+// BatchScreenshotTargetsEvidenceBundlesStreaming expands bare hosts/IPs, then streams evidence bundle results.
+func (c *Client) BatchScreenshotTargetsEvidenceBundlesStreaming(ctx context.Context, targets []string, dir string, screenshotOpts *ScreenshotOptions) <-chan BatchEvidenceBundleResult {
+	expanded := c.ExpandTargets(targets, screenshotOpts)
+	return c.BatchScreenshotEvidenceBundlesStreaming(ctx, expanded, dir, screenshotOpts)
 }
 
 // BatchScreenshotTargetsCallback expands bare hosts/IPs, then calls callback for each completed result.
@@ -843,6 +1002,16 @@ func (c *Client) BatchScreenshotTargetsCallback(ctx context.Context, targets []s
 // BatchScreenshotTargetsBytesCallback expands bare hosts/IPs, then calls callback for each completed byte result.
 func (c *Client) BatchScreenshotTargetsBytesCallback(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions, callback func(BatchBytesResult)) {
 	ch := c.BatchScreenshotTargetsBytesStreaming(ctx, targets, screenshotOpts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// BatchScreenshotTargetsEvidenceBundlesCallback expands bare hosts/IPs, then calls callback for each evidence bundle result.
+func (c *Client) BatchScreenshotTargetsEvidenceBundlesCallback(ctx context.Context, targets []string, dir string, screenshotOpts *ScreenshotOptions, callback func(BatchEvidenceBundleResult)) {
+	ch := c.BatchScreenshotTargetsEvidenceBundlesStreaming(ctx, targets, dir, screenshotOpts)
 	for result := range ch {
 		if callback != nil {
 			callback(result)
@@ -872,6 +1041,16 @@ func (c *Client) BatchScreenshotBytesCallback(ctx context.Context, urls []string
 	}
 }
 
+// BatchScreenshotEvidenceBundlesCallback calls callback for each completed evidence bundle result.
+func (c *Client) BatchScreenshotEvidenceBundlesCallback(ctx context.Context, urls []string, dir string, screenshotOpts *ScreenshotOptions, callback func(BatchEvidenceBundleResult)) {
+	ch := c.BatchScreenshotEvidenceBundlesStreaming(ctx, urls, dir, screenshotOpts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
 // BatchScreenshotRequestsCallback calls callback for each completed per-request result.
 func (c *Client) BatchScreenshotRequestsCallback(ctx context.Context, requests []ScreenshotRequest, callback func(BatchResult)) {
 	ch := c.BatchScreenshotRequestsStreaming(ctx, requests)
@@ -885,6 +1064,16 @@ func (c *Client) BatchScreenshotRequestsCallback(ctx context.Context, requests [
 // BatchScreenshotRequestsBytesCallback calls callback for each completed per-request byte result.
 func (c *Client) BatchScreenshotRequestsBytesCallback(ctx context.Context, requests []ScreenshotRequest, callback func(BatchBytesResult)) {
 	ch := c.BatchScreenshotRequestsBytesStreaming(ctx, requests)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// BatchScreenshotRequestsEvidenceBundlesCallback calls callback for each completed per-request evidence bundle result.
+func (c *Client) BatchScreenshotRequestsEvidenceBundlesCallback(ctx context.Context, requests []ScreenshotRequest, dir string, callback func(BatchEvidenceBundleResult)) {
+	ch := c.BatchScreenshotRequestsEvidenceBundlesStreaming(ctx, requests, dir)
 	for result := range ch {
 		if callback != nil {
 			callback(result)
@@ -1001,6 +1190,16 @@ type BatchBytesResult struct {
 	Error  error          `json:"error,omitempty"`
 }
 
+// BatchEvidenceBundleResult 批量证据包采集中的单个结果。
+type BatchEvidenceBundleResult struct {
+	Name   string          `json:"name,omitempty"`
+	URL    string          `json:"url"`
+	Dir    string          `json:"dir"`
+	Bundle *EvidenceBundle `json:"bundle,omitempty"`
+	Result *models.Result  `json:"result,omitempty"`
+	Error  error           `json:"error,omitempty"`
+}
+
 // ScreenshotRequest describes one batch item with independent screenshot options.
 type ScreenshotRequest struct {
 	Name    string             `json:"name,omitempty"`
@@ -1019,6 +1218,22 @@ func (c *Client) ensureScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOpt
 		return opts
 	}
 	return &ScreenshotOptions{}
+}
+
+func batchEvidenceBundleDir(root string, idx int, name string, target string) string {
+	if root == "" {
+		return ""
+	}
+	label := name
+	if label == "" {
+		label = target
+	}
+	label = islazy.SanitizeFilename(label)
+	runes := []rune(label)
+	if len(runes) > 96 {
+		label = string(runes[:96])
+	}
+	return filepath.Join(root, fmt.Sprintf("%03d_%s", idx+1, label))
 }
 
 func (c *Client) runnerOptionsForScreenshot(target string, screenshotOpts *ScreenshotOptions) runner.Options {

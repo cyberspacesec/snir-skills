@@ -70,11 +70,12 @@ results := client.BatchScreenshotTargets(
 Common SDK entrypoints:
 
 - `Capture` / `CaptureBytes` for composable functional options.
-- `CaptureEvidenceBundle` / `ScreenshotEvidenceBundle` for one-call full evidence capture plus portable bundle export.
+- `CaptureEvidenceBundle`, `ScreenshotEvidenceBundle`, `BatchScreenshotEvidenceBundles`, and `BatchScreenshotRequestsEvidenceBundles` for one-call full evidence capture plus portable bundle export.
 - `WrapResult`, `EvidenceSummary`, `SaveJSON`, `SaveHTML`, `ReadScreenshot`, `WriteScreenshot`, `SaveScreenshot`, and `SaveEvidenceBundle` for post-capture evidence handling.
 - `BatchScreenshotBytes`, `BatchScreenshotBytesStreaming`, and `BatchScreenshotBytesCallback` for in-memory batch screenshots.
-- `ScreenshotRequest`, `BatchScreenshotRequests`, `BatchScreenshotRequestsBytes`, `BatchScreenshotRequestsStreaming`, and callback variants for per-target option matrices.
+- `ScreenshotRequest`, `BatchScreenshotRequests`, `BatchScreenshotRequestsBytes`, `BatchScreenshotRequestsEvidenceBundles`, `BatchScreenshotRequestsStreaming`, and callback variants for per-target option matrices.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsBytes`, `BatchScreenshotTargetsStreaming`, `BatchScreenshotTargetsBytesStreaming`, `BatchScreenshotTargetsCallback`, and `BatchScreenshotTargetsBytesCallback` for bare host/IP expansion across protocols and ports.
+- `BatchScreenshotTargetsEvidenceBundles`, `BatchScreenshotTargetsEvidenceBundlesStreaming`, and `BatchScreenshotTargetsEvidenceBundlesCallback` for expanded host/IP evidence bundle export.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
 - `SharedCapture`, `SharedCaptureBytes`, `SharedScreenshotHTML`, `SharedScreenshotEvidence`, `SharedScreenshotEvidenceBytes`, and `SharedScreenshotEvidenceBundle` for process-wide shared Chrome pool capture.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.

@@ -1231,6 +1231,132 @@ func TestBatchScreenshotRequestsBytes_Unit(t *testing.T) {
 	}
 }
 
+func TestBatchScreenshotEvidenceBundles_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{
+		HTML:            "<html></html>",
+		ScreenshotBytes: []byte("png"),
+	}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+	dir := t.TempDir()
+
+	results := client.BatchScreenshotEvidenceBundles([]string{"https://a.test/path", "https://b.test"}, dir, NewScreenshotOptions(
+		WithFullPage(),
+	))
+	if len(results) != 2 {
+		t.Fatalf("BatchScreenshotEvidenceBundles() len = %d, want 2", len(results))
+	}
+	for _, result := range results {
+		if result.Error != nil || result.Bundle == nil || result.Result == nil {
+			t.Fatalf("BatchScreenshotEvidenceBundles() result = %+v", result)
+		}
+		for _, path := range []string{result.Bundle.ManifestJSON, result.Bundle.ResultJSON, result.Bundle.SummaryJSON, result.Bundle.HTML, result.Bundle.Screenshot} {
+			if path == "" {
+				t.Fatalf("BatchScreenshotEvidenceBundles() returned empty bundle path: %+v", result.Bundle)
+			}
+			if _, err := os.Stat(path); err != nil {
+				t.Fatalf("bundle file %s: %v", path, err)
+			}
+		}
+	}
+	if filepath.Base(results[0].Dir) != "001_https___a.test_path" {
+		t.Fatalf("result[0].Dir = %q", results[0].Dir)
+	}
+	if pool.calls != 2 {
+		t.Fatalf("pool calls = %d, want 2", pool.calls)
+	}
+	got := pool.optionsByURL["https://a.test/path"]
+	if !got.Scan.SaveHTML || !got.Scan.SaveHeaders || !got.Scan.SaveConsole ||
+		!got.Scan.SaveCookies || !got.Scan.SaveNetwork ||
+		!got.Scan.ReturnScreenshotBytes || !got.Scan.ScreenshotSkipSave ||
+		!got.Scan.CaptureFullPage {
+		t.Fatalf("bundle options = %+v", got.Scan)
+	}
+}
+
+func TestBatchScreenshotRequestsEvidenceBundles_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{
+		HTML:            "<html></html>",
+		ScreenshotBytes: []byte("png"),
+	}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+	dir := t.TempDir()
+
+	results := client.BatchScreenshotRequestsEvidenceBundles([]ScreenshotRequest{
+		{Name: "desktop:full", URL: "https://a.test", Options: NewScreenshotOptions(WithViewport(1440, 900), WithFullPage())},
+		{Name: "mobile/hero", URL: "https://b.test", Options: NewScreenshotOptions(WithDevice("iphone-15"), WithElement("#hero"))},
+	}, dir)
+	if len(results) != 2 {
+		t.Fatalf("BatchScreenshotRequestsEvidenceBundles() len = %d, want 2", len(results))
+	}
+	if results[0].Name != "desktop:full" || filepath.Base(results[0].Dir) != "001_desktop_full" || results[0].Bundle == nil || results[0].Error != nil {
+		t.Fatalf("result[0] = %+v", results[0])
+	}
+	if results[1].Name != "mobile/hero" || filepath.Base(results[1].Dir) != "002_mobile_hero" || results[1].Bundle == nil || results[1].Error != nil {
+		t.Fatalf("result[1] = %+v", results[1])
+	}
+
+	desktop := pool.optionsByURL["https://a.test"]
+	if desktop.Chrome.WindowX != 1440 || desktop.Chrome.WindowY != 900 || !desktop.Scan.CaptureFullPage {
+		t.Fatalf("desktop options = %+v/%+v", desktop.Chrome, desktop.Scan)
+	}
+	mobile := pool.optionsByURL["https://b.test"]
+	if mobile.Chrome.DeviceName != "iPhone 15" || mobile.Scan.Selector != "#hero" {
+		t.Fatalf("mobile options = %+v/%+v", mobile.Chrome, mobile.Scan)
+	}
+}
+
+func TestBatchScreenshotEvidenceBundlesStreaming_ContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	pool := &fakeDriverPool{}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+	ch := client.BatchScreenshotEvidenceBundlesStreaming(ctx, []string{"https://a.test", "https://b.test"}, t.TempDir(), nil)
+
+	count := 0
+	for result := range ch {
+		count++
+		if !errors.Is(result.Error, context.Canceled) {
+			t.Fatalf("BatchScreenshotEvidenceBundlesStreaming() error = %v, want context.Canceled", result.Error)
+		}
+		if result.Bundle != nil || result.Result != nil || result.Dir == "" {
+			t.Fatalf("BatchScreenshotEvidenceBundlesStreaming() result = %+v, want dir only", result)
+		}
+	}
+	if count != 2 {
+		t.Fatalf("BatchScreenshotEvidenceBundlesStreaming() count = %d, want 2", count)
+	}
+	if pool.calls != 0 {
+		t.Fatalf("pool calls = %d, want 0", pool.calls)
+	}
+}
+
+func TestBatchScreenshotTargetsEvidenceBundlesCallback_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{
+		HTML:            "<html></html>",
+		ScreenshotBytes: []byte("png"),
+	}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	seen := map[string]string{}
+	client.BatchScreenshotTargetsEvidenceBundlesCallback(context.Background(), []string{"example.com/admin"}, t.TempDir(), NewScreenshotOptions(
+		WithHTTPOnly(),
+		WithPorts(8080),
+	), func(result BatchEvidenceBundleResult) {
+		if result.Error != nil {
+			t.Fatalf("callback result = %+v", result)
+		}
+		seen[result.URL] = result.Dir
+	})
+
+	if len(seen) != 1 || seen["http://example.com:8080/admin"] == "" {
+		t.Fatalf("callback seen = %#v", seen)
+	}
+	if pool.calls != 1 {
+		t.Fatalf("pool calls = %d, want 1", pool.calls)
+	}
+}
+
 func TestBatchScreenshotRequestsStreaming_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

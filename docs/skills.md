@@ -302,6 +302,19 @@ for _, r := range byteResults {
         fmt.Printf("✅ %s: %d bytes\n", r.URL, len(r.Data))
     }
 }
+
+bundleResults := client.BatchScreenshotEvidenceBundles(
+    urls,
+    "evidence/batch",
+    sdk.NewScreenshotOptions(sdk.WithFullPage()),
+)
+for _, r := range bundleResults {
+    if r.Error != nil {
+        fmt.Printf("❌ %s: %v\n", r.URL, r.Error)
+    } else {
+        fmt.Printf("📦 %s: %s\n", r.URL, r.Bundle.Dir)
+    }
+}
 ```
 
 #### 每个目标独立配置
@@ -330,6 +343,7 @@ requests := []sdk.ScreenshotRequest{
 
 results := client.BatchScreenshotRequests(requests)
 byteResults := client.BatchScreenshotRequestsBytes(requests)
+bundleResults := client.BatchScreenshotRequestsEvidenceBundles(requests, "evidence/matrix")
 ```
 
 #### Host/IP 目标展开
@@ -567,6 +581,12 @@ bundle, result, err := client.CaptureEvidenceBundle(
     "https://example.com",
     "evidence/example.com",
     sdk.WithFullPage(),
+)
+
+bundleResults := client.BatchScreenshotEvidenceBundles(
+    []string{"https://a.com", "https://b.com"},
+    "evidence/batch",
+    sdk.NewScreenshotOptions(sdk.WithFullPage()),
 )
 ```
 
