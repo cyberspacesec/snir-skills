@@ -331,6 +331,240 @@ func TestScreenshotHTML_ErrorBranch(t *testing.T) {
 	}
 }
 
+func TestCaptureFunctionalOptions_Unit(t *testing.T) {
+	pool := &fakeDriverPool{}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	result, err := client.Capture(
+		"https://example.com",
+		WithFullPage(),
+		WithEvidence(),
+		WithDevice("iphone-15"),
+		WithViewport(390, 844),
+		WithCustomHeaders(map[string]string{"X-Agent": "snir"}),
+		WithIgnoreCertErrors(),
+		WithDisableWebRTC(),
+		WithSpoofedScreen(390, 844),
+	)
+	if err != nil {
+		t.Fatalf("Capture() error = %v", err)
+	}
+	if result == nil || result.Title != "ok" {
+		t.Fatalf("Capture() result = %+v", result)
+	}
+
+	if !pool.lastOptions.Scan.CaptureFullPage {
+		t.Fatal("Capture() did not set full-page capture")
+	}
+	if !pool.lastOptions.Scan.SaveHTML || !pool.lastOptions.Scan.SaveHeaders ||
+		!pool.lastOptions.Scan.SaveConsole || !pool.lastOptions.Scan.SaveCookies ||
+		!pool.lastOptions.Scan.SaveNetwork {
+		t.Fatalf("Capture() evidence flags = %+v", pool.lastOptions.Scan)
+	}
+	if pool.lastOptions.Chrome.DeviceName != "iPhone 15" {
+		t.Fatalf("DeviceName = %q, want iPhone 15", pool.lastOptions.Chrome.DeviceName)
+	}
+	if pool.lastOptions.Chrome.WindowX != 390 || pool.lastOptions.Chrome.WindowY != 844 {
+		t.Fatalf("viewport = %dx%d", pool.lastOptions.Chrome.WindowX, pool.lastOptions.Chrome.WindowY)
+	}
+	if pool.lastOptions.Chrome.CustomHeaders["X-Agent"] != "snir" {
+		t.Fatalf("CustomHeaders = %+v", pool.lastOptions.Chrome.CustomHeaders)
+	}
+	if !pool.lastOptions.Chrome.IgnoreCertErrors || !pool.lastOptions.Chrome.DisableWebRTC ||
+		!pool.lastOptions.Chrome.SpoofScreenSize {
+		t.Fatalf("browser bools = %+v", pool.lastOptions.Chrome)
+	}
+}
+
+func TestCaptureBytesFunctionalOptions_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	data, result, err := client.CaptureBytes("https://example.com", WithElement("#main"), WithEvidence())
+	if err != nil {
+		t.Fatalf("CaptureBytes() error = %v", err)
+	}
+	if string(data) != "png" || result == nil {
+		t.Fatalf("CaptureBytes() data/result = %q/%+v", data, result)
+	}
+	if pool.lastOptions.Scan.Selector != "#main" {
+		t.Fatalf("Selector = %q, want #main", pool.lastOptions.Scan.Selector)
+	}
+	if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+		t.Fatalf("byte options = %+v", pool.lastOptions.Scan)
+	}
+	if !pool.lastOptions.Scan.SaveNetwork {
+		t.Fatal("CaptureBytes() did not keep evidence flags")
+	}
+}
+
+func TestScenarioConvenienceMethods_Unit(t *testing.T) {
+	t.Run("evidence", func(t *testing.T) {
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		if _, err := client.ScreenshotEvidence("https://example.com", nil); err != nil {
+			t.Fatalf("ScreenshotEvidence() error = %v", err)
+		}
+		if !pool.lastOptions.Scan.SaveHTML || !pool.lastOptions.Scan.SaveHeaders ||
+			!pool.lastOptions.Scan.SaveConsole || !pool.lastOptions.Scan.SaveCookies ||
+			!pool.lastOptions.Scan.SaveNetwork {
+			t.Fatalf("evidence flags = %+v", pool.lastOptions.Scan)
+		}
+	})
+
+	t.Run("element bytes", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		data, _, err := client.ScreenshotElementBytes("https://example.com", "#hero", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotElementBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("data = %q", data)
+		}
+		if pool.lastOptions.Scan.Selector != "#hero" {
+			t.Fatalf("Selector = %q, want #hero", pool.lastOptions.Scan.Selector)
+		}
+	})
+
+	t.Run("xpath and full page bytes", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		if _, err := client.ScreenshotXPath("https://example.com", "//main", nil); err != nil {
+			t.Fatalf("ScreenshotXPath() error = %v", err)
+		}
+		if pool.lastOptions.Scan.XPath != "//main" {
+			t.Fatalf("XPath = %q, want //main", pool.lastOptions.Scan.XPath)
+		}
+
+		if _, _, err := client.ScreenshotFullPageBytes("https://example.com", nil); err != nil {
+			t.Fatalf("ScreenshotFullPageBytes() error = %v", err)
+		}
+		if !pool.lastOptions.Scan.CaptureFullPage {
+			t.Fatal("ScreenshotFullPageBytes() did not set full page")
+		}
+	})
+
+	t.Run("device viewport js file", func(t *testing.T) {
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		if _, err := client.ScreenshotDevice("https://example.com", "pixel-8-pro", nil); err != nil {
+			t.Fatalf("ScreenshotDevice() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.DeviceName != "Pixel 8 Pro" {
+			t.Fatalf("DeviceName = %q, want Pixel 8 Pro", pool.lastOptions.Chrome.DeviceName)
+		}
+
+		if _, err := client.ScreenshotViewport("https://example.com", 1440, 900, nil); err != nil {
+			t.Fatalf("ScreenshotViewport() error = %v", err)
+		}
+		if pool.lastOptions.Chrome.WindowX != 1440 || pool.lastOptions.Chrome.WindowY != 900 {
+			t.Fatalf("viewport = %dx%d", pool.lastOptions.Chrome.WindowX, pool.lastOptions.Chrome.WindowY)
+		}
+
+		if _, err := client.ScreenshotWithJSBefore("https://example.com", "window.preload=true", nil); err != nil {
+			t.Fatalf("ScreenshotWithJSBefore() error = %v", err)
+		}
+		if pool.lastOptions.Scan.JavaScript != "window.preload=true" ||
+			!pool.lastOptions.Scan.RunJSBefore || pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js before = %+v", pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotWithJSFile("https://example.com", "script.js", true, nil); err != nil {
+			t.Fatalf("ScreenshotWithJSFile() error = %v", err)
+		}
+		if pool.lastOptions.Scan.JavaScriptFile != "script.js" ||
+			!pool.lastOptions.Scan.RunJSBefore || pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js file = %+v", pool.lastOptions.Scan)
+		}
+
+		if _, err := client.ScreenshotWithJSFile("https://example.com", "after.js", false, nil); err != nil {
+			t.Fatalf("ScreenshotWithJSFile() after-load error = %v", err)
+		}
+		if pool.lastOptions.Scan.JavaScriptFile != "after.js" ||
+			pool.lastOptions.Scan.RunJSBefore || !pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js file after = %+v", pool.lastOptions.Scan)
+		}
+	})
+}
+
+func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
+	base := toRunnerOptions(DefaultClientOptions())
+	merged := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithViewport(1600, 900),
+		WithIgnoreCertErrors(),
+		WithAcceptLanguage("en-US"),
+		WithCustomHeaders(map[string]string{"X-Test": "1"}),
+		WithFingerprint("Linux x86_64", "Google Inc.", "Mesa", "llvmpipe"),
+		WithPlugins("Chrome PDF Viewer"),
+		WithDisableWebRTC(),
+		WithSpoofedScreen(1600, 900),
+	))
+
+	if merged.Chrome.WindowX != 1600 || merged.Chrome.WindowY != 900 {
+		t.Fatalf("viewport = %dx%d", merged.Chrome.WindowX, merged.Chrome.WindowY)
+	}
+	if !merged.Chrome.IgnoreCertErrors {
+		t.Fatal("IgnoreCertErrors was not merged")
+	}
+	if merged.Chrome.AcceptLanguage != "en-US" {
+		t.Fatalf("AcceptLanguage = %q", merged.Chrome.AcceptLanguage)
+	}
+	if merged.Chrome.CustomHeaders["X-Test"] != "1" {
+		t.Fatalf("CustomHeaders = %+v", merged.Chrome.CustomHeaders)
+	}
+	if merged.Chrome.Platform != "Linux x86_64" || merged.Chrome.Vendor != "Google Inc." ||
+		merged.Chrome.WebGLVendor != "Mesa" || merged.Chrome.WebGLRenderer != "llvmpipe" {
+		t.Fatalf("fingerprint = %+v", merged.Chrome)
+	}
+	if len(merged.Chrome.Plugins) != 1 || merged.Chrome.Plugins[0] != "Chrome PDF Viewer" {
+		t.Fatalf("Plugins = %v", merged.Chrome.Plugins)
+	}
+	if !merged.Chrome.DisableWebRTC || !merged.Chrome.SpoofScreenSize ||
+		merged.Chrome.ScreenWidth != 1600 || merged.Chrome.ScreenHeight != 900 {
+		t.Fatalf("privacy/screen = %+v", merged.Chrome)
+	}
+}
+
+func TestMergeWithScreenshotOptions_JSExecutionTiming(t *testing.T) {
+	base := toRunnerOptions(DefaultClientOptions())
+
+	before := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithJSBefore("window.preload = true"),
+	))
+	if before.Scan.JavaScript != "window.preload = true" ||
+		!before.Scan.RunJSBefore || before.Scan.RunJSAfter {
+		t.Fatalf("before timing = %+v", before.Scan)
+	}
+
+	afterFile := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithJSFile("after.js", false),
+	))
+	if afterFile.Scan.JavaScriptFile != "after.js" ||
+		afterFile.Scan.RunJSBefore || !afterFile.Scan.RunJSAfter {
+		t.Fatalf("after file timing = %+v", afterFile.Scan)
+	}
+
+	baseBefore := base
+	baseBefore.Scan.RunJSBefore = true
+	baseBefore.Scan.RunJSAfter = false
+	overrideAfter := mergeWithScreenshotOptions(baseBefore, NewScreenshotOptions(
+		WithJSFile("override-after.js", false),
+	))
+	if overrideAfter.Scan.RunJSBefore || !overrideAfter.Scan.RunJSAfter {
+		t.Fatalf("override after timing = %+v", overrideAfter.Scan)
+	}
+
+	defaultAfter := mergeWithScreenshotOptions(base, &ScreenshotOptions{JavaScript: "window.after = true"})
+	if !defaultAfter.Scan.RunJSAfter {
+		t.Fatalf("default JS timing = %+v", defaultAfter.Scan)
+	}
+}
+
 func TestBatchScreenshotStreaming_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

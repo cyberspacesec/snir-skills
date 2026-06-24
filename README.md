@@ -223,7 +223,8 @@ SDK highlights:
 - `NewClient` for local Chrome pool reuse.
 - `NewRemoteClient` for a remote Chrome WebSocket endpoint.
 - `AutoConnectClient` to prefer configured remote Chrome, discover a local provider, or start local Chrome.
-- `ScreenshotBytes`, `ScreenshotHTML`, `ScreenshotWithActions`, `ScreenshotWithForm`, and cookie helpers.
+- `Capture` and `CaptureBytes` for composable `With...` scenario options.
+- `ScreenshotEvidence`, `ScreenshotElementBytes`, `ScreenshotXPath`, `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotHTML`, `ScreenshotWithActions`, `ScreenshotWithForm`, and cookie helpers.
 - Batch, streaming, and callback APIs for larger workflows.
 
 ### 5. CDP Provider

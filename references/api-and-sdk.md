@@ -34,10 +34,31 @@ result, err := client.Screenshot("https://example.com", nil)
 if err != nil {
     return err
 }
-fmt.Println(result.Endpoint, result.Title, result.StatusCode)
+fmt.Println(result.Endpoint, result.Title, result.ResponseCode)
 ```
 
 Use the SDK when snir is part of a Go application and the caller needs typed options and results.
+
+For complex screenshot scenarios, use the fluent Capture API:
+
+```go
+result, err := client.Capture(
+    "https://example.com",
+    sdk.WithFullPage(),
+    sdk.WithEvidence(),
+    sdk.WithDevice("iphone-15"),
+    sdk.WithIgnoreCertErrors(),
+)
+```
+
+Common SDK entrypoints:
+
+- `Capture` / `CaptureBytes` for composable functional options.
+- `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
+- `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.
+- `ScreenshotDevice` and `ScreenshotViewport` for per-request browser profile control.
+- `ScreenshotWithJSBefore` and `ScreenshotWithJSFile` for preload or file-based JavaScript injection.
+- `NewScreenshotOptions`, `WithFullPage`, `WithEvidence`, `WithDevice`, `WithViewport`, `WithJSAfter`, `WithCustomHeaders`, and related `With...` helpers for reusable scenario presets.
 
 ## CDP Provider
 

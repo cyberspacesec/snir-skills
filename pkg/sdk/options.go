@@ -51,6 +51,7 @@ type ClientOptions struct {
 	JavaScript     string // 在页面上执行的 JavaScript
 	JavaScriptFile string // JavaScript 文件路径
 	RunJSBefore    bool   // 在页面加载前执行 JS
+	RunJSAfter     bool   // 在页面加载后执行 JS
 
 	// 数据收集
 	SaveHTML    bool // 保存 HTML 源码
@@ -107,9 +108,25 @@ type ScreenshotOptions struct {
 	Delay   time.Duration // 截图前等待（覆盖 ClientOptions）
 
 	// 浏览器覆盖
-	UserAgent string // User-Agent（覆盖 ClientOptions）
-	Proxy     string // 代理（覆盖 ClientOptions）
-	Device    string // 设备预设名称（覆盖 ClientOptions）
+	WindowWidth      int    // 窗口宽度（覆盖 ClientOptions）
+	WindowHeight     int    // 窗口高度（覆盖 ClientOptions）
+	UserAgent        string // User-Agent（覆盖 ClientOptions）
+	Proxy            string // 代理（覆盖 ClientOptions）
+	Device           string // 设备预设名称（覆盖 ClientOptions）
+	IgnoreCertErrors bool   // 忽略证书错误（覆盖 ClientOptions）
+
+	// 浏览器指纹覆盖
+	AcceptLanguage  string            // Accept-Language 头
+	Platform        string            // 平台标识
+	Vendor          string            // 浏览器厂商
+	Plugins         []string          // 浏览器插件列表
+	WebGLVendor     string            // WebGL 厂商
+	WebGLRenderer   string            // WebGL 渲染器
+	CustomHeaders   map[string]string // 自定义 HTTP 头
+	DisableWebRTC   bool              // 禁用 WebRTC
+	SpoofScreenSize bool              // 伪造屏幕尺寸
+	ScreenWidth     int               // 伪造屏幕宽度
+	ScreenHeight    int               // 伪造屏幕高度
 
 	// 截图覆盖
 	Selector          string // CSS 选择器
@@ -122,6 +139,7 @@ type ScreenshotOptions struct {
 	JavaScript     string // 在页面上执行的 JavaScript
 	JavaScriptFile string // JavaScript 文件路径
 	RunJSBefore    bool   // 在页面加载前执行 JS
+	RunJSAfter     bool   // 在页面加载后执行 JS
 
 	// 数据收集覆盖
 	SaveHTML    bool // 保存 HTML
@@ -214,7 +232,8 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	opts.Scan.JavaScript = co.JavaScript
 	opts.Scan.JavaScriptFile = co.JavaScriptFile
 	opts.Scan.RunJSBefore = co.RunJSBefore
-	if co.JavaScript != "" {
+	opts.Scan.RunJSAfter = co.RunJSAfter
+	if (co.JavaScript != "" || co.JavaScriptFile != "") && !co.RunJSBefore && !co.RunJSAfter {
 		opts.Scan.RunJSAfter = true
 	}
 
@@ -257,14 +276,58 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 
 	// 浏览器覆盖
-	if so.UserAgent != "" {
-		base.Chrome.UserAgent = so.UserAgent
-	}
 	if so.Proxy != "" {
 		base.Chrome.Proxy = so.Proxy
 	}
 	if so.Device != "" {
 		applyDevicePreset(so.Device, &base)
+	}
+	if so.WindowWidth > 0 {
+		base.Chrome.WindowX = so.WindowWidth
+	}
+	if so.WindowHeight > 0 {
+		base.Chrome.WindowY = so.WindowHeight
+	}
+	if so.UserAgent != "" {
+		base.Chrome.UserAgent = so.UserAgent
+	}
+	if so.IgnoreCertErrors {
+		base.Chrome.IgnoreCertErrors = true
+	}
+
+	// 浏览器指纹覆盖
+	if so.AcceptLanguage != "" {
+		base.Chrome.AcceptLanguage = so.AcceptLanguage
+	}
+	if so.Platform != "" {
+		base.Chrome.Platform = so.Platform
+	}
+	if so.Vendor != "" {
+		base.Chrome.Vendor = so.Vendor
+	}
+	if len(so.Plugins) > 0 {
+		base.Chrome.Plugins = so.Plugins
+	}
+	if so.WebGLVendor != "" {
+		base.Chrome.WebGLVendor = so.WebGLVendor
+	}
+	if so.WebGLRenderer != "" {
+		base.Chrome.WebGLRenderer = so.WebGLRenderer
+	}
+	if len(so.CustomHeaders) > 0 {
+		base.Chrome.CustomHeaders = so.CustomHeaders
+	}
+	if so.DisableWebRTC {
+		base.Chrome.DisableWebRTC = true
+	}
+	if so.SpoofScreenSize {
+		base.Chrome.SpoofScreenSize = true
+	}
+	if so.ScreenWidth > 0 {
+		base.Chrome.ScreenWidth = so.ScreenWidth
+	}
+	if so.ScreenHeight > 0 {
+		base.Chrome.ScreenHeight = so.ScreenHeight
 	}
 
 	// 截图覆盖
@@ -285,15 +348,27 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 
 	// JavaScript 覆盖
+	hasScriptOverride := so.JavaScript != "" || so.JavaScriptFile != ""
 	if so.JavaScript != "" {
 		base.Scan.JavaScript = so.JavaScript
-		base.Scan.RunJSAfter = true
 	}
 	if so.JavaScriptFile != "" {
 		base.Scan.JavaScriptFile = so.JavaScriptFile
 	}
 	if so.RunJSBefore {
 		base.Scan.RunJSBefore = true
+	}
+	if so.RunJSAfter {
+		base.Scan.RunJSAfter = true
+	}
+	if hasScriptOverride && !so.RunJSBefore {
+		base.Scan.RunJSBefore = false
+	}
+	if hasScriptOverride && so.RunJSBefore && !so.RunJSAfter {
+		base.Scan.RunJSAfter = false
+	}
+	if hasScriptOverride && !so.RunJSBefore && !so.RunJSAfter {
+		base.Scan.RunJSAfter = true
 	}
 
 	// 数据收集覆盖

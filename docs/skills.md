@@ -447,6 +447,40 @@ html, result, err := client.ScreenshotHTML("https://example.com", nil)
 fmt.Printf("HTML 长度: %d\n", len(html))
 ```
 
+#### 全证据采集
+
+```go
+result, err := client.ScreenshotEvidence("https://example.com", &sdk.ScreenshotOptions{
+    CaptureFullPage: true,
+})
+
+imgBytes, result, err := client.ScreenshotEvidenceBytes("https://example.com", nil)
+```
+
+`ScreenshotEvidence` 会同时打开 `SaveHTML`、`SaveHeaders`、`SaveCookies`、`SaveConsole`、`SaveNetwork`，适合资产画像、网页证据归档、AI Agent 后续分析等场景。
+
+#### XPath、设备和 viewport 截图
+
+```go
+result, err := client.ScreenshotXPath("https://example.com", "//main", nil)
+imgBytes, result, err := client.ScreenshotElementBytes("https://example.com", "#chart", nil)
+
+result, err = client.ScreenshotDevice("https://example.com", "iphone-15", nil)
+result, err = client.ScreenshotViewport("https://example.com", 1440, 900, nil)
+```
+
+#### 页面加载前或 JS 文件注入
+
+```go
+result, err := client.ScreenshotWithJSBefore(
+    "https://example.com",
+    "window.__snir_probe = true",
+    nil,
+)
+
+result, err = client.ScreenshotWithJSFile("https://example.com", "preload.js", true, nil)
+```
+
 ### 2.16 结果便捷访问（ResultWrapper）
 
 ```go
@@ -475,9 +509,12 @@ w.TLSInfo()                    // TLS 信息
 opts := &sdk.ScreenshotOptions{
     Timeout:          60 * time.Second,              // 超时 60 秒
     Delay:            3 * time.Second,               // 延迟 3 秒
+    WindowWidth:      1440,                          // 单次截图窗口宽度
+    WindowHeight:     900,                           // 单次截图窗口高度
     UserAgent:        "Mozilla/5.0 Custom",          // 自定义 UA
     Proxy:            "http://127.0.0.1:8080",       // 代理
     Device:           "iphone-15",                   // 设备预设
+    IgnoreCertErrors: true,                           // 忽略证书错误
     Selector:         "#main-content",               // CSS 选择器
     CaptureFullPage:  true,                           // 全页截图
     ScreenshotFormat: "jpeg",                        // 截图格式
@@ -485,6 +522,7 @@ opts := &sdk.ScreenshotOptions{
     JavaScript:       "window.scrollTo(0, 500)",      // 执行 JS
     JavaScriptFile:   "inject.js",                    // JS 文件
     RunJSBefore:      true,                           // 页面加载前执行
+    RunJSAfter:       false,                          // 页面加载后执行
     SaveHTML:         true,                           // 保存 HTML
     SaveHeaders:      true,                           // 保存 HTTP 头
     SaveConsole:      true,                           // 保存控制台
@@ -504,7 +542,68 @@ opts := &sdk.ScreenshotOptions{
 result, err := client.Screenshot("https://example.com", opts)
 ```
 
-### 2.18 浏览器指纹配置（反检测）
+### 2.18 场景化 Capture API
+
+`Capture` 和 `CaptureBytes` 支持函数式选项，更适合组合复杂截图场景：
+
+```go
+result, err := client.Capture(
+    "https://example.com",
+    sdk.WithFullPage(),
+    sdk.WithEvidence(),
+    sdk.WithDevice("iphone-15"),
+    sdk.WithViewport(390, 844),
+    sdk.WithIgnoreCertErrors(),
+    sdk.WithCustomHeaders(map[string]string{
+        "X-Agent": "snir",
+    }),
+)
+```
+
+返回图片字节，不写磁盘：
+
+```go
+imgBytes, result, err := client.CaptureBytes(
+    "https://example.com/dashboard",
+    sdk.WithElement("#chart"),
+    sdk.WithFormat("jpeg", 85),
+    sdk.WithEvidence(),
+)
+```
+
+常用组合：
+
+```go
+// 移动端全页证据采集
+mobileEvidence := sdk.NewScreenshotOptions(
+    sdk.WithDevice("pixel-8-pro"),
+    sdk.WithFullPage(),
+    sdk.WithEvidence(),
+)
+result, err := client.Screenshot("https://example.com", mobileEvidence)
+
+// 登录态页面截图
+result, err = client.Capture(
+    "https://example.com/dashboard",
+    sdk.WithInjectedCookies(runner.CustomCookie{
+        Name: "session", Value: "abc", Domain: "example.com",
+    }),
+    sdk.WithActions(
+        runner.InteractionAction{Type: "wait", WaitTime: 1000},
+    ),
+)
+
+// 单次截图覆盖指纹
+result, err = client.Capture(
+    "https://example.com",
+    sdk.WithUserAgent("Mozilla/5.0 Custom"),
+    sdk.WithAcceptLanguage("zh-CN,zh;q=0.9"),
+    sdk.WithFingerprint("Win32", "Google Inc.", "Intel Inc.", "Intel Iris"),
+    sdk.WithDisableWebRTC(),
+)
+```
+
+### 2.19 浏览器指纹配置（反检测）
 
 ```go
 opts := sdk.DefaultClientOptions()
@@ -538,6 +637,17 @@ opts.ScreenWidth = 1920
 opts.ScreenHeight = 1080
 
 client, _ := sdk.NewClient(opts)
+```
+
+同样的指纹能力也可以按单次截图覆盖：
+
+```go
+result, err := client.Capture(
+    "https://example.com",
+    sdk.WithAcceptLanguage("en-US,en;q=0.9"),
+    sdk.WithCustomHeaders(map[string]string{"X-Trace": "asset-001"}),
+    sdk.WithSpoofedScreen(1920, 1080),
+)
 ```
 
 ## 三、HTTP API 集成
@@ -753,6 +863,7 @@ type ClientOptions struct {
     JavaScript     string // 在页面上执行的 JavaScript
     JavaScriptFile string // JavaScript 文件路径
     RunJSBefore    bool   // 在页面加载前执行 JS
+    RunJSAfter     bool   // 在页面加载后执行 JS
 
     // 数据收集
     SaveHTML    bool // 保存 HTML 源码
@@ -784,9 +895,25 @@ type ScreenshotOptions struct {
     Delay   time.Duration
 
     // 浏览器覆盖
-    UserAgent string
-    Proxy     string
-    Device    string
+    WindowWidth      int
+    WindowHeight     int
+    UserAgent        string
+    Proxy            string
+    Device           string
+    IgnoreCertErrors bool
+
+    // 浏览器指纹覆盖
+    AcceptLanguage  string
+    Platform        string
+    Vendor          string
+    Plugins         []string
+    WebGLVendor     string
+    WebGLRenderer   string
+    CustomHeaders   map[string]string
+    DisableWebRTC   bool
+    SpoofScreenSize bool
+    ScreenWidth     int
+    ScreenHeight    int
 
     // 截图覆盖
     Selector          string
@@ -799,6 +926,7 @@ type ScreenshotOptions struct {
     JavaScript     string
     JavaScriptFile string
     RunJSBefore    bool
+    RunJSAfter     bool
 
     // 数据收集覆盖
     SaveHTML    bool

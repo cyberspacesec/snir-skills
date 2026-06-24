@@ -9,6 +9,13 @@
 //	result, _ := client.Screenshot("https://example.com", nil)
 //	fmt.Println(result.Title, result.Filename)
 //
+//	// 组合复杂场景
+//	result, _ = client.Capture("https://example.com",
+//	    sdk.WithFullPage(),
+//	    sdk.WithEvidence(),
+//	    sdk.WithDevice("iphone-15"),
+//	)
+//
 //	// 获取截图字节数据（不写磁盘）
 //	imgBytes, result, _ := client.ScreenshotBytes("https://example.com", nil)
 //
@@ -125,6 +132,25 @@ func NewRemoteClient(wsURL string, maxConcurrent int) (*Client, error) {
 // 截图方法
 // ---------------------------------------------------------------------------
 
+// Capture 使用函数式选项执行截图。
+//
+// 示例:
+//
+//	result, err := client.Capture(
+//	    "https://example.com",
+//	    sdk.WithFullPage(),
+//	    sdk.WithEvidence(),
+//	    sdk.WithDevice("iphone-15"),
+//	)
+func (c *Client) Capture(url string, options ...ScreenshotOption) (*models.Result, error) {
+	return c.CaptureWithContext(context.Background(), url, options...)
+}
+
+// CaptureWithContext 使用函数式选项执行可取消的截图。
+func (c *Client) CaptureWithContext(ctx context.Context, url string, options ...ScreenshotOption) (*models.Result, error) {
+	return c.ScreenshotWithContext(ctx, url, NewScreenshotOptions(options...))
+}
+
 // Screenshot 对指定 URL 执行截图
 // url: 目标网页 URL
 // screenshotOpts: 单次截图的可选配置，可覆盖客户端默认配置，传 nil 使用默认配置
@@ -143,7 +169,7 @@ func (c *Client) ScreenshotWithContext(ctx context.Context, url string, screensh
 	if c.cookieJar != nil {
 		jarCookies := c.cookieJar.GetCookies(extractDomain(url))
 		if len(jarCookies) > 0 {
-			// 合并：jar Cookie 附加到 opts Cookie 之后（jar Cookie 优先级低）
+			// 合并：CookieJar 中的 Cookie 在前，单次截图 Cookie 在后。
 			allCookies := append(jarCookies, runnerOpts.Scan.Cookies...)
 			runnerOpts.Scan.Cookies = allCookies
 		}
@@ -166,6 +192,16 @@ func (c *Client) ScreenshotWithContext(ctx context.Context, url string, screensh
 // 返回 PNG/JPEG 字节数据、截图元信息、错误
 func (c *Client) ScreenshotBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
 	return c.ScreenshotBytesWithContext(context.Background(), url, screenshotOpts)
+}
+
+// CaptureBytes 使用函数式选项执行截图并返回图片字节。
+func (c *Client) CaptureBytes(url string, options ...ScreenshotOption) ([]byte, *models.Result, error) {
+	return c.CaptureBytesWithContext(context.Background(), url, options...)
+}
+
+// CaptureBytesWithContext 使用函数式选项执行可取消的截图并返回图片字节。
+func (c *Client) CaptureBytesWithContext(ctx context.Context, url string, options ...ScreenshotOption) ([]byte, *models.Result, error) {
+	return c.ScreenshotBytesWithContext(ctx, url, NewScreenshotOptions(options...))
 }
 
 // ScreenshotBytesWithContext 支持取消的截图字节数据获取
@@ -258,6 +294,30 @@ func (c *Client) ScreenshotWithForm(url string, form runner.Form, screenshotOpts
 	return c.Screenshot(url, opts)
 }
 
+// ScreenshotEvidence 截图并收集 HTML、HTTP 头、Cookie、控制台日志和网络请求。
+func (c *Client) ScreenshotEvidence(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	return c.ScreenshotEvidenceWithContext(context.Background(), url, screenshotOpts)
+}
+
+// ScreenshotEvidenceWithContext 支持取消的全证据截图。
+func (c *Client) ScreenshotEvidenceWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithEvidence()(opts)
+	return c.ScreenshotWithContext(ctx, url, opts)
+}
+
+// ScreenshotEvidenceBytes 截图、收集全部证据，并返回图片字节。
+func (c *Client) ScreenshotEvidenceBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	return c.ScreenshotEvidenceBytesWithContext(context.Background(), url, screenshotOpts)
+}
+
+// ScreenshotEvidenceBytesWithContext 支持取消的全证据字节截图。
+func (c *Client) ScreenshotEvidenceBytesWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithEvidence()(opts)
+	return c.ScreenshotBytesWithContext(ctx, url, opts)
+}
+
 // ScreenshotWithCookies 截图前注入自定义 Cookie
 // 适用于需要认证状态的页面
 //
@@ -281,6 +341,27 @@ func (c *Client) ScreenshotElement(url string, selector string, screenshotOpts *
 	return c.Screenshot(url, opts)
 }
 
+// ScreenshotElementBytes 截取指定 CSS 选择器匹配的元素并返回图片字节。
+func (c *Client) ScreenshotElementBytes(url string, selector string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Selector = selector
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotXPath 截取指定 XPath 匹配的元素。
+func (c *Client) ScreenshotXPath(url string, xpath string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.XPath = xpath
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotXPathBytes 截取指定 XPath 匹配的元素并返回图片字节。
+func (c *Client) ScreenshotXPathBytes(url string, xpath string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.XPath = xpath
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotFullPage 截取完整页面（含滚动区域）
 // 便捷方法，等价于设置 CaptureFullPage=true 后截图
 func (c *Client) ScreenshotFullPage(url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
@@ -289,11 +370,56 @@ func (c *Client) ScreenshotFullPage(url string, screenshotOpts *ScreenshotOption
 	return c.Screenshot(url, opts)
 }
 
+// ScreenshotFullPageBytes 截取完整页面并返回图片字节。
+func (c *Client) ScreenshotFullPageBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.CaptureFullPage = true
+	return c.ScreenshotBytes(url, opts)
+}
+
+// ScreenshotDevice 使用指定设备预设截图。
+func (c *Client) ScreenshotDevice(url string, device string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Device = device
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotViewport 使用指定 viewport 截图。
+func (c *Client) ScreenshotViewport(url string, width, height int, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.WindowWidth = width
+	opts.WindowHeight = height
+	return c.Screenshot(url, opts)
+}
+
 // ScreenshotWithJS 截图前执行 JavaScript
 // 便捷方法，适用于需要操作 DOM 后截图的场景
 func (c *Client) ScreenshotWithJS(url string, js string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)
 	opts.JavaScript = js
+	opts.RunJSAfter = true
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithJSBefore 页面加载前执行 JavaScript 后截图。
+func (c *Client) ScreenshotWithJSBefore(url string, js string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.JavaScript = js
+	opts.RunJSBefore = true
+	opts.RunJSAfter = false
+	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithJSFile 执行 JavaScript 文件后截图。
+func (c *Client) ScreenshotWithJSFile(url string, jsFile string, beforeLoad bool, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.JavaScriptFile = jsFile
+	if beforeLoad {
+		opts.RunJSBefore = true
+		opts.RunJSAfter = false
+	} else {
+		opts.RunJSAfter = true
+	}
 	return c.Screenshot(url, opts)
 }
 
