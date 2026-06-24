@@ -272,6 +272,13 @@ func (c *Client) ScreenshotWithActions(url string, actions []runner.InteractionA
 	return c.Screenshot(url, opts)
 }
 
+// ScreenshotWithActionsBytes 截图前执行交互动作序列并返回图片字节。
+func (c *Client) ScreenshotWithActionsBytes(url string, actions []runner.InteractionAction, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Actions = actions
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotWithForm 截图前填写并提交表单
 // 适用于登录页面、搜索框等需要表单交互的场景
 //
@@ -286,6 +293,13 @@ func (c *Client) ScreenshotWithForm(url string, form runner.Form, screenshotOpts
 	opts := c.ensureScreenshotOptions(screenshotOpts)
 	opts.Form = form
 	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithFormBytes 截图前填写并提交表单并返回图片字节。
+func (c *Client) ScreenshotWithFormBytes(url string, form runner.Form, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Form = form
+	return c.ScreenshotBytes(url, opts)
 }
 
 // ScreenshotEvidence 截图并收集 HTML、HTTP 头、Cookie、控制台日志和网络请求。
@@ -325,6 +339,13 @@ func (c *Client) ScreenshotWithCookies(url string, cookies []runner.CustomCookie
 	opts := c.ensureScreenshotOptions(screenshotOpts)
 	opts.Cookies = cookies
 	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithCookiesBytes 截图前注入自定义 Cookie 并返回图片字节。
+func (c *Client) ScreenshotWithCookiesBytes(url string, cookies []runner.CustomCookie, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Cookies = cookies
+	return c.ScreenshotBytes(url, opts)
 }
 
 // ScreenshotElement 截取指定 CSS 选择器匹配的元素
@@ -378,12 +399,27 @@ func (c *Client) ScreenshotDevice(url string, device string, screenshotOpts *Scr
 	return c.Screenshot(url, opts)
 }
 
+// ScreenshotDeviceBytes 使用指定设备预设截图并返回图片字节。
+func (c *Client) ScreenshotDeviceBytes(url string, device string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.Device = device
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotViewport 使用指定 viewport 截图。
 func (c *Client) ScreenshotViewport(url string, width, height int, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)
 	opts.WindowWidth = width
 	opts.WindowHeight = height
 	return c.Screenshot(url, opts)
+}
+
+// ScreenshotViewportBytes 使用指定 viewport 截图并返回图片字节。
+func (c *Client) ScreenshotViewportBytes(url string, width, height int, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.WindowWidth = width
+	opts.WindowHeight = height
+	return c.ScreenshotBytes(url, opts)
 }
 
 // ScreenshotWithJS 截图前执行 JavaScript
@@ -395,6 +431,14 @@ func (c *Client) ScreenshotWithJS(url string, js string, screenshotOpts *Screens
 	return c.Screenshot(url, opts)
 }
 
+// ScreenshotWithJSBytes 截图前执行 JavaScript 并返回图片字节。
+func (c *Client) ScreenshotWithJSBytes(url string, js string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.JavaScript = js
+	opts.RunJSAfter = true
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotWithJSBefore 页面加载前执行 JavaScript 后截图。
 func (c *Client) ScreenshotWithJSBefore(url string, js string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)
@@ -402,6 +446,15 @@ func (c *Client) ScreenshotWithJSBefore(url string, js string, screenshotOpts *S
 	opts.RunJSBefore = true
 	opts.RunJSAfter = false
 	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithJSBeforeBytes 页面加载前执行 JavaScript 后截图并返回图片字节。
+func (c *Client) ScreenshotWithJSBeforeBytes(url string, js string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.JavaScript = js
+	opts.RunJSBefore = true
+	opts.RunJSAfter = false
+	return c.ScreenshotBytes(url, opts)
 }
 
 // ScreenshotWithJSFile 执行 JavaScript 文件后截图。
@@ -415,6 +468,19 @@ func (c *Client) ScreenshotWithJSFile(url string, jsFile string, beforeLoad bool
 		opts.RunJSAfter = true
 	}
 	return c.Screenshot(url, opts)
+}
+
+// ScreenshotWithJSFileBytes 执行 JavaScript 文件后截图并返回图片字节。
+func (c *Client) ScreenshotWithJSFileBytes(url string, jsFile string, beforeLoad bool, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.JavaScriptFile = jsFile
+	if beforeLoad {
+		opts.RunJSBefore = true
+		opts.RunJSAfter = false
+	} else {
+		opts.RunJSAfter = true
+	}
+	return c.ScreenshotBytes(url, opts)
 }
 
 // ---------------------------------------------------------------------------

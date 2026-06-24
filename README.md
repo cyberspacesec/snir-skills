@@ -224,7 +224,7 @@ SDK highlights:
 - `NewRemoteClient` for a remote Chrome WebSocket endpoint.
 - `AutoConnectClient` to prefer configured remote Chrome, discover a local provider, or start local Chrome.
 - `Capture` and `CaptureBytes` for composable `With...` scenario options, including per-request output path, format, and quality.
-- `ScreenshotEvidence`, `ScreenshotElementBytes`, `ScreenshotXPath`, `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotHTML`, `ScreenshotWithActions`, `ScreenshotWithForm`, and cookie helpers.
+- `ScreenshotEvidence`, `ScreenshotElementBytes`, `ScreenshotXPathBytes`, `ScreenshotDeviceBytes`, `ScreenshotViewportBytes`, `ScreenshotHTML`, `ScreenshotWithActionsBytes`, `ScreenshotWithFormBytes`, `ScreenshotWithCookiesBytes`, and matching result-returning helpers.
 - `WrapResult` helpers for evidence summaries plus JSON, HTML, screenshot, and evidence-bundle export.
 - Typed interaction and form builders such as `ActionClick`, `ActionType`, `ActionWait`, `FormInput`, and `FormWithSubmit`.
 - Per-request proxy rotation, manual mobile/touch emulation, Cookie header injection, persistent JSON Cookie files, Netscape cookie import/export, CookieJar write-back, and blacklist guards.

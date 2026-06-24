@@ -74,8 +74,9 @@ Common SDK entrypoints:
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsStreaming`, and `BatchScreenshotTargetsCallback` for bare host/IP expansion across protocols and ports.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.
-- `ScreenshotDevice`, `ScreenshotViewport`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.
-- `ScreenshotWithJSBefore` and `ScreenshotWithJSFile` for preload or file-based JavaScript injection.
+- `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotDeviceBytes`, `ScreenshotViewportBytes`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.
+- `ScreenshotWithJSBytes`, `ScreenshotWithJSBeforeBytes`, and `ScreenshotWithJSFileBytes` plus their result-returning variants for JavaScript injection.
+- `ScreenshotWithActionsBytes`, `ScreenshotWithFormBytes`, and `ScreenshotWithCookiesBytes` plus their result-returning variants for interaction, form, and authenticated capture workflows.
 - `WithProxyList`, `WithProxyFile`, `WithProxyURL`, and `WithProxyStrategy` for per-request proxy rotation.
 - `WithCookieHeader`, `WithCookieStrings`, `WithCookieFile`, `WithCookieImport`, `WithCookieExport`, and `WithCookieWriteBack` for authenticated and stateful captures.
 - `WithActions`, `ActionClick`, `ActionType`, `ActionWait`, `ActionWaitVisible`, and related XPath helpers for typed pre-capture interactions.

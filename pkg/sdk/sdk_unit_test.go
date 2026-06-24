@@ -666,6 +666,56 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("actions form cookies bytes", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		data, _, err := client.ScreenshotWithActionsBytes("https://example.com", []runner.InteractionAction{
+			ActionClick("#accept"),
+		}, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithActionsBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("actions data = %q", data)
+		}
+		if len(pool.lastOptions.Scan.Actions) != 1 ||
+			pool.lastOptions.Scan.Actions[0].Type != "click" ||
+			pool.lastOptions.Scan.Actions[0].Selector != "#accept" {
+			t.Fatalf("actions = %+v", pool.lastOptions.Scan.Actions)
+		}
+
+		form := FormWithSubmit("#login", 2*time.Second, FormInput("#user", "admin"))
+		data, _, err = client.ScreenshotWithFormBytes("https://example.com/login", form, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithFormBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("form data = %q", data)
+		}
+		if pool.lastOptions.Scan.Form.SubmitSelector != "#login" ||
+			pool.lastOptions.Scan.Form.WaitAfterSubmit != 2000 ||
+			len(pool.lastOptions.Scan.Form.Fields) != 1 {
+			t.Fatalf("form = %+v", pool.lastOptions.Scan.Form)
+		}
+
+		cookies := []runner.CustomCookie{{Name: "session", Value: "abc123", Domain: "example.com"}}
+		data, _, err = client.ScreenshotWithCookiesBytes("https://example.com/dashboard", cookies, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithCookiesBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("cookies data = %q", data)
+		}
+		if len(pool.lastOptions.Scan.Cookies) != 1 ||
+			pool.lastOptions.Scan.Cookies[0].Name != "session" {
+			t.Fatalf("cookies = %+v", pool.lastOptions.Scan.Cookies)
+		}
+		if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("byte options = %+v", pool.lastOptions.Scan)
+		}
+	})
+
 	t.Run("device viewport js file", func(t *testing.T) {
 		pool := &fakeDriverPool{}
 		client := &Client{pool: pool, opts: DefaultClientOptions()}
@@ -702,6 +752,81 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 
 		if _, err := client.ScreenshotWithJSFile("https://example.com", "after.js", false, nil); err != nil {
 			t.Fatalf("ScreenshotWithJSFile() after-load error = %v", err)
+		}
+		if pool.lastOptions.Scan.JavaScriptFile != "after.js" ||
+			pool.lastOptions.Scan.RunJSBefore || !pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js file after = %+v", pool.lastOptions.Scan)
+		}
+	})
+
+	t.Run("device viewport js bytes", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+		data, _, err := client.ScreenshotDeviceBytes("https://example.com", "pixel-8-pro", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotDeviceBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("device data = %q", data)
+		}
+		if pool.lastOptions.Chrome.DeviceName != "Pixel 8 Pro" {
+			t.Fatalf("DeviceName = %q, want Pixel 8 Pro", pool.lastOptions.Chrome.DeviceName)
+		}
+
+		data, _, err = client.ScreenshotViewportBytes("https://example.com", 1440, 900, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotViewportBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("viewport data = %q", data)
+		}
+		if pool.lastOptions.Chrome.WindowX != 1440 || pool.lastOptions.Chrome.WindowY != 900 {
+			t.Fatalf("viewport = %dx%d", pool.lastOptions.Chrome.WindowX, pool.lastOptions.Chrome.WindowY)
+		}
+
+		data, _, err = client.ScreenshotWithJSBytes("https://example.com", "document.body.dataset.ready='1'", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithJSBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("js data = %q", data)
+		}
+		if pool.lastOptions.Scan.JavaScript != "document.body.dataset.ready='1'" ||
+			pool.lastOptions.Scan.RunJSBefore || !pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js after = %+v", pool.lastOptions.Scan)
+		}
+
+		data, _, err = client.ScreenshotWithJSBeforeBytes("https://example.com", "window.preload=true", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithJSBeforeBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("js before data = %q", data)
+		}
+		if pool.lastOptions.Scan.JavaScript != "window.preload=true" ||
+			!pool.lastOptions.Scan.RunJSBefore || pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js before = %+v", pool.lastOptions.Scan)
+		}
+
+		data, _, err = client.ScreenshotWithJSFileBytes("https://example.com", "preload.js", true, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithJSFileBytes() error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("js file data = %q", data)
+		}
+		if pool.lastOptions.Scan.JavaScriptFile != "preload.js" ||
+			!pool.lastOptions.Scan.RunJSBefore || pool.lastOptions.Scan.RunJSAfter {
+			t.Fatalf("js file before = %+v", pool.lastOptions.Scan)
+		}
+
+		data, _, err = client.ScreenshotWithJSFileBytes("https://example.com", "after.js", false, nil)
+		if err != nil {
+			t.Fatalf("ScreenshotWithJSFileBytes() after-load error = %v", err)
+		}
+		if string(data) != "png" {
+			t.Fatalf("js file after data = %q", data)
 		}
 		if pool.lastOptions.Scan.JavaScriptFile != "after.js" ||
 			pool.lastOptions.Scan.RunJSBefore || !pool.lastOptions.Scan.RunJSAfter {

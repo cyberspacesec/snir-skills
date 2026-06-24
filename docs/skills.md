@@ -450,6 +450,7 @@ actions := []runner.InteractionAction{
     sdk.ActionWait(2 * time.Second),
 }
 result, err := client.ScreenshotWithActions("https://example.com", actions, nil)
+imgBytes, result, err := client.ScreenshotWithActionsBytes("https://example.com", actions, nil)
 ```
 
 #### 表单填写后截图
@@ -460,6 +461,7 @@ form := sdk.FormWithSubmit("#login-btn", 3*time.Second,
     sdk.FormInput("#password", "pass123"),
 )
 result, err := client.ScreenshotWithForm("https://example.com/login", form, nil)
+imgBytes, result, err := client.ScreenshotWithFormBytes("https://example.com/login", form, nil)
 ```
 
 #### 注入 Cookie 后截图
@@ -469,6 +471,7 @@ cookies := []runner.CustomCookie{
     {Name: "session", Value: "abc123", Domain: "example.com"},
 }
 result, err := client.ScreenshotWithCookies("https://example.com/dashboard", cookies, nil)
+imgBytes, result, err := client.ScreenshotWithCookiesBytes("https://example.com/dashboard", cookies, nil)
 ```
 
 #### 截图并获取 HTML
@@ -495,9 +498,12 @@ imgBytes, result, err := client.ScreenshotEvidenceBytes("https://example.com", n
 ```go
 result, err := client.ScreenshotXPath("https://example.com", "//main", nil)
 imgBytes, result, err := client.ScreenshotElementBytes("https://example.com", "#chart", nil)
+imgBytes, result, err = client.ScreenshotXPathBytes("https://example.com", "//main", nil)
 
 result, err = client.ScreenshotDevice("https://example.com", "iphone-15", nil)
+imgBytes, result, err = client.ScreenshotDeviceBytes("https://example.com", "iphone-15", nil)
 result, err = client.ScreenshotViewport("https://example.com", 1440, 900, nil)
+imgBytes, result, err = client.ScreenshotViewportBytes("https://example.com", 1440, 900, nil)
 ```
 
 #### 页面加载前或 JS 文件注入
@@ -508,8 +514,14 @@ result, err := client.ScreenshotWithJSBefore(
     "window.__snir_probe = true",
     nil,
 )
+imgBytes, result, err := client.ScreenshotWithJSBytes(
+    "https://example.com",
+    "window.scrollTo(0, document.body.scrollHeight)",
+    nil,
+)
 
 result, err = client.ScreenshotWithJSFile("https://example.com", "preload.js", true, nil)
+imgBytes, result, err = client.ScreenshotWithJSFileBytes("https://example.com", "preload.js", true, nil)
 ```
 
 ### 2.16 结果便捷访问（ResultWrapper）
