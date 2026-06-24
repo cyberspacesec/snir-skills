@@ -44,6 +44,7 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithCookieStrings("lang=zh", "theme=dark"),
 		WithCookieImport("cookies.txt"),
 		WithCookieExport("out.txt"),
+		WithCookieFile("cookies.json"),
 		WithCookieWriteBack(),
 		WithBlacklist("*.internal.*"),
 		WithBlacklistFile("blacklist.txt"),
@@ -109,7 +110,8 @@ func TestNewScreenshotOptions(t *testing.T) {
 		t.Fatalf("cookies = %+v", opts.Cookies)
 	}
 	if opts.CookieHeader != "sid=abc" || len(opts.CookieStrings) != 2 ||
-		opts.CookieImport != "cookies.txt" || opts.CookieExport != "out.txt" || !opts.CookieWriteBack {
+		opts.CookieImport != "cookies.txt" || opts.CookieExport != "out.txt" ||
+		opts.CookieFile != "cookies.json" || !opts.CookieWriteBack {
 		t.Fatalf("cookie source options not set: %+v", opts)
 	}
 	if opts.EnableBlacklist == nil || !*opts.EnableBlacklist ||

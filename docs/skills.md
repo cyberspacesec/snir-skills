@@ -569,6 +569,7 @@ opts := &sdk.ScreenshotOptions{
     CookieHeader:    "sid=abc; tenant=demo",          // Cookie Header 注入
     CookieImport:    "cookies.txt",                   // Netscape Cookie 导入
     CookieExport:    "out-cookies.txt",               // 结果 Cookie 导出
+    CookieFile:      "cookies.json",                  // JSON Cookie 持久化文件
     CookieWriteBack: true,                            // 写回 SDK CookieJar
     Actions: []runner.InteractionAction{              // 交互动作
         sdk.ActionClick("#accept"),
@@ -669,6 +670,7 @@ result, err = client.Capture(
     "https://example.com/dashboard",
     sdk.WithProxyList(runner.ProxyRoundRobin, "http://a:8080", "http://b:8080"),
     sdk.WithCookieHeader("session=abc; tenant=demo"),
+    sdk.WithCookieFile("cookies.json"),
     sdk.WithCookieWriteBack(),
     sdk.WithCookies(),
 )
@@ -985,6 +987,7 @@ type ClientOptions struct {
     CookieStrings   []string
     CookieImport    string
     CookieExport    string
+    CookieFile      string
     CookieWriteBack bool
 
     // 浏览器交互
@@ -1059,6 +1062,7 @@ type ScreenshotOptions struct {
     CookieStrings   []string
     CookieImport    string
     CookieExport    string
+    CookieFile      string
     CookieWriteBack bool
 
     // 浏览器交互

@@ -690,10 +690,11 @@ func blacklistedResult(target string, opts *runner.Options) (*models.Result, err
 }
 
 func (c *Client) mergeCookieJar(target string, opts *runner.Options) {
-	if c.cookieJar == nil {
+	jar := c.cookieJarForOptions(opts)
+	if jar == nil {
 		return
 	}
-	jarCookies := c.cookieJar.GetCookies(extractDomain(target))
+	jarCookies := jar.GetCookies(extractDomain(target))
 	if len(jarCookies) == 0 {
 		return
 	}
@@ -701,6 +702,32 @@ func (c *Client) mergeCookieJar(target string, opts *runner.Options) {
 	// CookieJar 中的 Cookie 在前，调用参数中的 Cookie 在后，便于单次调用覆盖。
 	allCookies := append(jarCookies, opts.Scan.Cookies...)
 	opts.Scan.Cookies = allCookies
+}
+
+func (c *Client) cookieJarForOptions(opts *runner.Options) *runner.CookieJar {
+	if opts == nil || opts.Scan.CookiesFile == "" {
+		return c.cookieJar
+	}
+
+	if opts.Scan.CookiesFile == c.opts.CookieFile {
+		if c.cookieJar != nil {
+			return c.cookieJar
+		}
+		jar, err := newCookieJar(opts.Scan.CookiesFile)
+		if err != nil {
+			log.Warn("SDK: 加载 Cookie 持久化文件失败", "file", opts.Scan.CookiesFile, "error", err)
+			return nil
+		}
+		c.cookieJar = jar
+		return jar
+	}
+
+	jar, err := newCookieJar(opts.Scan.CookiesFile)
+	if err != nil {
+		log.Warn("SDK: 加载单次 Cookie 持久化文件失败", "file", opts.Scan.CookiesFile, "error", err)
+		return nil
+	}
+	return jar
 }
 
 func appendCookieSources(target string, opts *runner.Options) {
@@ -727,7 +754,7 @@ func (c *Client) handleResultCookies(target string, result *models.Result, opts 
 	}
 
 	if opts.Scan.CookieWriteBack {
-		c.writeBackResultCookies(target, result.Cookies)
+		c.writeBackResultCookies(target, result.Cookies, c.cookieJarForOptions(opts))
 	}
 
 	if opts.Scan.CookieExport != "" {
@@ -737,9 +764,10 @@ func (c *Client) handleResultCookies(target string, result *models.Result, opts 
 	}
 }
 
-func (c *Client) writeBackResultCookies(target string, cookies []models.Cookie) {
-	if c.cookieJar == nil {
-		jar, err := newCookieJar("")
+func (c *Client) writeBackResultCookies(target string, cookies []models.Cookie, jar *runner.CookieJar) {
+	if jar == nil {
+		var err error
+		jar, err = newCookieJar("")
 		if err != nil {
 			log.Warn("SDK: 创建内存 CookieJar 失败", "error", err)
 			return
@@ -753,7 +781,7 @@ func (c *Client) writeBackResultCookies(target string, cookies []models.Cookie) 
 		if cookieDomain == "" {
 			cookieDomain = defaultDomain
 		}
-		if err := c.cookieJar.AddCookie(runner.PersistentCookie{
+		if err := jar.AddCookie(runner.PersistentCookie{
 			Name:       cookie.Name,
 			Value:      cookie.Value,
 			Domain:     cookieDomain,

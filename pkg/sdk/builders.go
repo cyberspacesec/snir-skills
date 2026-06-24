@@ -455,6 +455,14 @@ func WithCookieExport(path string) ScreenshotOption {
 	}
 }
 
+// WithCookieFile loads a persistent JSON CookieJar for this screenshot.
+// Combine it with WithCookieWriteBack to store result cookies in the same file.
+func WithCookieFile(path string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.CookieFile = path
+	}
+}
+
 // WithCookieWriteBack stores result cookies back into the SDK CookieJar.
 func WithCookieWriteBack() ScreenshotOption {
 	return func(opts *ScreenshotOptions) {

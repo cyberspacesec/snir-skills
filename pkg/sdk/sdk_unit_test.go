@@ -293,6 +293,73 @@ func TestScreenshotWithContext_UnitBranches(t *testing.T) {
 		}
 	})
 
+	t.Run("per request cookie file merge", func(t *testing.T) {
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		jar, err := runner.NewCookieJar(jarPath)
+		if err != nil {
+			t.Fatalf("NewCookieJar() error = %v", err)
+		}
+		if err := jar.AddCookie(runner.PersistentCookie{
+			Name:       "persisted",
+			Value:      "yes",
+			Domain:     "example.com",
+			Path:       "/",
+			Persistent: true,
+		}); err != nil {
+			t.Fatalf("AddCookie() error = %v", err)
+		}
+
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		_, err = client.ScreenshotWithContext(context.Background(), "https://example.com/path", NewScreenshotOptions(
+			WithCookieFile(jarPath),
+			WithInjectedCookies(runner.CustomCookie{Name: "opt", Value: "2", Domain: "example.com"}),
+		))
+		if err != nil {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+		if pool.lastOptions.Scan.CookiesFile != jarPath {
+			t.Fatalf("CookiesFile = %q, want %q", pool.lastOptions.Scan.CookiesFile, jarPath)
+		}
+		if len(pool.lastOptions.Scan.Cookies) != 2 {
+			t.Fatalf("cookies = %+v, want 2 cookies", pool.lastOptions.Scan.Cookies)
+		}
+		if pool.lastOptions.Scan.Cookies[0].Name != "persisted" || pool.lastOptions.Scan.Cookies[1].Name != "opt" {
+			t.Fatalf("cookie merge order = %+v", pool.lastOptions.Scan.Cookies)
+		}
+		if client.CookieJar() != nil {
+			t.Fatal("per-request CookieFile should not replace the client CookieJar")
+		}
+	})
+
+	t.Run("per request cookie file writeback", func(t *testing.T) {
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		pool := &fakeDriverPool{result: &models.Result{
+			Cookies: []models.Cookie{{Name: "session", Value: "new", Domain: "example.com", Path: "/"}},
+		}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		_, err := client.ScreenshotWithContext(context.Background(), "https://example.com/path", NewScreenshotOptions(
+			WithCookieFile(jarPath),
+			WithCookieWriteBack(),
+			WithCookies(),
+		))
+		if err != nil {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+
+		loaded, err := runner.NewCookieJar(jarPath)
+		if err != nil {
+			t.Fatalf("NewCookieJar() reload error = %v", err)
+		}
+		written := loaded.GetCookies("example.com")
+		if len(written) != 1 || written[0].Name != "session" || written[0].Value != "new" {
+			t.Fatalf("written cookies = %+v", written)
+		}
+		if client.CookieJar() != nil {
+			t.Fatal("per-request CookieFile writeback should not replace the client CookieJar")
+		}
+	})
+
 	t.Run("cookie sources and writeback", func(t *testing.T) {
 		cookieFile := filepath.Join(t.TempDir(), "cookies.txt")
 		content := "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tFALSE\t0\timported\tyes\n"
@@ -731,6 +798,7 @@ func TestToRunnerOptions_ClientCookieProxyPorts(t *testing.T) {
 	opts.CookieStrings = []string{"theme=dark"}
 	opts.CookieImport = "cookies.txt"
 	opts.CookieExport = "out.txt"
+	opts.CookieFile = "cookies.json"
 	opts.CookieWriteBack = true
 	opts.DeviceScaleFactor = 2
 	opts.IsMobile = true
@@ -746,11 +814,21 @@ func TestToRunnerOptions_ClientCookieProxyPorts(t *testing.T) {
 	}
 	if len(got.Scan.CookieStrings) != 2 || got.Scan.CookieStrings[0] != "sid=abc" ||
 		got.Scan.CookieImport != "cookies.txt" || got.Scan.CookieExport != "out.txt" ||
-		!got.Scan.CookieWriteBack || !got.Scan.SaveCookies {
+		got.Scan.CookiesFile != "cookies.json" || !got.Scan.CookieWriteBack || !got.Scan.SaveCookies {
 		t.Fatalf("cookie fields = %+v", got.Scan)
 	}
 	if got.Chrome.DeviceScaleFactor != 2 || !got.Chrome.IsMobile || !got.Chrome.HasTouch {
 		t.Fatalf("device fields = %+v", got.Chrome)
+	}
+}
+
+func TestMergeWithScreenshotOptions_CookieFile(t *testing.T) {
+	base := toRunnerOptions(DefaultClientOptions())
+	base.Scan.CookiesFile = "client.json"
+
+	got := mergeWithScreenshotOptions(base, NewScreenshotOptions(WithCookieFile("request.json")))
+	if got.Scan.CookiesFile != "request.json" {
+		t.Fatalf("CookiesFile = %q, want request.json", got.Scan.CookiesFile)
 	}
 }
 

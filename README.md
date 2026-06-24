@@ -226,7 +226,7 @@ SDK highlights:
 - `Capture` and `CaptureBytes` for composable `With...` scenario options, including per-request output path, format, and quality.
 - `ScreenshotEvidence`, `ScreenshotElementBytes`, `ScreenshotXPath`, `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotHTML`, `ScreenshotWithActions`, `ScreenshotWithForm`, and cookie helpers.
 - Typed interaction and form builders such as `ActionClick`, `ActionType`, `ActionWait`, `FormInput`, and `FormWithSubmit`.
-- Per-request proxy rotation, manual mobile/touch emulation, Cookie header injection, Netscape cookie import/export, CookieJar write-back, and blacklist guards.
+- Per-request proxy rotation, manual mobile/touch emulation, Cookie header injection, persistent JSON Cookie files, Netscape cookie import/export, CookieJar write-back, and blacklist guards.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsStreaming`, and `BatchScreenshotTargetsCallback` for host/IP inputs expanded across HTTP/HTTPS and ports.
 - Batch, streaming, and callback APIs for larger workflows.
 

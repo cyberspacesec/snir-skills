@@ -76,7 +76,7 @@ Common SDK entrypoints:
 - `ScreenshotDevice`, `ScreenshotViewport`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.
 - `ScreenshotWithJSBefore` and `ScreenshotWithJSFile` for preload or file-based JavaScript injection.
 - `WithProxyList`, `WithProxyFile`, `WithProxyURL`, and `WithProxyStrategy` for per-request proxy rotation.
-- `WithCookieHeader`, `WithCookieStrings`, `WithCookieImport`, `WithCookieExport`, and `WithCookieWriteBack` for authenticated and stateful captures.
+- `WithCookieHeader`, `WithCookieStrings`, `WithCookieFile`, `WithCookieImport`, `WithCookieExport`, and `WithCookieWriteBack` for authenticated and stateful captures.
 - `WithActions`, `ActionClick`, `ActionType`, `ActionWait`, `ActionWaitVisible`, and related XPath helpers for typed pre-capture interactions.
 - `WithForm`, `FormInput`, `FormSelect`, `FormCheckbox`, `FormRadio`, and `FormWithSubmit` for typed form fill and submit workflows.
 - `WithBlacklist`, `WithDefaultBlacklist`, `WithBlacklistFile`, and `WithNoBlacklist` for per-request URL blacklist guards before SDK pool execution.

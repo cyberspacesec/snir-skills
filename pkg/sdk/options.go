@@ -179,6 +179,7 @@ type ScreenshotOptions struct {
 	CookieStrings   []string
 	CookieImport    string
 	CookieExport    string
+	CookieFile      string
 	CookieWriteBack bool
 
 	// 浏览器交互
@@ -512,6 +513,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	if so.CookieExport != "" {
 		base.Scan.CookieExport = so.CookieExport
 		base.Scan.SaveCookies = true
+	}
+	if so.CookieFile != "" {
+		base.Scan.CookiesFile = so.CookieFile
 	}
 	if so.CookieWriteBack {
 		base.Scan.CookieWriteBack = true
