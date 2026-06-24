@@ -489,6 +489,11 @@ result, err := client.ScreenshotEvidence("https://example.com", &sdk.ScreenshotO
 })
 
 imgBytes, result, err := client.ScreenshotEvidenceBytes("https://example.com", nil)
+bundle, result, err := client.CaptureEvidenceBundle(
+    "https://example.com",
+    "evidence/example.com",
+    sdk.WithFullPage(),
+)
 ```
 
 `ScreenshotEvidence` 会同时打开 `SaveHTML`、`SaveHeaders`、`SaveCookies`、`SaveConsole`、`SaveNetwork`，适合资产画像、网页证据归档、AI Agent 后续分析等场景。
@@ -554,6 +559,8 @@ w.SaveScreenshot("evidence/screenshot.png")
 w.WriteScreenshot(writer)
 bundle, err := w.SaveEvidenceBundle("evidence/example.com")
 ```
+
+如果希望采集和导出一步完成，可以直接使用 `CaptureEvidenceBundle` 或 `ScreenshotEvidenceBundle`。
 
 ### 2.17 自定义截图选项
 

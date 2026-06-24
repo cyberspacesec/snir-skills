@@ -70,6 +70,7 @@ results := client.BatchScreenshotTargets(
 Common SDK entrypoints:
 
 - `Capture` / `CaptureBytes` for composable functional options.
+- `CaptureEvidenceBundle` / `ScreenshotEvidenceBundle` for one-call full evidence capture plus portable bundle export.
 - `WrapResult`, `EvidenceSummary`, `SaveJSON`, `SaveHTML`, `ReadScreenshot`, `WriteScreenshot`, `SaveScreenshot`, and `SaveEvidenceBundle` for post-capture evidence handling.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsStreaming`, and `BatchScreenshotTargetsCallback` for bare host/IP expansion across protocols and ports.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.

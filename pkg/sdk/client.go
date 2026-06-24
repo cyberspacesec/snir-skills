@@ -326,6 +326,38 @@ func (c *Client) ScreenshotEvidenceBytesWithContext(ctx context.Context, url str
 	return c.ScreenshotBytesWithContext(ctx, url, opts)
 }
 
+// CaptureEvidenceBundle 使用函数式选项采集全证据并写入证据包目录。
+func (c *Client) CaptureEvidenceBundle(url string, dir string, options ...ScreenshotOption) (*EvidenceBundle, *models.Result, error) {
+	return c.CaptureEvidenceBundleWithContext(context.Background(), url, dir, options...)
+}
+
+// CaptureEvidenceBundleWithContext 使用函数式选项执行可取消的全证据采集并写入证据包目录。
+func (c *Client) CaptureEvidenceBundleWithContext(ctx context.Context, url string, dir string, options ...ScreenshotOption) (*EvidenceBundle, *models.Result, error) {
+	return c.ScreenshotEvidenceBundleWithContext(ctx, url, dir, NewScreenshotOptions(options...))
+}
+
+// ScreenshotEvidenceBundle 截图、收集全部证据，并写入证据包目录。
+func (c *Client) ScreenshotEvidenceBundle(url string, dir string, screenshotOpts *ScreenshotOptions) (*EvidenceBundle, *models.Result, error) {
+	return c.ScreenshotEvidenceBundleWithContext(context.Background(), url, dir, screenshotOpts)
+}
+
+// ScreenshotEvidenceBundleWithContext 支持取消的全证据采集和证据包导出。
+func (c *Client) ScreenshotEvidenceBundleWithContext(ctx context.Context, url string, dir string, screenshotOpts *ScreenshotOptions) (*EvidenceBundle, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	WithEvidence()(opts)
+
+	_, result, err := c.ScreenshotBytesWithContext(ctx, url, opts)
+	if err != nil {
+		return nil, result, err
+	}
+
+	bundle, err := WrapResult(result).SaveEvidenceBundle(dir)
+	if err != nil {
+		return nil, result, err
+	}
+	return bundle, result, nil
+}
+
 // ScreenshotWithCookies 截图前注入自定义 Cookie
 // 适用于需要认证状态的页面
 //

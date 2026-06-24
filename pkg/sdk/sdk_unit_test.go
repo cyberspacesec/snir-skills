@@ -835,6 +835,59 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 	})
 }
 
+func TestEvidenceBundleCapture_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{
+		URL:             "https://example.com",
+		Title:           "Example",
+		HTML:            "<html><body>ok</body></html>",
+		ScreenshotBytes: []byte("png"),
+		Headers:         []models.Header{{Name: "Content-Type", Value: "text/html"}},
+		Cookies:         []models.Cookie{{Name: "session", Value: "abc123"}},
+		Console:         []models.ConsoleLog{{Level: "error", Message: "boom"}},
+		Network:         []models.NetworkLog{{URL: "https://example.com/api", StatusCode: 200}},
+	}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	dir := filepath.Join(t.TempDir(), "bundle")
+	bundle, result, err := client.CaptureEvidenceBundle("https://example.com", dir, WithFullPage())
+	if err != nil {
+		t.Fatalf("CaptureEvidenceBundle() error = %v", err)
+	}
+	if result == nil || result.Title != "Example" {
+		t.Fatalf("result = %+v", result)
+	}
+	if bundle == nil || bundle.Dir != dir {
+		t.Fatalf("bundle = %+v, want dir %q", bundle, dir)
+	}
+	for _, path := range []string{bundle.ManifestJSON, bundle.ResultJSON, bundle.SummaryJSON, bundle.HTML, bundle.Screenshot} {
+		if path == "" {
+			t.Fatalf("bundle returned empty path: %+v", bundle)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected bundle file %q: %v", path, err)
+		}
+	}
+	if !pool.lastOptions.Scan.SaveHTML || !pool.lastOptions.Scan.SaveHeaders ||
+		!pool.lastOptions.Scan.SaveConsole || !pool.lastOptions.Scan.SaveCookies ||
+		!pool.lastOptions.Scan.SaveNetwork {
+		t.Fatalf("evidence flags = %+v", pool.lastOptions.Scan)
+	}
+	if !pool.lastOptions.Scan.CaptureFullPage {
+		t.Fatal("CaptureEvidenceBundle() did not keep functional options")
+	}
+	if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+		t.Fatalf("byte options = %+v", pool.lastOptions.Scan)
+	}
+
+	shot, err := os.ReadFile(bundle.Screenshot)
+	if err != nil {
+		t.Fatalf("ReadFile(screenshot) error = %v", err)
+	}
+	if string(shot) != "png" {
+		t.Fatalf("bundle screenshot = %q", shot)
+	}
+}
+
 func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 	base := toRunnerOptions(DefaultClientOptions())
 	merged := mergeWithScreenshotOptions(base, NewScreenshotOptions(
