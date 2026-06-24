@@ -16,6 +16,10 @@ type ClientOptions struct {
 	WindowHeight     int    // 窗口高度（默认 800）
 	UserAgent        string // 自定义 User-Agent
 	Proxy            string // 代理服务器地址
+	ProxyList        []string
+	ProxyFile        string
+	ProxyURL         string
+	ProxyStrategy    runner.ProxyStrategy
 	Device           string // 设备预设名称
 	WSSURL           string // 远程 Chrome WebSocket URL
 	IgnoreCertErrors bool   // 忽略证书错误
@@ -42,6 +46,7 @@ type ClientOptions struct {
 	CaptureFullPage   bool   // 全页截图（含滚动区域）
 	Selector          string // CSS 选择器截图
 	XPath             string // XPath 截图
+	Ports             []int  // 扫描端口列表
 
 	// 超时配置
 	Timeout time.Duration // 页面加载超时
@@ -64,7 +69,12 @@ type ClientOptions struct {
 	MaxRetries int // 最大重试次数（默认 1）
 
 	// 自定义 Cookie
-	Cookies []runner.CustomCookie // 注入自定义 Cookie
+	Cookies         []runner.CustomCookie // 注入自定义 Cookie
+	CookieHeader    string                // Cookie Header 格式 (name=value; name2=value2)
+	CookieStrings   []string              // 多个 Cookie Header 字符串
+	CookieImport    string                // 导入 Netscape 格式 Cookie 文件
+	CookieExport    string                // 截图后导出 Netscape 格式 Cookie 文件
+	CookieWriteBack bool                  // 截图后写回 CookieJar
 
 	// 浏览器交互
 	Actions []runner.InteractionAction // 交互动作序列
@@ -112,6 +122,10 @@ type ScreenshotOptions struct {
 	WindowHeight     int    // 窗口高度（覆盖 ClientOptions）
 	UserAgent        string // User-Agent（覆盖 ClientOptions）
 	Proxy            string // 代理（覆盖 ClientOptions）
+	ProxyList        []string
+	ProxyFile        string
+	ProxyURL         string
+	ProxyStrategy    runner.ProxyStrategy
 	Device           string // 设备预设名称（覆盖 ClientOptions）
 	IgnoreCertErrors bool   // 忽略证书错误（覆盖 ClientOptions）
 
@@ -134,6 +148,7 @@ type ScreenshotOptions struct {
 	CaptureFullPage   bool   // 全页截图
 	ScreenshotFormat  string // 截图格式 png/jpeg
 	ScreenshotQuality int    // JPEG 质量
+	Ports             []int  // 扫描端口列表
 
 	// JavaScript
 	JavaScript     string // 在页面上执行的 JavaScript
@@ -150,7 +165,12 @@ type ScreenshotOptions struct {
 	SkipSave    bool // 跳过保存
 
 	// 自定义 Cookie（注入）
-	Cookies []runner.CustomCookie
+	Cookies         []runner.CustomCookie
+	CookieHeader    string
+	CookieStrings   []string
+	CookieImport    string
+	CookieExport    string
+	CookieWriteBack bool
 
 	// 浏览器交互
 	Actions []runner.InteractionAction // 交互动作序列
@@ -171,6 +191,10 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	opts.Chrome.WindowY = co.WindowHeight
 	opts.Chrome.UserAgent = co.UserAgent
 	opts.Chrome.Proxy = co.Proxy
+	opts.Chrome.ProxyList = co.ProxyList
+	opts.Chrome.ProxyFile = co.ProxyFile
+	opts.Chrome.ProxyURL = co.ProxyURL
+	opts.Chrome.ProxyStrategy = co.ProxyStrategy
 	opts.Chrome.IgnoreCertErrors = co.IgnoreCertErrors
 	opts.Chrome.WSS = co.WSSURL
 	opts.Chrome.Timeout = int(co.Timeout.Seconds())
@@ -226,6 +250,7 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	opts.Scan.CaptureFullPage = co.CaptureFullPage
 	opts.Scan.HTTP = true
 	opts.Scan.HTTPS = true
+	opts.Scan.Ports = co.Ports
 	opts.Scan.MaxRetries = co.MaxRetries
 
 	// JavaScript
@@ -247,6 +272,16 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	// Cookie
 	opts.Scan.Cookies = co.Cookies
 	opts.Scan.CookiesFile = co.CookieFile
+	opts.Scan.CookieImport = co.CookieImport
+	opts.Scan.CookieExport = co.CookieExport
+	opts.Scan.CookieWriteBack = co.CookieWriteBack
+	if co.CookieExport != "" {
+		opts.Scan.SaveCookies = true
+	}
+	if co.CookieHeader != "" {
+		opts.Scan.CookieStrings = append(opts.Scan.CookieStrings, co.CookieHeader)
+	}
+	opts.Scan.CookieStrings = append(opts.Scan.CookieStrings, co.CookieStrings...)
 
 	// 交互
 	opts.Scan.Actions = co.Actions
@@ -278,6 +313,30 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	// 浏览器覆盖
 	if so.Proxy != "" {
 		base.Chrome.Proxy = so.Proxy
+		base.Chrome.ProxyList = nil
+		base.Chrome.ProxyFile = ""
+		base.Chrome.ProxyURL = ""
+	}
+	if len(so.ProxyList) > 0 {
+		base.Chrome.Proxy = ""
+		base.Chrome.ProxyList = so.ProxyList
+		base.Chrome.ProxyFile = ""
+		base.Chrome.ProxyURL = ""
+	}
+	if so.ProxyFile != "" {
+		base.Chrome.Proxy = ""
+		base.Chrome.ProxyFile = so.ProxyFile
+		base.Chrome.ProxyList = nil
+		base.Chrome.ProxyURL = ""
+	}
+	if so.ProxyURL != "" {
+		base.Chrome.Proxy = ""
+		base.Chrome.ProxyURL = so.ProxyURL
+		base.Chrome.ProxyList = nil
+		base.Chrome.ProxyFile = ""
+	}
+	if so.ProxyStrategy != "" {
+		base.Chrome.ProxyStrategy = so.ProxyStrategy
 	}
 	if so.Device != "" {
 		applyDevicePreset(so.Device, &base)
@@ -346,6 +405,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	if so.ScreenshotQuality > 0 {
 		base.Scan.ScreenshotQuality = so.ScreenshotQuality
 	}
+	if len(so.Ports) > 0 {
+		base.Scan.Ports = so.Ports
+	}
 
 	// JavaScript 覆盖
 	hasScriptOverride := so.JavaScript != "" || so.JavaScriptFile != ""
@@ -394,6 +456,22 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	// Cookie（追加而非替换）
 	if len(so.Cookies) > 0 {
 		base.Scan.Cookies = append(base.Scan.Cookies, so.Cookies...)
+	}
+	if so.CookieHeader != "" {
+		base.Scan.CookieStrings = append(base.Scan.CookieStrings, so.CookieHeader)
+	}
+	if len(so.CookieStrings) > 0 {
+		base.Scan.CookieStrings = append(base.Scan.CookieStrings, so.CookieStrings...)
+	}
+	if so.CookieImport != "" {
+		base.Scan.CookieImport = so.CookieImport
+	}
+	if so.CookieExport != "" {
+		base.Scan.CookieExport = so.CookieExport
+		base.Scan.SaveCookies = true
+	}
+	if so.CookieWriteBack {
+		base.Scan.CookieWriteBack = true
 	}
 
 	// 交互

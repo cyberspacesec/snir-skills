@@ -37,6 +37,12 @@ func CloneScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOptions {
 	if opts.Plugins != nil {
 		cloned.Plugins = append([]string(nil), opts.Plugins...)
 	}
+	if opts.ProxyList != nil {
+		cloned.ProxyList = append([]string(nil), opts.ProxyList...)
+	}
+	if opts.Ports != nil {
+		cloned.Ports = append([]int(nil), opts.Ports...)
+	}
 	if opts.CustomHeaders != nil {
 		cloned.CustomHeaders = make(map[string]string, len(opts.CustomHeaders))
 		for name, value := range opts.CustomHeaders {
@@ -45,6 +51,9 @@ func CloneScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOptions {
 	}
 	if opts.Cookies != nil {
 		cloned.Cookies = append([]runner.CustomCookie(nil), opts.Cookies...)
+	}
+	if opts.CookieStrings != nil {
+		cloned.CookieStrings = append([]string(nil), opts.CookieStrings...)
 	}
 	if opts.Actions != nil {
 		cloned.Actions = append([]runner.InteractionAction(nil), opts.Actions...)
@@ -85,6 +94,49 @@ func WithUserAgent(userAgent string) ScreenshotOption {
 func WithProxy(proxy string) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.Proxy = proxy
+		opts.ProxyList = nil
+		opts.ProxyFile = ""
+		opts.ProxyURL = ""
+	}
+}
+
+// WithProxyList rotates this screenshot through the provided proxy list.
+func WithProxyList(strategy runner.ProxyStrategy, proxies ...string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.Proxy = ""
+		opts.ProxyList = proxies
+		opts.ProxyFile = ""
+		opts.ProxyURL = ""
+		opts.ProxyStrategy = strategy
+	}
+}
+
+// WithProxyFile loads rotating proxies from a file.
+func WithProxyFile(path string, strategy runner.ProxyStrategy) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.Proxy = ""
+		opts.ProxyList = nil
+		opts.ProxyFile = path
+		opts.ProxyURL = ""
+		opts.ProxyStrategy = strategy
+	}
+}
+
+// WithProxyURL gets proxies from a dynamic proxy API.
+func WithProxyURL(url string, strategy runner.ProxyStrategy) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.Proxy = ""
+		opts.ProxyList = nil
+		opts.ProxyFile = ""
+		opts.ProxyURL = url
+		opts.ProxyStrategy = strategy
+	}
+}
+
+// WithProxyStrategy sets the proxy rotation strategy.
+func WithProxyStrategy(strategy runner.ProxyStrategy) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.ProxyStrategy = strategy
 	}
 }
 
@@ -128,6 +180,13 @@ func WithFormat(format string, quality int) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.ScreenshotFormat = format
 		opts.ScreenshotQuality = quality
+	}
+}
+
+// WithPorts sets the scan ports for target expansion workflows.
+func WithPorts(ports ...int) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.Ports = ports
 	}
 }
 
@@ -276,6 +335,42 @@ func WithSpoofedScreen(width, height int) ScreenshotOption {
 func WithInjectedCookies(cookies ...runner.CustomCookie) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.Cookies = append(opts.Cookies, cookies...)
+	}
+}
+
+// WithCookieHeader parses and injects cookies from a Cookie header value.
+func WithCookieHeader(header string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.CookieHeader = header
+	}
+}
+
+// WithCookieStrings parses and injects multiple Cookie header values.
+func WithCookieStrings(headers ...string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.CookieStrings = append(opts.CookieStrings, headers...)
+	}
+}
+
+// WithCookieImport imports cookies from a Netscape/Mozilla cookie file.
+func WithCookieImport(path string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.CookieImport = path
+	}
+}
+
+// WithCookieExport exports result cookies to a Netscape/Mozilla cookie file.
+func WithCookieExport(path string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.CookieExport = path
+		opts.SaveCookies = true
+	}
+}
+
+// WithCookieWriteBack stores result cookies back into the SDK CookieJar.
+func WithCookieWriteBack() ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.CookieWriteBack = true
 	}
 }
 

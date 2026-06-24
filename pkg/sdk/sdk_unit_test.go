@@ -258,6 +258,71 @@ func TestScreenshotWithContext_UnitBranches(t *testing.T) {
 			t.Fatalf("cookie merge order = %v", pool.lastOptions.Scan.Cookies)
 		}
 	})
+
+	t.Run("cookie sources and writeback", func(t *testing.T) {
+		cookieFile := filepath.Join(t.TempDir(), "cookies.txt")
+		content := "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tFALSE\t0\timported\tyes\n"
+		if err := os.WriteFile(cookieFile, []byte(content), 0644); err != nil {
+			t.Fatalf("write cookie file: %v", err)
+		}
+
+		pool := &fakeDriverPool{result: &models.Result{
+			Cookies: []models.Cookie{{Name: "session", Value: "new", Domain: "example.com", Path: "/"}},
+		}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		_, err := client.ScreenshotWithContext(context.Background(), "https://example.com/path", NewScreenshotOptions(
+			WithCookieHeader("sid=abc; theme=dark"),
+			WithCookieImport(cookieFile),
+			WithCookieWriteBack(),
+			WithCookies(),
+		))
+		if err != nil {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+
+		names := make(map[string]bool)
+		for _, cookie := range pool.lastOptions.Scan.Cookies {
+			names[cookie.Name] = true
+			if cookie.Name == "sid" && cookie.Domain != "example.com" {
+				t.Fatalf("CookieHeader default domain = %q, want example.com", cookie.Domain)
+			}
+		}
+		for _, name := range []string{"sid", "theme", "imported"} {
+			if !names[name] {
+				t.Fatalf("cookie %q not injected: %+v", name, pool.lastOptions.Scan.Cookies)
+			}
+		}
+		if client.CookieJar() == nil {
+			t.Fatal("CookieWriteBack did not create CookieJar")
+		}
+		written := client.CookieJar().GetCookies("example.com")
+		if len(written) != 1 || written[0].Name != "session" || written[0].Value != "new" {
+			t.Fatalf("written cookies = %+v", written)
+		}
+	})
+
+	t.Run("cookie export", func(t *testing.T) {
+		exportFile := filepath.Join(t.TempDir(), "export.txt")
+		pool := &fakeDriverPool{result: &models.Result{
+			Cookies: []models.Cookie{{Name: "exported", Value: "1", Domain: "example.com", Path: "/"}},
+		}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		if _, err := client.ScreenshotWithContext(context.Background(), "https://example.com", NewScreenshotOptions(
+			WithCookieExport(exportFile),
+		)); err != nil {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+		if !pool.lastOptions.Scan.SaveCookies {
+			t.Fatal("CookieExport should enable SaveCookies")
+		}
+		loaded, err := runner.LoadNetscapeCookieFile(exportFile)
+		if err != nil {
+			t.Fatalf("LoadNetscapeCookieFile() error = %v", err)
+		}
+		if len(loaded) != 1 || loaded[0].Name != "exported" {
+			t.Fatalf("exported cookies = %+v", loaded)
+		}
+	})
 }
 
 func TestScreenshotBytesWithContext_UnitBranches(t *testing.T) {
@@ -296,6 +361,41 @@ func TestScreenshotBytesWithContext_UnitBranches(t *testing.T) {
 		}
 		if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
 			t.Fatalf("byte options not set: %+v", pool.lastOptions.Scan)
+		}
+	})
+
+	t.Run("cookie jar merge and writeback", func(t *testing.T) {
+		jar, err := runner.NewCookieJar("")
+		if err != nil {
+			t.Fatalf("NewCookieJar() error = %v", err)
+		}
+		if err := jar.AddCookie(runner.PersistentCookie{Name: "jar", Value: "1", Domain: "example.com"}); err != nil {
+			t.Fatalf("AddCookie() error = %v", err)
+		}
+
+		pool := &fakeDriverPool{result: &models.Result{
+			ScreenshotBytes: []byte("png"),
+			Cookies:         []models.Cookie{{Name: "bytes", Value: "2", Domain: "example.com", Path: "/"}},
+		}}
+		client := &Client{pool: pool, opts: DefaultClientOptions(), cookieJar: jar}
+		if _, _, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", NewScreenshotOptions(
+			WithCookieWriteBack(),
+			WithCookies(),
+		)); err != nil {
+			t.Fatalf("ScreenshotBytesWithContext() error = %v", err)
+		}
+		if len(pool.lastOptions.Scan.Cookies) != 1 || pool.lastOptions.Scan.Cookies[0].Name != "jar" {
+			t.Fatalf("cookie jar was not merged into bytes request: %+v", pool.lastOptions.Scan.Cookies)
+		}
+		written := client.CookieJar().GetCookies("example.com")
+		found := false
+		for _, cookie := range written {
+			if cookie.Name == "bytes" && cookie.Value == "2" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("bytes result cookie was not written back: %+v", written)
 		}
 	})
 
@@ -497,6 +597,8 @@ func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 	merged := mergeWithScreenshotOptions(base, NewScreenshotOptions(
 		WithViewport(1600, 900),
 		WithIgnoreCertErrors(),
+		WithProxyList(runner.ProxyRoundRobin, "http://a:8080", "http://b:8080"),
+		WithPorts(8080, 8443),
 		WithAcceptLanguage("en-US"),
 		WithCustomHeaders(map[string]string{"X-Test": "1"}),
 		WithFingerprint("Linux x86_64", "Google Inc.", "Mesa", "llvmpipe"),
@@ -510,6 +612,12 @@ func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 	}
 	if !merged.Chrome.IgnoreCertErrors {
 		t.Fatal("IgnoreCertErrors was not merged")
+	}
+	if len(merged.Chrome.ProxyList) != 2 || merged.Chrome.ProxyStrategy != runner.ProxyRoundRobin {
+		t.Fatalf("proxy rotation = %+v", merged.Chrome)
+	}
+	if len(merged.Scan.Ports) != 2 || merged.Scan.Ports[0] != 8080 {
+		t.Fatalf("ports = %+v", merged.Scan.Ports)
 	}
 	if merged.Chrome.AcceptLanguage != "en-US" {
 		t.Fatalf("AcceptLanguage = %q", merged.Chrome.AcceptLanguage)
@@ -527,6 +635,74 @@ func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 	if !merged.Chrome.DisableWebRTC || !merged.Chrome.SpoofScreenSize ||
 		merged.Chrome.ScreenWidth != 1600 || merged.Chrome.ScreenHeight != 900 {
 		t.Fatalf("privacy/screen = %+v", merged.Chrome)
+	}
+}
+
+func TestToRunnerOptions_ClientCookieProxyPorts(t *testing.T) {
+	opts := DefaultClientOptions()
+	opts.ProxyList = []string{"http://a:8080"}
+	opts.ProxyFile = "proxies.txt"
+	opts.ProxyURL = "https://proxy.example/api"
+	opts.ProxyStrategy = runner.ProxyRandom
+	opts.Ports = []int{80, 443}
+	opts.CookieHeader = "sid=abc"
+	opts.CookieStrings = []string{"theme=dark"}
+	opts.CookieImport = "cookies.txt"
+	opts.CookieExport = "out.txt"
+	opts.CookieWriteBack = true
+
+	got := toRunnerOptions(opts)
+	if len(got.Chrome.ProxyList) != 1 || got.Chrome.ProxyFile != "proxies.txt" ||
+		got.Chrome.ProxyURL != "https://proxy.example/api" || got.Chrome.ProxyStrategy != runner.ProxyRandom {
+		t.Fatalf("proxy fields = %+v", got.Chrome)
+	}
+	if len(got.Scan.Ports) != 2 || got.Scan.Ports[1] != 443 {
+		t.Fatalf("ports = %v", got.Scan.Ports)
+	}
+	if len(got.Scan.CookieStrings) != 2 || got.Scan.CookieStrings[0] != "sid=abc" ||
+		got.Scan.CookieImport != "cookies.txt" || got.Scan.CookieExport != "out.txt" ||
+		!got.Scan.CookieWriteBack || !got.Scan.SaveCookies {
+		t.Fatalf("cookie fields = %+v", got.Scan)
+	}
+}
+
+func TestMergeWithScreenshotOptions_ProxySourceOverrides(t *testing.T) {
+	base := toRunnerOptions(DefaultClientOptions())
+	base.Chrome.Proxy = "http://static:8080"
+	base.Chrome.ProxyList = []string{"http://list:8080"}
+	base.Chrome.ProxyFile = "proxies.txt"
+	base.Chrome.ProxyURL = "https://proxy.example/api"
+
+	static := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithProxy("http://override:8080"),
+	))
+	if static.Chrome.Proxy != "http://override:8080" ||
+		len(static.Chrome.ProxyList) != 0 || static.Chrome.ProxyFile != "" || static.Chrome.ProxyURL != "" {
+		t.Fatalf("static proxy override = %+v", static.Chrome)
+	}
+
+	list := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithProxyList(runner.ProxyRoundRobin, "http://a:8080", "http://b:8080"),
+	))
+	if list.Chrome.Proxy != "" || len(list.Chrome.ProxyList) != 2 ||
+		list.Chrome.ProxyFile != "" || list.Chrome.ProxyURL != "" {
+		t.Fatalf("proxy list override = %+v", list.Chrome)
+	}
+
+	file := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithProxyFile("request-proxies.txt", runner.ProxySequential),
+	))
+	if file.Chrome.Proxy != "" || file.Chrome.ProxyFile != "request-proxies.txt" ||
+		len(file.Chrome.ProxyList) != 0 || file.Chrome.ProxyURL != "" {
+		t.Fatalf("proxy file override = %+v", file.Chrome)
+	}
+
+	url := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithProxyURL("https://request-proxy.example/api", runner.ProxyRandom),
+	))
+	if url.Chrome.Proxy != "" || url.Chrome.ProxyURL != "https://request-proxy.example/api" ||
+		len(url.Chrome.ProxyList) != 0 || url.Chrome.ProxyFile != "" {
+		t.Fatalf("proxy url override = %+v", url.Chrome)
 	}
 }
 

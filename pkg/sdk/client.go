@@ -162,23 +162,14 @@ func (c *Client) Screenshot(url string, screenshotOpts *ScreenshotOptions) (*mod
 // ScreenshotWithContext 支持取消的截图
 // ctx 可用于取消长时间运行的截图任务
 func (c *Client) ScreenshotWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
-	runnerOpts := toRunnerOptions(c.opts)
-	runnerOpts = mergeWithScreenshotOptions(runnerOpts, screenshotOpts)
-
-	// 合并 CookieJar 中的 Cookie
-	if c.cookieJar != nil {
-		jarCookies := c.cookieJar.GetCookies(extractDomain(url))
-		if len(jarCookies) > 0 {
-			// 合并：CookieJar 中的 Cookie 在前，单次截图 Cookie 在后。
-			allCookies := append(jarCookies, runnerOpts.Scan.Cookies...)
-			runnerOpts.Scan.Cookies = allCookies
-		}
-	}
+	runnerOpts := c.runnerOptionsForScreenshot(url, screenshotOpts)
 
 	result, err := c.pool.ScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
 		return nil, fmt.Errorf("截图失败: %v", err)
 	}
+
+	c.handleResultCookies(url, result, &runnerOpts)
 
 	if result.Failed {
 		return result, fmt.Errorf("截图失败: %s", result.FailedReason)
@@ -206,8 +197,7 @@ func (c *Client) CaptureBytesWithContext(ctx context.Context, url string, option
 
 // ScreenshotBytesWithContext 支持取消的截图字节数据获取
 func (c *Client) ScreenshotBytesWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
-	runnerOpts := toRunnerOptions(c.opts)
-	runnerOpts = mergeWithScreenshotOptions(runnerOpts, screenshotOpts)
+	runnerOpts := c.runnerOptionsForScreenshot(url, screenshotOpts)
 	runnerOpts.Scan.ReturnScreenshotBytes = true
 	runnerOpts.Scan.ScreenshotSkipSave = true
 
@@ -215,6 +205,8 @@ func (c *Client) ScreenshotBytesWithContext(ctx context.Context, url string, scr
 	if err != nil {
 		return nil, nil, fmt.Errorf("截图失败: %v", err)
 	}
+
+	c.handleResultCookies(url, result, &runnerOpts)
 
 	if result.Failed {
 		return nil, result, fmt.Errorf("截图失败: %s", result.FailedReason)
@@ -629,6 +621,91 @@ func (c *Client) ensureScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOpt
 		return opts
 	}
 	return &ScreenshotOptions{}
+}
+
+func (c *Client) runnerOptionsForScreenshot(target string, screenshotOpts *ScreenshotOptions) runner.Options {
+	runnerOpts := toRunnerOptions(c.opts)
+	runnerOpts = mergeWithScreenshotOptions(runnerOpts, screenshotOpts)
+	appendCookieSources(target, &runnerOpts)
+	c.mergeCookieJar(target, &runnerOpts)
+	return runnerOpts
+}
+
+func (c *Client) mergeCookieJar(target string, opts *runner.Options) {
+	if c.cookieJar == nil {
+		return
+	}
+	jarCookies := c.cookieJar.GetCookies(extractDomain(target))
+	if len(jarCookies) == 0 {
+		return
+	}
+
+	// CookieJar 中的 Cookie 在前，调用参数中的 Cookie 在后，便于单次调用覆盖。
+	allCookies := append(jarCookies, opts.Scan.Cookies...)
+	opts.Scan.Cookies = allCookies
+}
+
+func appendCookieSources(target string, opts *runner.Options) {
+	defaultDomain := extractDomain(target)
+	for _, header := range opts.Scan.CookieStrings {
+		parsed := runner.ParseCookieHeader(header, defaultDomain)
+		opts.Scan.Cookies = append(opts.Scan.Cookies, parsed...)
+	}
+
+	if opts.Scan.CookieImport == "" {
+		return
+	}
+	imported, err := runner.LoadNetscapeCookieFile(opts.Scan.CookieImport)
+	if err != nil {
+		log.Warn("SDK: 导入 Netscape Cookie 失败", "file", opts.Scan.CookieImport, "error", err)
+		return
+	}
+	opts.Scan.Cookies = append(opts.Scan.Cookies, imported...)
+}
+
+func (c *Client) handleResultCookies(target string, result *models.Result, opts *runner.Options) {
+	if result == nil || len(result.Cookies) == 0 {
+		return
+	}
+
+	if opts.Scan.CookieWriteBack {
+		c.writeBackResultCookies(target, result.Cookies)
+	}
+
+	if opts.Scan.CookieExport != "" {
+		if err := runner.ExportResultCookiesToNetscape(opts.Scan.CookieExport, result.Cookies, target); err != nil {
+			log.Warn("SDK: 导出 Netscape Cookie 失败", "file", opts.Scan.CookieExport, "error", err)
+		}
+	}
+}
+
+func (c *Client) writeBackResultCookies(target string, cookies []models.Cookie) {
+	if c.cookieJar == nil {
+		jar, err := newCookieJar("")
+		if err != nil {
+			log.Warn("SDK: 创建内存 CookieJar 失败", "error", err)
+			return
+		}
+		c.cookieJar = jar
+	}
+
+	defaultDomain := extractDomain(target)
+	for _, cookie := range cookies {
+		cookieDomain := cookie.Domain
+		if cookieDomain == "" {
+			cookieDomain = defaultDomain
+		}
+		if err := c.cookieJar.AddCookie(runner.PersistentCookie{
+			Name:       cookie.Name,
+			Value:      cookie.Value,
+			Domain:     cookieDomain,
+			Path:       cookie.Path,
+			Persistent: true,
+			Source:     "session",
+		}); err != nil {
+			log.Warn("SDK: 写回 Cookie 失败", "domain", cookieDomain, "name", cookie.Name, "error", err)
+		}
+	}
 }
 
 // extractDomain 从 URL 中提取域名

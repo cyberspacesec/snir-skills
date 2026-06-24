@@ -24,6 +24,7 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithElement("#main"),
 		WithXPath("//main"),
 		WithFormat("jpeg", 80),
+		WithPorts(80, 443, 8443),
 		WithSkipSave(),
 		WithJSBefore("window.test = true"),
 		WithJSFile("preload.js", true),
@@ -35,6 +36,11 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithDisableWebRTC(),
 		WithSpoofedScreen(1920, 1080),
 		WithInjectedCookies(cookie),
+		WithCookieHeader("sid=abc"),
+		WithCookieStrings("lang=zh", "theme=dark"),
+		WithCookieImport("cookies.txt"),
+		WithCookieExport("out.txt"),
+		WithCookieWriteBack(),
 		WithActions(action),
 		WithForm(form),
 		WithMaxRetries(3),
@@ -49,6 +55,9 @@ func TestNewScreenshotOptions(t *testing.T) {
 	if opts.UserAgent != "agent" || opts.Proxy != "http://127.0.0.1:8080" || opts.Device != "iphone-15" {
 		t.Fatalf("browser overrides not set: %+v", opts)
 	}
+	if len(opts.ProxyList) != 0 || opts.ProxyFile != "" || opts.ProxyURL != "" {
+		t.Fatalf("static proxy should clear rotation sources: %+v", opts)
+	}
 	if !opts.IgnoreCertErrors || !opts.CaptureFullPage || !opts.SkipSave {
 		t.Fatalf("bool options not set: %+v", opts)
 	}
@@ -57,6 +66,9 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 	if opts.ScreenshotFormat != "jpeg" || opts.ScreenshotQuality != 80 {
 		t.Fatalf("format = %s/%d", opts.ScreenshotFormat, opts.ScreenshotQuality)
+	}
+	if len(opts.Ports) != 3 || opts.Ports[2] != 8443 {
+		t.Fatalf("ports = %v", opts.Ports)
 	}
 	if opts.JavaScript != "window.test = true" || opts.JavaScriptFile != "preload.js" ||
 		!opts.RunJSBefore || opts.RunJSAfter {
@@ -79,6 +91,10 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 	if len(opts.Cookies) != 1 || opts.Cookies[0].Name != "session" {
 		t.Fatalf("cookies = %+v", opts.Cookies)
+	}
+	if opts.CookieHeader != "sid=abc" || len(opts.CookieStrings) != 2 ||
+		opts.CookieImport != "cookies.txt" || opts.CookieExport != "out.txt" || !opts.CookieWriteBack {
+		t.Fatalf("cookie source options not set: %+v", opts)
 	}
 	if len(opts.Actions) != 1 || opts.Actions[0].Selector != "#submit" {
 		t.Fatalf("actions = %+v", opts.Actions)
@@ -104,6 +120,44 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 }
 
+func TestProxySourceOptions(t *testing.T) {
+	list := NewScreenshotOptions(
+		WithProxy("http://static:8080"),
+		WithProxyList(runner.ProxyRoundRobin, "http://a:8080", "http://b:8080"),
+	)
+	if list.Proxy != "" || len(list.ProxyList) != 2 || list.ProxyFile != "" ||
+		list.ProxyURL != "" || list.ProxyStrategy != runner.ProxyRoundRobin {
+		t.Fatalf("WithProxyList did not override other proxy sources: %+v", list)
+	}
+
+	file := NewScreenshotOptions(
+		WithProxyList(runner.ProxyRoundRobin, "http://a:8080"),
+		WithProxyFile("proxies.txt", runner.ProxySequential),
+	)
+	if file.Proxy != "" || len(file.ProxyList) != 0 || file.ProxyFile != "proxies.txt" ||
+		file.ProxyURL != "" || file.ProxyStrategy != runner.ProxySequential {
+		t.Fatalf("WithProxyFile did not override other proxy sources: %+v", file)
+	}
+
+	url := NewScreenshotOptions(
+		WithProxyFile("proxies.txt", runner.ProxySequential),
+		WithProxyURL("https://proxy.example/api", runner.ProxyRandom),
+	)
+	if url.Proxy != "" || len(url.ProxyList) != 0 || url.ProxyFile != "" ||
+		url.ProxyURL != "https://proxy.example/api" || url.ProxyStrategy != runner.ProxyRandom {
+		t.Fatalf("WithProxyURL did not override other proxy sources: %+v", url)
+	}
+
+	static := NewScreenshotOptions(
+		WithProxyURL("https://proxy.example/api", runner.ProxyRandom),
+		WithProxy("http://static:8080"),
+	)
+	if static.Proxy != "http://static:8080" || len(static.ProxyList) != 0 ||
+		static.ProxyFile != "" || static.ProxyURL != "" {
+		t.Fatalf("WithProxy did not override other proxy sources: %+v", static)
+	}
+}
+
 func TestCloneScreenshotOptions(t *testing.T) {
 	if CloneScreenshotOptions(nil) == nil {
 		t.Fatal("CloneScreenshotOptions(nil) returned nil")
@@ -111,9 +165,12 @@ func TestCloneScreenshotOptions(t *testing.T) {
 
 	opts := &ScreenshotOptions{
 		UserAgent:     "agent",
+		ProxyList:     []string{"http://a:8080"},
+		Ports:         []int{80, 443},
 		Plugins:       []string{"PDF Viewer"},
 		CustomHeaders: map[string]string{"X-Test": "1"},
 		Cookies:       []runner.CustomCookie{{Name: "session", Value: "abc"}},
+		CookieStrings: []string{"sid=abc"},
 		Actions:       []runner.InteractionAction{{Type: "click", Selector: "#submit"}},
 	}
 	cloned := CloneScreenshotOptions(opts)
@@ -123,12 +180,17 @@ func TestCloneScreenshotOptions(t *testing.T) {
 	if cloned.UserAgent != "agent" {
 		t.Fatalf("UserAgent = %q", cloned.UserAgent)
 	}
+	cloned.ProxyList[0] = "http://changed:8080"
+	cloned.Ports[0] = 8080
 	cloned.Plugins[0] = "Changed"
 	cloned.CustomHeaders["X-Test"] = "2"
 	cloned.Cookies[0].Value = "changed"
+	cloned.CookieStrings[0] = "sid=changed"
 	cloned.Actions[0].Selector = "#changed"
-	if opts.Plugins[0] != "PDF Viewer" || opts.CustomHeaders["X-Test"] != "1" ||
-		opts.Cookies[0].Value != "abc" || opts.Actions[0].Selector != "#submit" {
+	if opts.ProxyList[0] != "http://a:8080" || opts.Ports[0] != 80 ||
+		opts.Plugins[0] != "PDF Viewer" || opts.CustomHeaders["X-Test"] != "1" ||
+		opts.Cookies[0].Value != "abc" || opts.CookieStrings[0] != "sid=abc" ||
+		opts.Actions[0].Selector != "#submit" {
 		t.Fatalf("CloneScreenshotOptions shared mutable fields: original=%+v cloned=%+v", opts, cloned)
 	}
 }

@@ -513,12 +513,15 @@ opts := &sdk.ScreenshotOptions{
     WindowHeight:     900,                           // 单次截图窗口高度
     UserAgent:        "Mozilla/5.0 Custom",          // 自定义 UA
     Proxy:            "http://127.0.0.1:8080",       // 代理
+    ProxyList:        []string{"http://a:8080"},      // 代理轮换列表
+    ProxyStrategy:    runner.ProxyRoundRobin,         // 轮换策略
     Device:           "iphone-15",                   // 设备预设
     IgnoreCertErrors: true,                           // 忽略证书错误
     Selector:         "#main-content",               // CSS 选择器
     CaptureFullPage:  true,                           // 全页截图
     ScreenshotFormat: "jpeg",                        // 截图格式
     ScreenshotQuality: 95,                            // JPEG 质量
+    Ports:            []int{80, 443, 8080},           // host/IP 展开端口
     JavaScript:       "window.scrollTo(0, 500)",      // 执行 JS
     JavaScriptFile:   "inject.js",                    // JS 文件
     RunJSBefore:      true,                           // 页面加载前执行
@@ -532,6 +535,10 @@ opts := &sdk.ScreenshotOptions{
     Cookies: []runner.CustomCookie{                   // 注入 Cookie
         {Name: "auth", Value: "xxx", Domain: ".example.com"},
     },
+    CookieHeader:    "sid=abc; tenant=demo",          // Cookie Header 注入
+    CookieImport:    "cookies.txt",                   // Netscape Cookie 导入
+    CookieExport:    "out-cookies.txt",               // 结果 Cookie 导出
+    CookieWriteBack: true,                            // 写回 SDK CookieJar
     Actions: []runner.InteractionAction{              // 交互动作
         {Type: "click", Selector: "#accept"},
         {Type: "wait", WaitTime: 2},
@@ -600,6 +607,23 @@ result, err = client.Capture(
     sdk.WithAcceptLanguage("zh-CN,zh;q=0.9"),
     sdk.WithFingerprint("Win32", "Google Inc.", "Intel Inc.", "Intel Iris"),
     sdk.WithDisableWebRTC(),
+)
+
+// 单次截图使用代理池和 Cookie Header
+result, err = client.Capture(
+    "https://example.com/dashboard",
+    sdk.WithProxyList(runner.ProxyRoundRobin, "http://a:8080", "http://b:8080"),
+    sdk.WithCookieHeader("session=abc; tenant=demo"),
+    sdk.WithCookieWriteBack(),
+    sdk.WithCookies(),
+)
+
+// Netscape Cookie 文件导入/导出
+result, err = client.Capture(
+    "https://example.com",
+    sdk.WithCookieImport("cookies.txt"),
+    sdk.WithCookieExport("out-cookies.txt"),
+    sdk.WithCookies(),
 )
 ```
 
@@ -828,6 +852,10 @@ type ClientOptions struct {
     WindowHeight     int           // 窗口高度（默认 800）
     UserAgent        string        // 自定义 User-Agent
     Proxy            string        // 代理服务器
+    ProxyList        []string      // 代理轮换列表
+    ProxyFile        string        // 代理文件
+    ProxyURL         string        // 动态代理 API
+    ProxyStrategy    runner.ProxyStrategy
     Device           string        // 设备预设名称
     WSSURL           string        // 远程 Chrome WebSocket URL
     IgnoreCertErrors bool          // 忽略证书错误
@@ -854,6 +882,7 @@ type ClientOptions struct {
     CaptureFullPage   bool   // 全页截图
     Selector          string // CSS 选择器截图
     XPath             string // XPath 截图
+    Ports             []int  // 扫描端口列表
 
     // 超时配置
     Timeout time.Duration // 页面加载超时
@@ -876,7 +905,12 @@ type ClientOptions struct {
     MaxRetries int // 最大重试次数（默认 1）
 
     // 自定义 Cookie
-    Cookies []runner.CustomCookie
+    Cookies         []runner.CustomCookie
+    CookieHeader    string
+    CookieStrings   []string
+    CookieImport    string
+    CookieExport    string
+    CookieWriteBack bool
 
     // 浏览器交互
     Actions []runner.InteractionAction
@@ -899,6 +933,10 @@ type ScreenshotOptions struct {
     WindowHeight     int
     UserAgent        string
     Proxy            string
+    ProxyList        []string
+    ProxyFile        string
+    ProxyURL         string
+    ProxyStrategy    runner.ProxyStrategy
     Device           string
     IgnoreCertErrors bool
 
@@ -921,6 +959,7 @@ type ScreenshotOptions struct {
     CaptureFullPage   bool
     ScreenshotFormat  string
     ScreenshotQuality int
+    Ports             []int
 
     // JavaScript
     JavaScript     string
@@ -937,7 +976,12 @@ type ScreenshotOptions struct {
     SkipSave    bool
 
     // 自定义 Cookie（注入）
-    Cookies []runner.CustomCookie
+    Cookies         []runner.CustomCookie
+    CookieHeader    string
+    CookieStrings   []string
+    CookieImport    string
+    CookieExport    string
+    CookieWriteBack bool
 
     // 浏览器交互
     Actions []runner.InteractionAction

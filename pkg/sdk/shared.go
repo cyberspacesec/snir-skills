@@ -27,10 +27,17 @@ func SharedScreenshot(url string, opts *ScreenshotOptions) (*models.Result, erro
 func SharedScreenshotWithContext(ctx context.Context, url string, opts *ScreenshotOptions) (*models.Result, error) {
 	runnerOpts := defaultRunnerOptions()
 	runnerOpts = mergeWithScreenshotOptions(runnerOpts, opts)
+	appendCookieSources(url, &runnerOpts)
 
 	result, err := sharedScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
 		return nil, err
+	}
+
+	if result != nil && len(result.Cookies) > 0 && runnerOpts.Scan.CookieExport != "" {
+		if err := runner.ExportResultCookiesToNetscape(runnerOpts.Scan.CookieExport, result.Cookies, url); err != nil {
+			log.Warn("SDK: 导出 Netscape Cookie 失败", "file", runnerOpts.Scan.CookieExport, "error", err)
+		}
 	}
 
 	if result.Failed {

@@ -272,6 +272,56 @@ func TestProxyProviderForPool(t *testing.T) {
 	}
 }
 
+func TestDriverPoolProxyProviderForOptions(t *testing.T) {
+	poolOpts := &Options{}
+	poolOpts.Chrome.ProxyList = []string{"http://pool-a:8080", "http://pool-b:8080"}
+	poolOpts.Chrome.ProxyStrategy = ProxyRoundRobin
+	poolProvider := proxyProviderForPool(poolOpts)
+	pool := &DriverPool{opts: poolOpts, proxyProvider: poolProvider}
+
+	same := *poolOpts
+	if got := pool.proxyProviderForOptions(&same); got != poolProvider {
+		t.Fatalf("same proxy source should reuse pool provider, got %v want %v", got, poolProvider)
+	}
+
+	requestList := *poolOpts
+	requestList.Chrome.ProxyList = []string{"http://request-a:8080"}
+	got := pool.proxyProviderForOptions(&requestList)
+	if got == nil || got == poolProvider || !strings.HasPrefix(got.Name(), "proxy-list(") {
+		t.Fatalf("request proxy list should create request provider, got %v", got)
+	}
+
+	requestStatic := *poolOpts
+	requestStatic.Chrome.ProxyList = nil
+	requestStatic.Chrome.Proxy = "http://static:8080"
+	if got := pool.proxyProviderForOptions(&requestStatic); got != nil {
+		t.Fatalf("static request proxy should not use pool proxy provider, got %s", got.Name())
+	}
+
+	noDefaultPool := &DriverPool{opts: &Options{}}
+	requestOnly := &Options{}
+	requestOnly.Chrome.ProxyList = []string{"http://request-only:8080"}
+	requestOnly.Chrome.ProxyStrategy = ProxyRandom
+	got = noDefaultPool.proxyProviderForOptions(requestOnly)
+	if got == nil || !strings.HasPrefix(got.Name(), "proxy-list(") {
+		t.Fatalf("request-only proxy list should create provider, got %v", got)
+	}
+}
+
+func TestDriverPoolBrowserContextRejectsRequestProxyProviderWithWSS(t *testing.T) {
+	opts := &Options{}
+	opts.Chrome.WSS = "ws://127.0.0.1:9222/devtools/browser/test"
+	opts.Chrome.ProxyList = []string{"http://request:8080"}
+	pool := &DriverPool{opts: &Options{}}
+
+	if provider := pool.proxyProviderForOptions(opts); provider != nil {
+		t.Fatalf("WSS request should not create proxy provider, got %s", provider.Name())
+	}
+	if _, err := pool.browserContextForOptions(opts); err == nil {
+		t.Fatal("WSS 模式结合按请求代理池应返回错误")
+	}
+}
+
 func TestNewDriverPool_RemoteWSSRejectsProxy(t *testing.T) {
 	opts := &Options{}
 	opts.Chrome.WSS = "ws://127.0.0.1:9222/devtools/browser/test"

@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -237,9 +238,10 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 		opts = p.opts
 	}
 
-	// 代理轮换：从 ProxyProvider 获取代理
-	if p.proxyProvider != nil {
-		proxy, err := p.proxyProvider.GetProxy()
+	// 代理轮换：优先使用本次请求的代理源，未覆盖时使用池默认代理源。
+	proxyProvider := p.proxyProviderForOptions(opts)
+	if proxyProvider != nil {
+		proxy, err := proxyProvider.GetProxy()
 		if err != nil {
 			log.Debug("获取代理失败，使用默认设置", "error", err)
 		} else if proxy != "" {
@@ -247,7 +249,7 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 			proxyOpts := *opts
 			proxyOpts.Chrome.Proxy = proxy
 			opts = &proxyOpts
-			log.Debug("使用代理", "proxy", proxy, "provider", p.proxyProvider.Name())
+			log.Debug("使用代理", "proxy", proxy, "provider", proxyProvider.Name())
 		}
 	}
 
@@ -380,7 +382,7 @@ func (p *DriverPool) ensureBrowserProcess() error {
 
 func (p *DriverPool) browserContextForOptions(opts *Options) (context.Context, error) {
 	if opts.Chrome.WSS != "" {
-		if opts.Chrome.Proxy != "" {
+		if opts.Chrome.Proxy != "" || hasProxyProviderSource(opts) {
 			return nil, fmt.Errorf("远程 Chrome WebSocket 模式不支持按请求设置代理")
 		}
 		if err := p.ensureBrowserProcess(); err != nil {
@@ -428,10 +430,43 @@ func proxyProviderForPool(opts *Options) ProxyProvider {
 	if opts == nil {
 		return nil
 	}
-	if opts.Chrome.ProxyURL == "" && opts.Chrome.ProxyFile == "" && len(opts.Chrome.ProxyList) == 0 {
+	if !hasProxyProviderSource(opts) {
 		return nil
 	}
 	return CreateProxyProvider(opts)
+}
+
+func (p *DriverPool) proxyProviderForOptions(opts *Options) ProxyProvider {
+	if opts == nil {
+		opts = p.opts
+	}
+	if opts.Chrome.WSS != "" {
+		return nil
+	}
+	if !hasProxyProviderSource(opts) {
+		return nil
+	}
+	if p.proxyProvider != nil && sameProxyProviderSource(p.opts, opts) {
+		return p.proxyProvider
+	}
+	return CreateProxyProvider(opts)
+}
+
+func hasProxyProviderSource(opts *Options) bool {
+	if opts == nil {
+		return false
+	}
+	return opts.Chrome.ProxyURL != "" || opts.Chrome.ProxyFile != "" || len(opts.Chrome.ProxyList) > 0
+}
+
+func sameProxyProviderSource(a, b *Options) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Chrome.ProxyURL == b.Chrome.ProxyURL &&
+		a.Chrome.ProxyFile == b.Chrome.ProxyFile &&
+		a.Chrome.ProxyStrategy == b.Chrome.ProxyStrategy &&
+		slices.Equal(a.Chrome.ProxyList, b.Chrome.ProxyList)
 }
 
 func providerName(provider ProxyProvider) string {
