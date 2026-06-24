@@ -1,0 +1,562 @@
+package sdk
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
+)
+
+type fakeDriverPool struct {
+	mu              sync.Mutex
+	result          *models.Result
+	err             error
+	lastURL         string
+	lastOptions     runner.Options
+	calls           int
+	stats           runner.PoolStats
+	idleTimeout     time.Duration
+	activeCount     int
+	closed          bool
+	registeredEvent bool
+}
+
+func (p *fakeDriverPool) ScreenshotWithContext(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.calls++
+	p.lastURL = target
+	if opts != nil {
+		p.lastOptions = *opts
+	}
+	if p.result != nil || p.err != nil {
+		return p.result, p.err
+	}
+	return &models.Result{URL: target, Title: "ok"}, nil
+}
+
+func (p *fakeDriverPool) Stats() runner.PoolStats {
+	return p.stats
+}
+
+func (p *fakeDriverPool) SetIdleTimeout(timeout time.Duration) {
+	p.idleTimeout = timeout
+}
+
+func (p *fakeDriverPool) On(handler runner.PoolEventHandler) {
+	p.registeredEvent = handler != nil
+}
+
+func (p *fakeDriverPool) ActiveCount() int {
+	return p.activeCount
+}
+
+func (p *fakeDriverPool) Close() {
+	p.closed = true
+}
+
+func restoreSDKHooks(t *testing.T) {
+	t.Helper()
+
+	originalNewDriverPool := newDriverPool
+	originalNewCookieJar := newCookieJar
+	originalAutoConnect := autoConnect
+	originalSharedScreenshotWithContext := sharedScreenshotWithContext
+	originalSharedSetIdleTimeout := sharedSetIdleTimeout
+	originalSharedPoolStats := sharedPoolStats
+	originalCloseSharedPool := closeSharedPool
+
+	t.Cleanup(func() {
+		newDriverPool = originalNewDriverPool
+		newCookieJar = originalNewCookieJar
+		autoConnect = originalAutoConnect
+		sharedScreenshotWithContext = originalSharedScreenshotWithContext
+		sharedSetIdleTimeout = originalSharedSetIdleTimeout
+		sharedPoolStats = originalSharedPoolStats
+		closeSharedPool = originalCloseSharedPool
+	})
+}
+
+func TestNewClient_UnitBranches(t *testing.T) {
+	restoreSDKHooks(t)
+
+	pool := &fakeDriverPool{}
+	newDriverPool = func(opts *runner.Options, maxConcurrent int) (driverPool, error) {
+		if opts.Chrome.WSS != "ws://chrome" {
+			t.Fatalf("WSS = %q, want ws://chrome", opts.Chrome.WSS)
+		}
+		if maxConcurrent != 3 {
+			t.Fatalf("maxConcurrent = %d, want 3", maxConcurrent)
+		}
+		return pool, nil
+	}
+
+	jarPath := filepath.Join(t.TempDir(), "cookies.json")
+	jar, err := runner.NewCookieJar(jarPath)
+	if err != nil {
+		t.Fatalf("NewCookieJar() error = %v", err)
+	}
+	newCookieJar = func(path string) (*runner.CookieJar, error) {
+		if path != jarPath {
+			t.Fatalf("cookie path = %q, want %q", path, jarPath)
+		}
+		return jar, nil
+	}
+
+	opts := DefaultClientOptions()
+	opts.WSSURL = "ws://chrome"
+	opts.MaxConcurrent = 3
+	opts.CookieFile = jarPath
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	if client.pool != pool {
+		t.Fatal("NewClient() did not install factory pool")
+	}
+	if client.CookieJar() != jar {
+		t.Fatal("NewClient() did not install cookie jar")
+	}
+}
+
+func TestNewClient_CookieLoadWarningKeepsClient(t *testing.T) {
+	restoreSDKHooks(t)
+
+	pool := &fakeDriverPool{}
+	newDriverPool = func(*runner.Options, int) (driverPool, error) {
+		return pool, nil
+	}
+	newCookieJar = func(string) (*runner.CookieJar, error) {
+		return nil, errors.New("bad cookie file")
+	}
+
+	opts := DefaultClientOptions()
+	opts.CookieFile = filepath.Join(t.TempDir(), "bad.json")
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	if client.pool != pool {
+		t.Fatal("NewClient() did not return the created client")
+	}
+	if client.CookieJar() != nil {
+		t.Fatal("NewClient() should leave CookieJar nil after load failure")
+	}
+}
+
+func TestNewClient_DefaultFactoryError(t *testing.T) {
+	opts := DefaultClientOptions()
+	opts.WSSURL = "ws://chrome"
+	opts.Proxy = "http://127.0.0.1:8080"
+
+	_, err := NewClient(opts)
+	if err == nil {
+		t.Fatal("NewClient() error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "初始化截图客户端失败") {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+}
+
+func TestNewRemoteClient_UnitBranches(t *testing.T) {
+	restoreSDKHooks(t)
+
+	newDriverPool = func(opts *runner.Options, maxConcurrent int) (driverPool, error) {
+		if opts.Chrome.WSS != "ws://remote" {
+			t.Fatalf("WSS = %q, want ws://remote", opts.Chrome.WSS)
+		}
+		if maxConcurrent != 7 {
+			t.Fatalf("maxConcurrent = %d, want 7", maxConcurrent)
+		}
+		return &fakeDriverPool{}, nil
+	}
+
+	client, err := NewRemoteClient("ws://remote", 7)
+	if err != nil {
+		t.Fatalf("NewRemoteClient() error = %v", err)
+	}
+	if client.opts.MaxConcurrent != 7 {
+		t.Fatalf("MaxConcurrent = %d, want 7", client.opts.MaxConcurrent)
+	}
+
+	newDriverPool = func(_ *runner.Options, maxConcurrent int) (driverPool, error) {
+		if maxConcurrent != DefaultClientOptions().MaxConcurrent {
+			t.Fatalf("maxConcurrent = %d, want default", maxConcurrent)
+		}
+		return &fakeDriverPool{}, nil
+	}
+
+	client, err = NewRemoteClient("ws://remote", 0)
+	if err != nil {
+		t.Fatalf("NewRemoteClient() default concurrency error = %v", err)
+	}
+	if client.opts.MaxConcurrent != DefaultClientOptions().MaxConcurrent {
+		t.Fatalf("MaxConcurrent = %d, want default", client.opts.MaxConcurrent)
+	}
+
+	newDriverPool = func(*runner.Options, int) (driverPool, error) {
+		return nil, errors.New("dial failed")
+	}
+	_, err = NewRemoteClient("ws://remote", 1)
+	if err == nil {
+		t.Fatal("NewRemoteClient() error = nil, want error")
+	}
+}
+
+func TestScreenshotWithContext_UnitBranches(t *testing.T) {
+	t.Run("pool error", func(t *testing.T) {
+		client := &Client{pool: &fakeDriverPool{err: errors.New("boom")}, opts: DefaultClientOptions()}
+		_, err := client.ScreenshotWithContext(context.Background(), "https://example.com", nil)
+		if err == nil || !strings.Contains(err.Error(), "截图失败") {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+	})
+
+	t.Run("failed result", func(t *testing.T) {
+		result := &models.Result{Failed: true, FailedReason: "blocked"}
+		client := &Client{pool: &fakeDriverPool{result: result}, opts: DefaultClientOptions()}
+		got, err := client.ScreenshotWithContext(context.Background(), "https://example.com", nil)
+		if got != result {
+			t.Fatal("ScreenshotWithContext() did not return failed result")
+		}
+		if err == nil || !strings.Contains(err.Error(), "blocked") {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+	})
+
+	t.Run("cookie jar merge", func(t *testing.T) {
+		jar, err := runner.NewCookieJar("")
+		if err != nil {
+			t.Fatalf("NewCookieJar() error = %v", err)
+		}
+		if err := jar.AddCookie(runner.PersistentCookie{Name: "jar", Value: "1", Domain: "example.com"}); err != nil {
+			t.Fatalf("AddCookie() error = %v", err)
+		}
+
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions(), cookieJar: jar}
+		_, err = client.ScreenshotWithContext(context.Background(), "https://example.com/path", &ScreenshotOptions{
+			Cookies: []runner.CustomCookie{{Name: "opt", Value: "2", Domain: "example.com"}},
+		})
+		if err != nil {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+		if len(pool.lastOptions.Scan.Cookies) != 2 {
+			t.Fatalf("cookies = %v, want 2 cookies", pool.lastOptions.Scan.Cookies)
+		}
+		if pool.lastOptions.Scan.Cookies[0].Name != "jar" || pool.lastOptions.Scan.Cookies[1].Name != "opt" {
+			t.Fatalf("cookie merge order = %v", pool.lastOptions.Scan.Cookies)
+		}
+	})
+}
+
+func TestScreenshotBytesWithContext_UnitBranches(t *testing.T) {
+	t.Run("pool error", func(t *testing.T) {
+		client := &Client{pool: &fakeDriverPool{err: errors.New("boom")}, opts: DefaultClientOptions()}
+		data, result, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", nil)
+		if data != nil || result != nil {
+			t.Fatalf("ScreenshotBytesWithContext() data/result = %v/%v, want nil/nil", data, result)
+		}
+		if err == nil || !strings.Contains(err.Error(), "截图失败") {
+			t.Fatalf("ScreenshotBytesWithContext() error = %v", err)
+		}
+	})
+
+	t.Run("failed result", func(t *testing.T) {
+		failed := &models.Result{Failed: true, FailedReason: "blocked"}
+		client := &Client{pool: &fakeDriverPool{result: failed}, opts: DefaultClientOptions()}
+		data, result, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", nil)
+		if data != nil || result != failed {
+			t.Fatalf("ScreenshotBytesWithContext() data/result = %v/%v", data, result)
+		}
+		if err == nil || !strings.Contains(err.Error(), "blocked") {
+			t.Fatalf("ScreenshotBytesWithContext() error = %v", err)
+		}
+	})
+
+	t.Run("success sets byte options", func(t *testing.T) {
+		pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		data, result, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotBytesWithContext() error = %v", err)
+		}
+		if string(data) != "png" || result == nil {
+			t.Fatalf("ScreenshotBytesWithContext() data/result = %q/%v", data, result)
+		}
+		if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("byte options not set: %+v", pool.lastOptions.Scan)
+		}
+	})
+
+	t.Run("extract error", func(t *testing.T) {
+		client := &Client{pool: &fakeDriverPool{result: &models.Result{}}, opts: DefaultClientOptions()}
+		data, result, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", nil)
+		if data != nil || result == nil {
+			t.Fatalf("ScreenshotBytesWithContext() data/result = %v/%v", data, result)
+		}
+		if err == nil || !strings.Contains(err.Error(), "截图文件路径为空") {
+			t.Fatalf("ScreenshotBytesWithContext() error = %v", err)
+		}
+	})
+}
+
+func TestScreenshotBytesFromResult_ErrorBranches(t *testing.T) {
+	if _, err := screenshotBytesFromResult(&models.Result{}); err == nil {
+		t.Fatal("screenshotBytesFromResult() error = nil, want empty path error")
+	}
+	if _, err := screenshotBytesFromResult(&models.Result{Screenshot: filepath.Join(t.TempDir(), "missing.png")}); err == nil {
+		t.Fatal("screenshotBytesFromResult() error = nil, want read error")
+	}
+}
+
+func TestScreenshotHTML_ErrorBranch(t *testing.T) {
+	client := &Client{pool: &fakeDriverPool{err: errors.New("boom")}, opts: DefaultClientOptions()}
+	html, result, err := client.ScreenshotHTML("https://example.com", nil)
+	if html != "" || result != nil {
+		t.Fatalf("ScreenshotHTML() html/result = %q/%v, want empty/nil", html, result)
+	}
+	if err == nil {
+		t.Fatal("ScreenshotHTML() error = nil, want error")
+	}
+}
+
+func TestBatchScreenshotStreaming_ContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	client := &Client{pool: &fakeDriverPool{}, opts: DefaultClientOptions()}
+	ch := client.BatchScreenshotStreaming(ctx, []string{"https://a.test", "https://b.test"}, nil)
+
+	count := 0
+	for result := range ch {
+		count++
+		if !errors.Is(result.Error, context.Canceled) {
+			t.Fatalf("BatchScreenshotStreaming() error = %v, want context.Canceled", result.Error)
+		}
+		if result.Result != nil {
+			t.Fatalf("BatchScreenshotStreaming() result = %v, want nil", result.Result)
+		}
+	}
+	if count != 2 {
+		t.Fatalf("BatchScreenshotStreaming() count = %d, want 2", count)
+	}
+}
+
+func TestClientPoolMethods_Unit(t *testing.T) {
+	pool := &fakeDriverPool{
+		stats:       runner.PoolStats{MaxConcurrent: 9, ActiveCount: 4},
+		activeCount: 4,
+	}
+	client := &Client{pool: pool}
+
+	if stats := client.Stats(); stats.MaxConcurrent != 9 {
+		t.Fatalf("Stats().MaxConcurrent = %d, want 9", stats.MaxConcurrent)
+	}
+	client.SetIdleTimeout(5 * time.Second)
+	if pool.idleTimeout != 5*time.Second {
+		t.Fatalf("idleTimeout = %v, want 5s", pool.idleTimeout)
+	}
+	client.OnEvent(func(runner.PoolEvent) {})
+	if !pool.registeredEvent {
+		t.Fatal("OnEvent() did not register handler")
+	}
+	if active := client.ActiveCount(); active != 4 {
+		t.Fatalf("ActiveCount() = %d, want 4", active)
+	}
+	client.Close()
+	if !pool.closed {
+		t.Fatal("Close() did not close pool")
+	}
+}
+
+func TestClientCookieMethods_Unit(t *testing.T) {
+	t.Run("add cookie jar creation error", func(t *testing.T) {
+		restoreSDKHooks(t)
+		newCookieJar = func(string) (*runner.CookieJar, error) {
+			return nil, errors.New("jar failed")
+		}
+		client := &Client{}
+		if err := client.AddCookie(runner.PersistentCookie{Name: "a"}); err == nil {
+			t.Fatal("AddCookie() error = nil, want error")
+		}
+	})
+
+	t.Run("add persistent cookie", func(t *testing.T) {
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		jar, err := runner.NewCookieJar(jarPath)
+		if err != nil {
+			t.Fatalf("NewCookieJar() error = %v", err)
+		}
+		client := &Client{cookieJar: jar}
+		if err := client.AddPersistentCookie("session", "abc", "example.com"); err != nil {
+			t.Fatalf("AddPersistentCookie() error = %v", err)
+		}
+		if _, err := os.Stat(jarPath); err != nil {
+			t.Fatalf("persistent cookie file was not written: %v", err)
+		}
+	})
+}
+
+func TestApplyDevicePreset_Invalid(t *testing.T) {
+	opts := runner.Options{}
+	applyDevicePreset("missing-device", &opts)
+	if opts.Chrome.DeviceName != "" {
+		t.Fatalf("DeviceName = %q, want empty", opts.Chrome.DeviceName)
+	}
+}
+
+func TestSharedWrappers_Unit(t *testing.T) {
+	t.Run("screenshot success and option merge", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if target != "https://example.com" {
+				t.Fatalf("target = %q", target)
+			}
+			if !opts.Scan.SaveHTML {
+				t.Fatal("SaveHTML was not merged")
+			}
+			return &models.Result{URL: target, Title: "ok"}, nil
+		}
+		result, err := SharedScreenshot("https://example.com", &ScreenshotOptions{SaveHTML: true})
+		if err != nil {
+			t.Fatalf("SharedScreenshot() error = %v", err)
+		}
+		if result.Title != "ok" {
+			t.Fatalf("SharedScreenshot() title = %q, want ok", result.Title)
+		}
+	})
+
+	t.Run("screenshot error", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
+			return nil, errors.New("shared failed")
+		}
+		result, err := SharedScreenshotWithContext(context.Background(), "https://example.com", nil)
+		if result != nil || err == nil {
+			t.Fatalf("SharedScreenshotWithContext() result/error = %v/%v", result, err)
+		}
+	})
+
+	t.Run("failed result is returned without error", func(t *testing.T) {
+		restoreSDKHooks(t)
+		failed := &models.Result{Failed: true, FailedReason: "blocked"}
+		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
+			return failed, nil
+		}
+		result, err := SharedScreenshotWithContext(context.Background(), "https://example.com", nil)
+		if result != failed || err != nil {
+			t.Fatalf("SharedScreenshotWithContext() result/error = %v/%v", result, err)
+		}
+	})
+
+	t.Run("idle timeout", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var got time.Duration
+		sharedSetIdleTimeout = func(timeout time.Duration) error {
+			got = timeout
+			return nil
+		}
+		SharedSetIdleTimeout(3 * time.Second)
+		if got != 3*time.Second {
+			t.Fatalf("timeout = %v, want 3s", got)
+		}
+
+		sharedSetIdleTimeout = func(time.Duration) error {
+			return errors.New("idle failed")
+		}
+		SharedSetIdleTimeout(time.Second)
+	})
+
+	t.Run("stats and close", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedPoolStats = func() (runner.PoolStats, error) {
+			return runner.PoolStats{MaxConcurrent: 5}, nil
+		}
+		stats, err := SharedStats()
+		if err != nil {
+			t.Fatalf("SharedStats() error = %v", err)
+		}
+		if stats.MaxConcurrent != 5 {
+			t.Fatalf("MaxConcurrent = %d, want 5", stats.MaxConcurrent)
+		}
+
+		sharedPoolStats = func() (runner.PoolStats, error) {
+			return runner.PoolStats{}, errors.New("stats failed")
+		}
+		if _, err := SharedStats(); err == nil {
+			t.Fatal("SharedStats() error = nil, want error")
+		}
+
+		closed := false
+		closeSharedPool = func() {
+			closed = true
+		}
+		CloseSharedPool()
+		if !closed {
+			t.Fatal("CloseSharedPool() did not call runner hook")
+		}
+	})
+}
+
+func TestAutoConnectClient_UnitBranches(t *testing.T) {
+	modes := []AutoConnectMode{AutoConnectRemote, AutoConnectDiscovered, AutoConnectLocal}
+	for _, mode := range modes {
+		t.Run(string(mode), func(t *testing.T) {
+			restoreSDKHooks(t)
+			pool := &fakeDriverPool{}
+			autoConnect = func(opts *runner.Options, maxConcurrent int) (driverPool, string, error) {
+				if opts.Scan.ScreenshotPath != "screenshots" {
+					t.Fatalf("ScreenshotPath = %q", opts.Scan.ScreenshotPath)
+				}
+				if maxConcurrent != DefaultClientOptions().MaxConcurrent {
+					t.Fatalf("maxConcurrent = %d, want default", maxConcurrent)
+				}
+				return pool, string(mode), nil
+			}
+
+			client, gotMode, err := AutoConnectClient(DefaultClientOptions())
+			if err != nil {
+				t.Fatalf("AutoConnectClient() error = %v", err)
+			}
+			if gotMode != mode {
+				t.Fatalf("mode = %s, want %s", gotMode, mode)
+			}
+			if client.pool != pool {
+				t.Fatal("AutoConnectClient() did not install pool")
+			}
+		})
+	}
+
+	t.Run("stub error", func(t *testing.T) {
+		restoreSDKHooks(t)
+		autoConnect = func(*runner.Options, int) (driverPool, string, error) {
+			return nil, "", errors.New("connect failed")
+		}
+		client, mode, err := AutoConnectClient(DefaultClientOptions())
+		if client != nil || mode != "" || err == nil {
+			t.Fatalf("AutoConnectClient() client/mode/error = %v/%q/%v", client, mode, err)
+		}
+	})
+}
+
+func TestAutoConnectClient_DefaultFactoryError(t *testing.T) {
+	opts := DefaultClientOptions()
+	opts.WSSURL = "ws://chrome"
+	opts.Proxy = "http://127.0.0.1:8080"
+
+	client, mode, err := AutoConnectClient(opts)
+	if client != nil || mode != "" || err == nil {
+		t.Fatalf("AutoConnectClient() client/mode/error = %v/%q/%v", client, mode, err)
+	}
+}

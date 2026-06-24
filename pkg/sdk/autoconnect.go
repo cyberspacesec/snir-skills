@@ -7,6 +7,10 @@ import (
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
+var autoConnect = func(opts *runner.Options, maxConcurrent int) (driverPool, string, error) {
+	return runner.AutoConnect(opts, maxConcurrent)
+}
+
 // AutoConnectMode 自动连接模式返回的连接类型
 type AutoConnectMode string
 
@@ -32,7 +36,7 @@ const (
 func AutoConnectClient(opts ClientOptions) (*Client, AutoConnectMode, error) {
 	runnerOpts := toRunnerOptions(opts)
 
-	pool, mode, err := runner.AutoConnect(&runnerOpts, opts.MaxConcurrent)
+	pool, mode, err := autoConnect(&runnerOpts, opts.MaxConcurrent)
 	if err != nil {
 		return nil, "", fmt.Errorf("自动连接失败: %v", err)
 	}

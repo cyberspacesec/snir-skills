@@ -43,16 +43,32 @@ import (
 // 其他 Go 项目通过 import 此包来复用截图能力
 // 内部持有 DriverPool，多个调用方共享同一个 Chrome 浏览器进程
 type Client struct {
-	pool      *runner.DriverPool
+	pool      driverPool
 	opts      ClientOptions
 	cookieJar *runner.CookieJar // Cookie 持久化存储
 }
+
+type driverPool interface {
+	ScreenshotWithContext(context.Context, string, *runner.Options) (*models.Result, error)
+	Stats() runner.PoolStats
+	SetIdleTimeout(time.Duration)
+	On(runner.PoolEventHandler)
+	ActiveCount() int
+	Close()
+}
+
+var (
+	newDriverPool = func(opts *runner.Options, maxConcurrent int) (driverPool, error) {
+		return runner.NewDriverPool(opts, maxConcurrent)
+	}
+	newCookieJar = runner.NewCookieJar
+)
 
 // NewClient 创建一个新的截图客户端
 // 内部初始化 Chrome 浏览器进程池，多个截图请求复用同一浏览器进程
 func NewClient(opts ClientOptions) (*Client, error) {
 	runnerOpts := toRunnerOptions(opts)
-	pool, err := runner.NewDriverPool(&runnerOpts, opts.MaxConcurrent)
+	pool, err := newDriverPool(&runnerOpts, opts.MaxConcurrent)
 	if err != nil {
 		return nil, fmt.Errorf("初始化截图客户端失败: %v", err)
 	}
@@ -64,7 +80,7 @@ func NewClient(opts ClientOptions) (*Client, error) {
 
 	// 加载 Cookie 持久化存储
 	if opts.CookieFile != "" {
-		jar, err := runner.NewCookieJar(opts.CookieFile)
+		jar, err := newCookieJar(opts.CookieFile)
 		if err != nil {
 			log.Warn("加载 Cookie 文件失败", "file", opts.CookieFile, "error", err)
 		} else {
@@ -93,7 +109,7 @@ func NewRemoteClient(wsURL string, maxConcurrent int) (*Client, error) {
 	}
 
 	runnerOpts := toRunnerOptions(opts)
-	pool, err := runner.NewDriverPool(&runnerOpts, opts.MaxConcurrent)
+	pool, err := newDriverPool(&runnerOpts, opts.MaxConcurrent)
 	if err != nil {
 		return nil, fmt.Errorf("连接远程浏览器失败: %v", err)
 	}
@@ -429,7 +445,7 @@ func (c *Client) CookieJar() *runner.CookieJar {
 // 如果没有 CookieJar，会自动创建一个内存中的 CookieJar
 func (c *Client) AddCookie(cookie runner.PersistentCookie) error {
 	if c.cookieJar == nil {
-		jar, err := runner.NewCookieJar("")
+		jar, err := newCookieJar("")
 		if err != nil {
 			return err
 		}

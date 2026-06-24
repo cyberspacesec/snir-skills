@@ -9,6 +9,13 @@ import (
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
+var (
+	sharedScreenshotWithContext = runner.SharedScreenshotWithContext
+	sharedSetIdleTimeout        = runner.SharedSetIdleTimeout
+	sharedPoolStats             = runner.SharedPoolStats
+	closeSharedPool             = runner.CloseSharedPool
+)
+
 // SharedScreenshot 使用进程级共享池执行截图
 // 多个包/模块调用此函数会自动复用同一个 Chrome 进程
 // 首次调用时自动初始化池，后续调用直接复用
@@ -21,7 +28,7 @@ func SharedScreenshotWithContext(ctx context.Context, url string, opts *Screensh
 	runnerOpts := defaultRunnerOptions()
 	runnerOpts = mergeWithScreenshotOptions(runnerOpts, opts)
 
-	result, err := runner.SharedScreenshotWithContext(ctx, url, &runnerOpts)
+	result, err := sharedScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -35,20 +42,20 @@ func SharedScreenshotWithContext(ctx context.Context, url string, opts *Screensh
 
 // SharedSetIdleTimeout 设置共享池的空闲超时
 func SharedSetIdleTimeout(timeout time.Duration) {
-	if err := runner.SharedSetIdleTimeout(timeout); err != nil {
+	if err := sharedSetIdleTimeout(timeout); err != nil {
 		log.Error("设置共享池空闲超时失败", "error", err)
 	}
 }
 
 // SharedStats 返回共享池统计信息
 func SharedStats() (runner.PoolStats, error) {
-	return runner.SharedPoolStats()
+	return sharedPoolStats()
 }
 
 // CloseSharedPool 关闭共享池
 // 通常在程序退出时调用（可用 defer）
 func CloseSharedPool() {
-	runner.CloseSharedPool()
+	closeSharedPool()
 }
 
 // defaultRunnerOptions 返回默认 runner 配置
