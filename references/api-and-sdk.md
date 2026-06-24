@@ -76,6 +76,7 @@ Common SDK entrypoints:
 - `ScreenshotRequest`, `BatchScreenshotRequests`, `BatchScreenshotRequestsBytes`, `BatchScreenshotRequestsStreaming`, and callback variants for per-target option matrices.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsBytes`, `BatchScreenshotTargetsStreaming`, `BatchScreenshotTargetsBytesStreaming`, `BatchScreenshotTargetsCallback`, and `BatchScreenshotTargetsBytesCallback` for bare host/IP expansion across protocols and ports.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
+- `SharedCapture`, `SharedCaptureBytes`, `SharedScreenshotHTML`, `SharedScreenshotEvidence`, `SharedScreenshotEvidenceBytes`, and `SharedScreenshotEvidenceBundle` for process-wide shared Chrome pool capture.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.
 - `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotDeviceBytes`, `ScreenshotViewportBytes`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.
 - `ScreenshotWithJSBytes`, `ScreenshotWithJSBeforeBytes`, and `ScreenshotWithJSFileBytes` plus their result-returning variants for JavaScript injection.

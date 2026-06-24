@@ -435,6 +435,20 @@ fmt.Printf("连接模式: %s\n", mode) // "remote" | "discovered" | "local"
 // 任意包/模块调用，自动复用同一 Chrome 进程
 result, _ := sdk.SharedScreenshot("https://example.com", nil)
 
+// 函数式选项和内存截图同样支持共享池
+img, result, err := sdk.SharedCaptureBytes("https://example.com",
+    sdk.WithDevice("iphone-15"),
+    sdk.WithFullPage(),
+)
+
+// 全证据采集和证据包导出也可以复用进程级共享池
+result, err = sdk.SharedScreenshotEvidence("https://example.com", nil)
+bundle, result, err := sdk.SharedScreenshotEvidenceBundle(
+    "https://example.com",
+    "evidence/example",
+    nil,
+)
+
 // 查看统计
 stats, _ := sdk.SharedStats()
 fmt.Printf("总截图: %d, 失败: %d\n", stats.TotalScreenshots, stats.FailedScreenshots)

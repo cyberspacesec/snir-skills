@@ -232,6 +232,7 @@ SDK highlights:
 - `ScreenshotRequest`, `BatchScreenshotRequests`, `BatchScreenshotRequestsBytes`, and streaming/callback variants for per-target option matrices.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsBytes`, `BatchScreenshotTargetsStreaming`, `BatchScreenshotTargetsBytesStreaming`, `BatchScreenshotTargetsCallback`, and `BatchScreenshotTargetsBytesCallback` for host/IP inputs expanded across HTTP/HTTPS and ports.
 - Batch, streaming, callback, and byte-returning batch APIs for larger workflows.
+- `SharedCapture`, `SharedCaptureBytes`, `SharedScreenshotEvidence`, and `SharedScreenshotEvidenceBundle` for process-wide Chrome pool reuse without managing a client instance.
 
 ### 5. CDP Provider
 

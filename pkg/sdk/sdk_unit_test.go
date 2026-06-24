@@ -1524,6 +1524,147 @@ func TestSharedWrappers_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("capture applies functional options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if target != "https://example.com" {
+				t.Fatalf("target = %q", target)
+			}
+			if !opts.Scan.CaptureFullPage || !opts.Scan.SaveHTML {
+				t.Fatalf("functional options were not merged: %+v", opts.Scan)
+			}
+			return &models.Result{URL: target, Title: "capture"}, nil
+		}
+		result, err := SharedCapture("https://example.com", WithFullPage(), WithHTML())
+		if err != nil {
+			t.Fatalf("SharedCapture() error = %v", err)
+		}
+		if result.Title != "capture" {
+			t.Fatalf("SharedCapture() title = %q, want capture", result.Title)
+		}
+	})
+
+	t.Run("bytes sets in-memory flags and returns data", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if !opts.Scan.ReturnScreenshotBytes {
+				t.Fatal("ReturnScreenshotBytes was not enabled")
+			}
+			if !opts.Scan.ScreenshotSkipSave {
+				t.Fatal("ScreenshotSkipSave was not enabled")
+			}
+			if !opts.Scan.CaptureFullPage {
+				t.Fatal("functional option was not merged")
+			}
+			return &models.Result{URL: target, ScreenshotBytes: []byte("png")}, nil
+		}
+		data, result, err := SharedCaptureBytes("https://example.com", WithFullPage())
+		if err != nil {
+			t.Fatalf("SharedCaptureBytes() error = %v", err)
+		}
+		if string(data) != "png" || result == nil || result.URL != "https://example.com" {
+			t.Fatalf("SharedCaptureBytes() data/result = %q/%+v", data, result)
+		}
+	})
+
+	t.Run("bytes failed result returns error", func(t *testing.T) {
+		restoreSDKHooks(t)
+		failed := &models.Result{Failed: true, FailedReason: "blocked"}
+		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
+			return failed, nil
+		}
+		data, result, err := SharedScreenshotBytesWithContext(context.Background(), "https://example.com", nil)
+		if data != nil || result != failed || err == nil || !strings.Contains(err.Error(), "blocked") {
+			t.Fatalf("SharedScreenshotBytesWithContext() data/result/error = %v/%v/%v", data, result, err)
+		}
+	})
+
+	t.Run("bytes blacklisted target skips shared pool", func(t *testing.T) {
+		restoreSDKHooks(t)
+		called := false
+		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
+			called = true
+			return &models.Result{Title: "unexpected"}, nil
+		}
+		data, result, err := SharedScreenshotBytesWithContext(context.Background(), "https://example.com", NewScreenshotOptions(
+			WithBlacklist("example.com"),
+		))
+		if data != nil || result == nil || !result.Failed || err == nil {
+			t.Fatalf("SharedScreenshotBytesWithContext() data/result/error = %v/%+v/%v", data, result, err)
+		}
+		if called {
+			t.Fatal("sharedScreenshotWithContext was called for a blacklisted target")
+		}
+	})
+
+	t.Run("html enables save html and returns source", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if !opts.Scan.SaveHTML {
+				t.Fatal("SaveHTML was not enabled")
+			}
+			return &models.Result{URL: target, HTML: "<html></html>"}, nil
+		}
+		html, result, err := SharedScreenshotHTML("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotHTML() error = %v", err)
+		}
+		if html != "<html></html>" || result == nil {
+			t.Fatalf("SharedScreenshotHTML() html/result = %q/%+v", html, result)
+		}
+	})
+
+	t.Run("evidence enables all evidence flags", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if !opts.Scan.SaveHTML || !opts.Scan.SaveHeaders || !opts.Scan.SaveConsole ||
+				!opts.Scan.SaveCookies || !opts.Scan.SaveNetwork {
+				t.Fatalf("evidence options were not enabled: %+v", opts.Scan)
+			}
+			if !opts.Scan.ReturnScreenshotBytes || !opts.Scan.ScreenshotSkipSave {
+				t.Fatalf("byte options were not enabled: %+v", opts.Scan)
+			}
+			return &models.Result{URL: target, ScreenshotBytes: []byte("png")}, nil
+		}
+		data, result, err := SharedScreenshotEvidenceBytes("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotEvidenceBytes() error = %v", err)
+		}
+		if string(data) != "png" || result == nil {
+			t.Fatalf("SharedScreenshotEvidenceBytes() data/result = %q/%+v", data, result)
+		}
+	})
+
+	t.Run("evidence bundle writes files", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if !opts.Scan.SaveHTML || !opts.Scan.ReturnScreenshotBytes {
+				t.Fatalf("bundle options were not enabled: %+v", opts.Scan)
+			}
+			return &models.Result{
+				URL:             target,
+				HTML:            "<html></html>",
+				ScreenshotBytes: []byte("png"),
+			}, nil
+		}
+		dir := t.TempDir()
+		bundle, result, err := SharedCaptureEvidenceBundle("https://example.com", dir, WithFullPage())
+		if err != nil {
+			t.Fatalf("SharedCaptureEvidenceBundle() error = %v", err)
+		}
+		if result == nil || bundle == nil {
+			t.Fatalf("SharedCaptureEvidenceBundle() bundle/result = %+v/%+v", bundle, result)
+		}
+		for _, path := range []string{bundle.ManifestJSON, bundle.ResultJSON, bundle.SummaryJSON, bundle.HTML, bundle.Screenshot} {
+			if path == "" {
+				t.Fatalf("SharedCaptureEvidenceBundle() returned empty bundle path: %+v", bundle)
+			}
+			if _, err := os.Stat(path); err != nil {
+				t.Fatalf("bundle file %s: %v", path, err)
+			}
+		}
+	})
+
 	t.Run("screenshot error", func(t *testing.T) {
 		restoreSDKHooks(t)
 		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
