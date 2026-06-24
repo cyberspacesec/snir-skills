@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +20,7 @@ type fakeDriverPool struct {
 	result          *models.Result
 	err             error
 	lastURL         string
+	urls            []string
 	lastOptions     runner.Options
 	calls           int
 	stats           runner.PoolStats
@@ -34,6 +36,7 @@ func (p *fakeDriverPool) ScreenshotWithContext(_ context.Context, target string,
 
 	p.calls++
 	p.lastURL = target
+	p.urls = append(p.urls, target)
 	if opts != nil {
 		p.lastOptions = *opts
 	}
@@ -845,6 +848,106 @@ func TestBatchScreenshotStreaming_ContextCanceled(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("BatchScreenshotStreaming() count = %d, want 2", count)
+	}
+}
+
+func TestExpandTargets_Unit(t *testing.T) {
+	got := ExpandTarget("example.com/admin?x=1", NewScreenshotOptions(
+		WithHTTPOnly(),
+		WithPorts(80, 8080),
+	))
+	want := []string{
+		"http://example.com:80/admin?x=1",
+		"http://example.com:8080/admin?x=1",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("ExpandTarget() = %#v, want %#v", got, want)
+	}
+
+	explicit := ExpandTargets([]string{"https://example.com:9443/path"}, NewScreenshotOptions(
+		WithHTTPAndHTTPS(),
+		WithPorts(80, 443),
+	))
+	if !slices.Equal(explicit, []string{"https://example.com:9443/path"}) {
+		t.Fatalf("ExpandTargets() explicit = %#v", explicit)
+	}
+}
+
+func TestClientExpandTargetsUsesClientAndRequestOptions(t *testing.T) {
+	opts := DefaultClientOptions()
+	opts.Ports = []int{80, 443}
+	client := &Client{opts: opts}
+
+	got := client.ExpandTarget("example.com", NewScreenshotOptions(WithHTTPSOnly(), WithPorts(8443)))
+	want := []string{"https://example.com:8443"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Client.ExpandTarget() = %#v, want %#v", got, want)
+	}
+}
+
+func TestBatchScreenshotTargets_Unit(t *testing.T) {
+	pool := &fakeDriverPool{}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	results := client.BatchScreenshotTargets([]string{"example.com/path", "https://already.test/login"}, NewScreenshotOptions(
+		WithHTTPOnly(),
+		WithPorts(80, 8080),
+	))
+	wantURLs := []string{
+		"http://example.com:80/path",
+		"http://example.com:8080/path",
+		"https://already.test/login",
+	}
+	if len(results) != len(wantURLs) {
+		t.Fatalf("BatchScreenshotTargets() len = %d, want %d", len(results), len(wantURLs))
+	}
+	for i, want := range wantURLs {
+		if results[i].URL != want || results[i].Result == nil || results[i].Error != nil {
+			t.Fatalf("result[%d] = %+v, want URL %q without error", i, results[i], want)
+		}
+	}
+	if pool.calls != len(wantURLs) {
+		t.Fatalf("pool calls = %d, want %d", pool.calls, len(wantURLs))
+	}
+}
+
+func TestBatchScreenshotTargets_BlacklistBeforePool(t *testing.T) {
+	pool := &fakeDriverPool{}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	results := client.BatchScreenshotTargets([]string{"blocked.example.com", "safe.example.org"}, NewScreenshotOptions(
+		WithHTTPOnly(),
+		WithPorts(80),
+		WithBlacklist("blocked.example.com"),
+	))
+	if len(results) != 2 {
+		t.Fatalf("BatchScreenshotTargets() len = %d, want 2", len(results))
+	}
+	if results[0].Error == nil || results[0].Result == nil || !results[0].Result.Failed {
+		t.Fatalf("blacklisted result = %+v", results[0])
+	}
+	if results[1].Error != nil || results[1].Result == nil {
+		t.Fatalf("safe result = %+v", results[1])
+	}
+	if pool.calls != 1 || !slices.Equal(pool.urls, []string{"http://safe.example.org:80"}) {
+		t.Fatalf("pool calls/urls = %d/%#v", pool.calls, pool.urls)
+	}
+}
+
+func TestBatchScreenshotTargetsCallback_Unit(t *testing.T) {
+	pool := &fakeDriverPool{}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	seen := map[string]bool{}
+	client.BatchScreenshotTargetsCallback(context.Background(), []string{"example.com"}, NewScreenshotOptions(
+		WithHTTPSOnly(),
+		WithPorts(443),
+	), func(result BatchResult) {
+		seen[result.URL] = true
+	})
+
+	if !seen["https://example.com:443"] || pool.calls != 1 {
+		t.Fatalf("callback seen/pool calls = %#v/%d", seen, pool.calls)
 	}
 }
 

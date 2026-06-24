@@ -225,7 +225,8 @@ SDK highlights:
 - `AutoConnectClient` to prefer configured remote Chrome, discover a local provider, or start local Chrome.
 - `Capture` and `CaptureBytes` for composable `With...` scenario options.
 - `ScreenshotEvidence`, `ScreenshotElementBytes`, `ScreenshotXPath`, `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotHTML`, `ScreenshotWithActions`, `ScreenshotWithForm`, and cookie helpers.
-- Per-request proxy rotation, manual mobile/touch emulation, Cookie header injection, Netscape cookie import/export, CookieJar write-back, blacklist guards, and port expansion helpers.
+- Per-request proxy rotation, manual mobile/touch emulation, Cookie header injection, Netscape cookie import/export, CookieJar write-back, and blacklist guards.
+- `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsStreaming`, and `BatchScreenshotTargetsCallback` for host/IP inputs expanded across HTTP/HTTPS and ports.
 - Batch, streaming, and callback APIs for larger workflows.
 
 ### 5. CDP Provider

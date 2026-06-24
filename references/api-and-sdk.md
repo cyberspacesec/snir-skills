@@ -54,9 +54,22 @@ result, err := client.Capture(
 )
 ```
 
+For host/IP inputs, expand targets before capture or use the target-aware batch helpers:
+
+```go
+results := client.BatchScreenshotTargets(
+    []string{"example.com/admin", "192.0.2.10"},
+    sdk.NewScreenshotOptions(
+        sdk.WithPorts(80, 443, 8080),
+        sdk.WithHTTPAndHTTPS(),
+    ),
+)
+```
+
 Common SDK entrypoints:
 
 - `Capture` / `CaptureBytes` for composable functional options.
+- `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsStreaming`, and `BatchScreenshotTargetsCallback` for bare host/IP expansion across protocols and ports.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.
 - `ScreenshotDevice`, `ScreenshotViewport`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.
@@ -64,7 +77,7 @@ Common SDK entrypoints:
 - `WithProxyList`, `WithProxyFile`, `WithProxyURL`, and `WithProxyStrategy` for per-request proxy rotation.
 - `WithCookieHeader`, `WithCookieStrings`, `WithCookieImport`, `WithCookieExport`, and `WithCookieWriteBack` for authenticated and stateful captures.
 - `WithBlacklist`, `WithDefaultBlacklist`, `WithBlacklistFile`, and `WithNoBlacklist` for per-request URL blacklist guards before SDK pool execution.
-- `NewScreenshotOptions`, `WithFullPage`, `WithEvidence`, `WithDevice`, `WithViewport`, `WithPorts`, `WithJSAfter`, `WithCustomHeaders`, and related `With...` helpers for reusable scenario presets.
+- `NewScreenshotOptions`, `WithFullPage`, `WithEvidence`, `WithDevice`, `WithViewport`, `WithPorts`, `WithHTTPOnly`, `WithHTTPSOnly`, `WithHTTPAndHTTPS`, `WithJSAfter`, `WithCustomHeaders`, and related `With...` helpers for reusable scenario presets.
 
 ## CDP Provider
 

@@ -456,6 +456,17 @@ func (c *Client) BatchScreenshotWithContext(ctx context.Context, urls []string, 
 	return results
 }
 
+// BatchScreenshotTargets expands bare hosts/IPs by configured schemes and ports, then captures each URL.
+func (c *Client) BatchScreenshotTargets(targets []string, screenshotOpts *ScreenshotOptions) []BatchResult {
+	return c.BatchScreenshotTargetsWithContext(context.Background(), targets, screenshotOpts)
+}
+
+// BatchScreenshotTargetsWithContext supports cancellation while capturing expanded host/IP targets.
+func (c *Client) BatchScreenshotTargetsWithContext(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions) []BatchResult {
+	expanded := c.ExpandTargets(targets, screenshotOpts)
+	return c.BatchScreenshotWithContext(ctx, expanded, screenshotOpts)
+}
+
 // BatchScreenshotStreaming 流式批量截图
 // 每完成一个截图立即通过 channel 返回，不用等全部完成
 // 适用于大量 URL 截图、进度展示、实时处理等场景
@@ -503,6 +514,22 @@ func (c *Client) BatchScreenshotStreaming(ctx context.Context, urls []string, sc
 	}()
 
 	return ch
+}
+
+// BatchScreenshotTargetsStreaming expands bare hosts/IPs, then streams each screenshot result as it completes.
+func (c *Client) BatchScreenshotTargetsStreaming(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions) <-chan BatchResult {
+	expanded := c.ExpandTargets(targets, screenshotOpts)
+	return c.BatchScreenshotStreaming(ctx, expanded, screenshotOpts)
+}
+
+// BatchScreenshotTargetsCallback expands bare hosts/IPs, then calls callback for each completed result.
+func (c *Client) BatchScreenshotTargetsCallback(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions, callback func(BatchResult)) {
+	ch := c.BatchScreenshotTargetsStreaming(ctx, targets, screenshotOpts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
 }
 
 // BatchScreenshotCallback 批量截图，每完成一个调用回调函数

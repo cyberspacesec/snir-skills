@@ -27,6 +27,7 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithXPath("//main"),
 		WithFormat("jpeg", 80),
 		WithPorts(80, 443, 8443),
+		WithHTTPOnly(),
 		WithSkipSave(),
 		WithJSBefore("window.test = true"),
 		WithJSFile("preload.js", true),
@@ -77,6 +78,9 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 	if len(opts.Ports) != 3 || opts.Ports[2] != 8443 {
 		t.Fatalf("ports = %v", opts.Ports)
+	}
+	if opts.HTTP == nil || !*opts.HTTP || opts.HTTPS == nil || *opts.HTTPS {
+		t.Fatalf("target protocols = http:%v https:%v", opts.HTTP, opts.HTTPS)
 	}
 	if opts.JavaScript != "window.test = true" || opts.JavaScriptFile != "preload.js" ||
 		!opts.RunJSBefore || opts.RunJSAfter {
@@ -204,6 +208,8 @@ func TestCloneScreenshotOptions(t *testing.T) {
 		HasTouch:          boolPtr(false),
 		EnableBlacklist:   boolPtr(true),
 		DefaultBlacklist:  boolPtr(false),
+		HTTP:              boolPtr(true),
+		HTTPS:             boolPtr(false),
 	}
 	cloned := CloneScreenshotOptions(opts)
 	if cloned == opts {
@@ -224,11 +230,14 @@ func TestCloneScreenshotOptions(t *testing.T) {
 	*cloned.HasTouch = true
 	*cloned.EnableBlacklist = false
 	*cloned.DefaultBlacklist = true
+	*cloned.HTTP = false
+	*cloned.HTTPS = true
 	if opts.ProxyList[0] != "http://a:8080" || opts.Ports[0] != 80 ||
 		opts.Plugins[0] != "PDF Viewer" || opts.CustomHeaders["X-Test"] != "1" ||
 		opts.Cookies[0].Value != "abc" || opts.CookieStrings[0] != "sid=abc" ||
 		opts.Actions[0].Selector != "#submit" || opts.BlacklistPatterns[0] != "example.com" ||
-		!*opts.IsMobile || *opts.HasTouch || !*opts.EnableBlacklist || *opts.DefaultBlacklist {
+		!*opts.IsMobile || *opts.HasTouch || !*opts.EnableBlacklist || *opts.DefaultBlacklist ||
+		!*opts.HTTP || *opts.HTTPS {
 		t.Fatalf("CloneScreenshotOptions shared mutable fields: original=%+v cloned=%+v", opts, cloned)
 	}
 }

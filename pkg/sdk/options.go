@@ -155,6 +155,8 @@ type ScreenshotOptions struct {
 	ScreenshotFormat  string // 截图格式 png/jpeg
 	ScreenshotQuality int    // JPEG 质量
 	Ports             []int  // 扫描端口列表
+	HTTP              *bool  // 目标展开时启用 HTTP
+	HTTPS             *bool  // 目标展开时启用 HTTPS
 
 	// JavaScript
 	JavaScript     string // 在页面上执行的 JavaScript
@@ -438,6 +440,12 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 	if len(so.Ports) > 0 {
 		base.Scan.Ports = so.Ports
+	}
+	if so.HTTP != nil {
+		base.Scan.HTTP = *so.HTTP
+	}
+	if so.HTTPS != nil {
+		base.Scan.HTTPS = *so.HTTPS
 	}
 
 	// JavaScript 覆盖

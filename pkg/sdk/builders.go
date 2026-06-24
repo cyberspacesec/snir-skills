@@ -73,6 +73,12 @@ func CloneScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOptions {
 	if opts.DefaultBlacklist != nil {
 		cloned.DefaultBlacklist = boolPtr(*opts.DefaultBlacklist)
 	}
+	if opts.HTTP != nil {
+		cloned.HTTP = boolPtr(*opts.HTTP)
+	}
+	if opts.HTTPS != nil {
+		cloned.HTTPS = boolPtr(*opts.HTTPS)
+	}
 	return &cloned
 }
 
@@ -236,6 +242,29 @@ func WithPorts(ports ...int) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.Ports = ports
 	}
+}
+
+// WithTargetProtocols sets which schemes are generated for bare host/IP targets.
+func WithTargetProtocols(httpEnabled, httpsEnabled bool) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.HTTP = boolPtr(httpEnabled)
+		opts.HTTPS = boolPtr(httpsEnabled)
+	}
+}
+
+// WithHTTPOnly expands bare host/IP targets as HTTP only.
+func WithHTTPOnly() ScreenshotOption {
+	return WithTargetProtocols(true, false)
+}
+
+// WithHTTPSOnly expands bare host/IP targets as HTTPS only.
+func WithHTTPSOnly() ScreenshotOption {
+	return WithTargetProtocols(false, true)
+}
+
+// WithHTTPAndHTTPS expands bare host/IP targets as both HTTPS and HTTP.
+func WithHTTPAndHTTPS() ScreenshotOption {
+	return WithTargetProtocols(true, true)
 }
 
 // WithSkipSave keeps screenshot output in memory when the selected API supports it.

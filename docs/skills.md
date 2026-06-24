@@ -295,6 +295,32 @@ for _, r := range results {
 }
 ```
 
+#### Host/IP 目标展开
+
+`BatchScreenshot` 适合已经带协议的 URL 列表；如果输入是裸域名、主机名或 IP，可使用 `BatchScreenshotTargets` 按协议和端口展开后截图：
+
+```go
+targets := []string{"example.com/admin", "192.0.2.10"}
+results := client.BatchScreenshotTargets(targets, sdk.NewScreenshotOptions(
+    sdk.WithPorts(80, 443, 8080),
+    sdk.WithHTTPAndHTTPS(),
+))
+
+// example.com/admin 会展开为 https://example.com:80/admin、
+// https://example.com:443/admin、https://example.com:8080/admin、
+// http://example.com:80/admin 等目标。已带 http:// 或 https:// 的 URL 会原样保留。
+```
+
+只想生成单一协议时：
+
+```go
+urls := sdk.ExpandTarget("example.com", sdk.NewScreenshotOptions(
+    sdk.WithHTTPOnly(),
+    sdk.WithPorts(8080),
+))
+// []string{"http://example.com:8080"}
+```
+
 ### 2.7 流式批量截图（实时获取结果）
 
 ```go
@@ -307,6 +333,15 @@ for result := range ch {
         fmt.Printf("✅ %s: %s\n", result.URL, result.Result.Title)
     }
 }
+```
+
+裸 host/IP 目标也支持流式返回：
+
+```go
+ch := client.BatchScreenshotTargetsStreaming(ctx, targets, sdk.NewScreenshotOptions(
+    sdk.WithHTTPSOnly(),
+    sdk.WithPorts(443, 8443),
+))
 ```
 
 ### 2.8 回调式批量截图
