@@ -455,6 +455,20 @@ img, result, err := sdk.SharedCaptureBytes("https://example.com",
     sdk.WithFullPage(),
 )
 
+// 常用场景也有共享池快捷入口
+result, err = sdk.SharedScreenshotElement("https://example.com", "#hero", nil)
+img, result, err = sdk.SharedScreenshotDeviceBytes("https://example.com", "iphone-15", nil)
+img, result, err = sdk.SharedScreenshotWithJSBytes(
+    "https://example.com",
+    "document.body.dataset.ready='1'",
+    nil,
+)
+img, result, err = sdk.SharedScreenshotWithActionsBytes(
+    "https://example.com",
+    []runner.InteractionAction{sdk.ActionClick("#accept")},
+    nil,
+)
+
 // 全证据采集和证据包导出也可以复用进程级共享池
 result, err = sdk.SharedScreenshotEvidence("https://example.com", nil)
 bundle, result, err := sdk.SharedScreenshotEvidenceBundle(

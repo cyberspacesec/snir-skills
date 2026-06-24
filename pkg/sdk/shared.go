@@ -112,6 +112,180 @@ func SharedScreenshotHTML(url string, opts *ScreenshotOptions) (string, *models.
 	return result.HTML, result, nil
 }
 
+// SharedScreenshotWithActions 使用共享池在截图前执行交互动作序列。
+func SharedScreenshotWithActions(url string, actions []runner.InteractionAction, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Actions = actions
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithActionsBytes 使用共享池在截图前执行交互动作序列，并返回图片字节。
+func SharedScreenshotWithActionsBytes(url string, actions []runner.InteractionAction, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Actions = actions
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithForm 使用共享池在截图前填写并提交表单。
+func SharedScreenshotWithForm(url string, form runner.Form, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Form = form
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithFormBytes 使用共享池在截图前填写并提交表单，并返回图片字节。
+func SharedScreenshotWithFormBytes(url string, form runner.Form, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Form = form
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookies 使用共享池在截图前注入自定义 Cookie。
+func SharedScreenshotWithCookies(url string, cookies []runner.CustomCookie, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Cookies = cookies
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithCookiesBytes 使用共享池在截图前注入自定义 Cookie，并返回图片字节。
+func SharedScreenshotWithCookiesBytes(url string, cookies []runner.CustomCookie, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Cookies = cookies
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotElement 使用共享池截取指定 CSS 选择器匹配的元素。
+func SharedScreenshotElement(url string, selector string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Selector = selector
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotElementBytes 使用共享池截取指定 CSS 选择器匹配的元素，并返回图片字节。
+func SharedScreenshotElementBytes(url string, selector string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Selector = selector
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotXPath 使用共享池截取指定 XPath 匹配的元素。
+func SharedScreenshotXPath(url string, xpath string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.XPath = xpath
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotXPathBytes 使用共享池截取指定 XPath 匹配的元素，并返回图片字节。
+func SharedScreenshotXPathBytes(url string, xpath string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.XPath = xpath
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotFullPage 使用共享池截取完整页面。
+func SharedScreenshotFullPage(url string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.CaptureFullPage = true
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotFullPageBytes 使用共享池截取完整页面，并返回图片字节。
+func SharedScreenshotFullPageBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.CaptureFullPage = true
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotDevice 使用共享池按指定设备预设截图。
+func SharedScreenshotDevice(url string, device string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Device = device
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotDeviceBytes 使用共享池按指定设备预设截图，并返回图片字节。
+func SharedScreenshotDeviceBytes(url string, device string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.Device = device
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotViewport 使用共享池按指定 viewport 截图。
+func SharedScreenshotViewport(url string, width, height int, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.WindowWidth = width
+	screenshotOpts.WindowHeight = height
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotViewportBytes 使用共享池按指定 viewport 截图，并返回图片字节。
+func SharedScreenshotViewportBytes(url string, width, height int, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.WindowWidth = width
+	screenshotOpts.WindowHeight = height
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithJS 使用共享池在页面加载后执行 JavaScript 再截图。
+func SharedScreenshotWithJS(url string, js string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.JavaScript = js
+	screenshotOpts.RunJSAfter = true
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithJSBytes 使用共享池在页面加载后执行 JavaScript 再截图，并返回图片字节。
+func SharedScreenshotWithJSBytes(url string, js string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.JavaScript = js
+	screenshotOpts.RunJSAfter = true
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithJSBefore 使用共享池在页面加载前执行 JavaScript 再截图。
+func SharedScreenshotWithJSBefore(url string, js string, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.JavaScript = js
+	screenshotOpts.RunJSBefore = true
+	screenshotOpts.RunJSAfter = false
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithJSBeforeBytes 使用共享池在页面加载前执行 JavaScript 再截图，并返回图片字节。
+func SharedScreenshotWithJSBeforeBytes(url string, js string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.JavaScript = js
+	screenshotOpts.RunJSBefore = true
+	screenshotOpts.RunJSAfter = false
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
+// SharedScreenshotWithJSFile 使用共享池执行 JavaScript 文件后截图。
+func SharedScreenshotWithJSFile(url string, jsFile string, beforeLoad bool, opts *ScreenshotOptions) (*models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.JavaScriptFile = jsFile
+	if beforeLoad {
+		screenshotOpts.RunJSBefore = true
+		screenshotOpts.RunJSAfter = false
+	} else {
+		screenshotOpts.RunJSAfter = true
+	}
+	return SharedScreenshot(url, screenshotOpts)
+}
+
+// SharedScreenshotWithJSFileBytes 使用共享池执行 JavaScript 文件后截图，并返回图片字节。
+func SharedScreenshotWithJSFileBytes(url string, jsFile string, beforeLoad bool, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.JavaScriptFile = jsFile
+	if beforeLoad {
+		screenshotOpts.RunJSBefore = true
+		screenshotOpts.RunJSAfter = false
+	} else {
+		screenshotOpts.RunJSAfter = true
+	}
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
 // SharedScreenshotEvidence 使用共享池截图并收集 HTML、HTTP 头、Cookie、控制台日志和网络请求。
 func SharedScreenshotEvidence(url string, opts *ScreenshotOptions) (*models.Result, error) {
 	return SharedScreenshotEvidenceWithContext(context.Background(), url, opts)

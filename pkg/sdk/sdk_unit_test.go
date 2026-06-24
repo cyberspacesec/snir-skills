@@ -1723,6 +1723,239 @@ func TestSharedWrappers_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("scenario helpers map options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var last runner.Options
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			last = *opts
+			return &models.Result{URL: target, ScreenshotBytes: []byte("png")}, nil
+		}
+
+		if _, err := SharedScreenshotElement("https://example.com", "#hero", nil); err != nil {
+			t.Fatalf("SharedScreenshotElement() error = %v", err)
+		}
+		if last.Scan.Selector != "#hero" {
+			t.Fatalf("Selector = %q, want #hero", last.Scan.Selector)
+		}
+
+		if _, err := SharedScreenshotXPath("https://example.com", "//main", nil); err != nil {
+			t.Fatalf("SharedScreenshotXPath() error = %v", err)
+		}
+		if last.Scan.XPath != "//main" {
+			t.Fatalf("XPath = %q, want //main", last.Scan.XPath)
+		}
+
+		if _, err := SharedScreenshotFullPage("https://example.com", nil); err != nil {
+			t.Fatalf("SharedScreenshotFullPage() error = %v", err)
+		}
+		if !last.Scan.CaptureFullPage {
+			t.Fatal("CaptureFullPage was not enabled")
+		}
+
+		if _, err := SharedScreenshotDevice("https://example.com", "pixel-8-pro", nil); err != nil {
+			t.Fatalf("SharedScreenshotDevice() error = %v", err)
+		}
+		if last.Chrome.DeviceName != "Pixel 8 Pro" {
+			t.Fatalf("DeviceName = %q, want Pixel 8 Pro", last.Chrome.DeviceName)
+		}
+
+		if _, err := SharedScreenshotViewport("https://example.com", 390, 844, nil); err != nil {
+			t.Fatalf("SharedScreenshotViewport() error = %v", err)
+		}
+		if last.Chrome.WindowX != 390 || last.Chrome.WindowY != 844 {
+			t.Fatalf("viewport = %dx%d, want 390x844", last.Chrome.WindowX, last.Chrome.WindowY)
+		}
+
+		if _, err := SharedScreenshotWithJS("https://example.com", "document.body.dataset.ready='1'", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJS() error = %v", err)
+		}
+		if last.Scan.JavaScript != "document.body.dataset.ready='1'" ||
+			last.Scan.RunJSBefore || !last.Scan.RunJSAfter {
+			t.Fatalf("after-load JS options = %+v", last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithJSBefore("https://example.com", "window.preload=true", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSBefore() error = %v", err)
+		}
+		if last.Scan.JavaScript != "window.preload=true" ||
+			!last.Scan.RunJSBefore || last.Scan.RunJSAfter {
+			t.Fatalf("before-load JS options = %+v", last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithJSFile("https://example.com", "preload.js", true, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSFile() before-load error = %v", err)
+		}
+		if last.Scan.JavaScriptFile != "preload.js" ||
+			!last.Scan.RunJSBefore || last.Scan.RunJSAfter {
+			t.Fatalf("before-load JS file options = %+v", last.Scan)
+		}
+
+		if _, err := SharedScreenshotWithJSFile("https://example.com", "after.js", false, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSFile() after-load error = %v", err)
+		}
+		if last.Scan.JavaScriptFile != "after.js" ||
+			last.Scan.RunJSBefore || !last.Scan.RunJSAfter {
+			t.Fatalf("after-load JS file options = %+v", last.Scan)
+		}
+	})
+
+	t.Run("scenario bytes helpers map options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var last runner.Options
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			last = *opts
+			return &models.Result{URL: target, ScreenshotBytes: []byte("png")}, nil
+		}
+		requireBytesFlags := func(name string) {
+			t.Helper()
+			if !last.Scan.ReturnScreenshotBytes || !last.Scan.ScreenshotSkipSave {
+				t.Fatalf("%s did not enable byte flags: %+v", name, last.Scan)
+			}
+		}
+
+		data, _, err := SharedScreenshotElementBytes("https://example.com", "#hero", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotElementBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.Selector != "#hero" {
+			t.Fatalf("element bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotElementBytes")
+
+		if data, _, err = SharedScreenshotXPathBytes("https://example.com", "//main", nil); err != nil {
+			t.Fatalf("SharedScreenshotXPathBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.XPath != "//main" {
+			t.Fatalf("xpath bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotXPathBytes")
+
+		if data, _, err = SharedScreenshotFullPageBytes("https://example.com", nil); err != nil {
+			t.Fatalf("SharedScreenshotFullPageBytes() error = %v", err)
+		}
+		if string(data) != "png" || !last.Scan.CaptureFullPage {
+			t.Fatalf("full-page bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotFullPageBytes")
+
+		if data, _, err = SharedScreenshotDeviceBytes("https://example.com", "pixel-8-pro", nil); err != nil {
+			t.Fatalf("SharedScreenshotDeviceBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Chrome.DeviceName != "Pixel 8 Pro" {
+			t.Fatalf("device bytes data/options = %q/%+v", data, last.Chrome)
+		}
+		requireBytesFlags("SharedScreenshotDeviceBytes")
+
+		if data, _, err = SharedScreenshotViewportBytes("https://example.com", 390, 844, nil); err != nil {
+			t.Fatalf("SharedScreenshotViewportBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Chrome.WindowX != 390 || last.Chrome.WindowY != 844 {
+			t.Fatalf("viewport bytes data/options = %q/%+v", data, last.Chrome)
+		}
+		requireBytesFlags("SharedScreenshotViewportBytes")
+
+		if data, _, err = SharedScreenshotWithJSBytes("https://example.com", "document.body.dataset.ready='1'", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.JavaScript != "document.body.dataset.ready='1'" ||
+			last.Scan.RunJSBefore || !last.Scan.RunJSAfter {
+			t.Fatalf("after-load JS bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotWithJSBytes")
+
+		if data, _, err = SharedScreenshotWithJSBeforeBytes("https://example.com", "window.preload=true", nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSBeforeBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.JavaScript != "window.preload=true" ||
+			!last.Scan.RunJSBefore || last.Scan.RunJSAfter {
+			t.Fatalf("before-load JS bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotWithJSBeforeBytes")
+
+		if data, _, err = SharedScreenshotWithJSFileBytes("https://example.com", "preload.js", true, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSFileBytes() before-load error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.JavaScriptFile != "preload.js" ||
+			!last.Scan.RunJSBefore || last.Scan.RunJSAfter {
+			t.Fatalf("before-load JS file bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotWithJSFileBytes before-load")
+
+		if data, _, err = SharedScreenshotWithJSFileBytes("https://example.com", "after.js", false, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithJSFileBytes() after-load error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.JavaScriptFile != "after.js" ||
+			last.Scan.RunJSBefore || !last.Scan.RunJSAfter {
+			t.Fatalf("after-load JS file bytes data/options = %q/%+v", data, last.Scan)
+		}
+		requireBytesFlags("SharedScreenshotWithJSFileBytes after-load")
+
+		actions := []runner.InteractionAction{{Type: "click", Selector: "#accept"}}
+		if data, _, err = SharedScreenshotWithActionsBytes("https://example.com", actions, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithActionsBytes() error = %v", err)
+		}
+		if string(data) != "png" || len(last.Scan.Actions) != 1 ||
+			last.Scan.Actions[0].Type != "click" || last.Scan.Actions[0].Selector != "#accept" {
+			t.Fatalf("actions bytes data/options = %q/%+v", data, last.Scan.Actions)
+		}
+		requireBytesFlags("SharedScreenshotWithActionsBytes")
+
+		form := FormWithSubmit("#login", 2*time.Second, FormInput("#user", "admin"))
+		if data, _, err = SharedScreenshotWithFormBytes("https://example.com/login", form, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithFormBytes() error = %v", err)
+		}
+		if string(data) != "png" || last.Scan.Form.SubmitSelector != "#login" ||
+			last.Scan.Form.WaitAfterSubmit != 2000 || len(last.Scan.Form.Fields) != 1 {
+			t.Fatalf("form bytes data/options = %q/%+v", data, last.Scan.Form)
+		}
+		requireBytesFlags("SharedScreenshotWithFormBytes")
+
+		cookies := []runner.CustomCookie{{Name: "session", Value: "abc", Domain: "example.com"}}
+		if data, _, err = SharedScreenshotWithCookiesBytes("https://example.com/dashboard", cookies, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookiesBytes() error = %v", err)
+		}
+		if string(data) != "png" || len(last.Scan.Cookies) != 1 ||
+			last.Scan.Cookies[0].Name != "session" {
+			t.Fatalf("cookies bytes data/options = %q/%+v", data, last.Scan.Cookies)
+		}
+		requireBytesFlags("SharedScreenshotWithCookiesBytes")
+	})
+
+	t.Run("action form and cookie helpers map options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var last runner.Options
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			last = *opts
+			return &models.Result{URL: target}, nil
+		}
+
+		actions := []runner.InteractionAction{{Type: "click", Selector: "#accept"}}
+		if _, err := SharedScreenshotWithActions("https://example.com", actions, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithActions() error = %v", err)
+		}
+		if len(last.Scan.Actions) != 1 ||
+			last.Scan.Actions[0].Type != "click" || last.Scan.Actions[0].Selector != "#accept" {
+			t.Fatalf("actions = %+v", last.Scan.Actions)
+		}
+
+		form := FormWithSubmit("#login", 2*time.Second, FormInput("#user", "admin"))
+		if _, err := SharedScreenshotWithForm("https://example.com/login", form, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithForm() error = %v", err)
+		}
+		if last.Scan.Form.SubmitSelector != "#login" ||
+			last.Scan.Form.WaitAfterSubmit != 2000 || len(last.Scan.Form.Fields) != 1 {
+			t.Fatalf("form = %+v", last.Scan.Form)
+		}
+
+		cookies := []runner.CustomCookie{{Name: "session", Value: "abc", Domain: "example.com"}}
+		if _, err := SharedScreenshotWithCookies("https://example.com/dashboard", cookies, nil); err != nil {
+			t.Fatalf("SharedScreenshotWithCookies() error = %v", err)
+		}
+		if len(last.Scan.Cookies) != 1 || last.Scan.Cookies[0].Name != "session" {
+			t.Fatalf("cookies = %+v", last.Scan.Cookies)
+		}
+	})
+
 	t.Run("html enables save html and returns source", func(t *testing.T) {
 		restoreSDKHooks(t)
 		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
