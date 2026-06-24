@@ -304,6 +304,34 @@ for _, r := range byteResults {
 }
 ```
 
+#### 每个目标独立配置
+
+同一批任务里如果每个 URL 需要不同设备、viewport、selector、Cookie、JS 或输出格式，可使用 `ScreenshotRequest`：
+
+```go
+requests := []sdk.ScreenshotRequest{
+    {
+        Name: "desktop-full",
+        URL:  "https://example.com",
+        Options: sdk.NewScreenshotOptions(
+            sdk.WithViewport(1440, 900),
+            sdk.WithFullPage(),
+        ),
+    },
+    {
+        Name: "mobile-hero",
+        URL:  "https://example.com",
+        Options: sdk.NewScreenshotOptions(
+            sdk.WithDevice("iphone-15"),
+            sdk.WithElement("#hero"),
+        ),
+    },
+}
+
+results := client.BatchScreenshotRequests(requests)
+byteResults := client.BatchScreenshotRequestsBytes(requests)
+```
+
 #### Host/IP 目标展开
 
 `BatchScreenshot` 适合已经带协议的 URL 列表；如果输入是裸域名、主机名或 IP，可使用 `BatchScreenshotTargets` 按协议和端口展开后截图：
@@ -361,6 +389,11 @@ byteCh := client.BatchScreenshotBytesStreaming(ctx, urls, nil)
 for result := range byteCh {
     fmt.Printf("完成: %s %d bytes\n", result.URL, len(result.Data))
 }
+
+requestCh := client.BatchScreenshotRequestsStreaming(ctx, requests)
+for result := range requestCh {
+    fmt.Printf("完成: %s %s\n", result.Name, result.URL)
+}
 ```
 
 ### 2.8 回调式批量截图
@@ -373,6 +406,10 @@ client.BatchScreenshotCallback(ctx, urls, nil, func(r sdk.BatchResult) {
 
 client.BatchScreenshotBytesCallback(ctx, urls, nil, func(r sdk.BatchBytesResult) {
     fmt.Printf("完成: %s %d bytes\n", r.URL, len(r.Data))
+})
+
+client.BatchScreenshotRequestsBytesCallback(ctx, requests, func(r sdk.BatchBytesResult) {
+    fmt.Printf("完成: %s %d bytes\n", r.Name, len(r.Data))
 })
 ```
 

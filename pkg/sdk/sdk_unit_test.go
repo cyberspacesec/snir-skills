@@ -22,6 +22,7 @@ type fakeDriverPool struct {
 	lastURL         string
 	urls            []string
 	lastOptions     runner.Options
+	optionsByURL    map[string]runner.Options
 	calls           int
 	stats           runner.PoolStats
 	idleTimeout     time.Duration
@@ -39,6 +40,10 @@ func (p *fakeDriverPool) ScreenshotWithContext(_ context.Context, target string,
 	p.urls = append(p.urls, target)
 	if opts != nil {
 		p.lastOptions = *opts
+		if p.optionsByURL == nil {
+			p.optionsByURL = map[string]runner.Options{}
+		}
+		p.optionsByURL[target] = *opts
 	}
 	if p.result != nil || p.err != nil {
 		return p.result, p.err
@@ -1152,6 +1157,118 @@ func TestBatchScreenshotBytesStreaming_ContextCanceled(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("BatchScreenshotBytesStreaming() count = %d, want 2", count)
+	}
+}
+
+func TestBatchScreenshotRequests_Unit(t *testing.T) {
+	pool := &fakeDriverPool{}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	requests := []ScreenshotRequest{
+		{
+			Name:    "desktop-full",
+			URL:     "https://a.test",
+			Options: NewScreenshotOptions(WithViewport(1440, 900), WithFullPage()),
+		},
+		{
+			Name:    "mobile-element",
+			URL:     "https://b.test",
+			Options: NewScreenshotOptions(WithDevice("iphone-15"), WithElement("#hero")),
+		},
+	}
+
+	results := client.BatchScreenshotRequests(requests)
+	if len(results) != 2 {
+		t.Fatalf("BatchScreenshotRequests() len = %d, want 2", len(results))
+	}
+	if results[0].Name != "desktop-full" || results[0].URL != "https://a.test" || results[0].Error != nil {
+		t.Fatalf("result[0] = %+v", results[0])
+	}
+	if results[1].Name != "mobile-element" || results[1].URL != "https://b.test" || results[1].Error != nil {
+		t.Fatalf("result[1] = %+v", results[1])
+	}
+	if pool.calls != 2 {
+		t.Fatalf("pool calls = %d, want 2", pool.calls)
+	}
+
+	desktop := pool.optionsByURL["https://a.test"]
+	if desktop.Chrome.WindowX != 1440 || desktop.Chrome.WindowY != 900 || !desktop.Scan.CaptureFullPage {
+		t.Fatalf("desktop options = %+v/%+v", desktop.Chrome, desktop.Scan)
+	}
+	mobile := pool.optionsByURL["https://b.test"]
+	if mobile.Chrome.DeviceName != "iPhone 15" || mobile.Scan.Selector != "#hero" {
+		t.Fatalf("mobile options = %+v/%+v", mobile.Chrome, mobile.Scan)
+	}
+}
+
+func TestBatchScreenshotRequestsBytes_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	results := client.BatchScreenshotRequestsBytes([]ScreenshotRequest{
+		{Name: "jpeg", URL: "https://a.test", Options: NewScreenshotOptions(WithFormat("jpeg", 80))},
+		{Name: "html", URL: "https://b.test", Options: NewScreenshotOptions(WithEvidence())},
+	})
+	if len(results) != 2 {
+		t.Fatalf("BatchScreenshotRequestsBytes() len = %d, want 2", len(results))
+	}
+	if results[0].Name != "jpeg" || string(results[0].Data) != "png" || results[0].Error != nil {
+		t.Fatalf("result[0] = %+v", results[0])
+	}
+	if results[1].Name != "html" || string(results[1].Data) != "png" || results[1].Error != nil {
+		t.Fatalf("result[1] = %+v", results[1])
+	}
+
+	jpeg := pool.optionsByURL["https://a.test"]
+	if jpeg.Scan.ScreenshotFormat != "jpeg" || jpeg.Scan.ScreenshotQuality != 80 ||
+		!jpeg.Scan.ReturnScreenshotBytes || !jpeg.Scan.ScreenshotSkipSave {
+		t.Fatalf("jpeg options = %+v", jpeg.Scan)
+	}
+	evidence := pool.optionsByURL["https://b.test"]
+	if !evidence.Scan.SaveHTML || !evidence.Scan.SaveHeaders || !evidence.Scan.SaveConsole ||
+		!evidence.Scan.SaveCookies || !evidence.Scan.SaveNetwork {
+		t.Fatalf("evidence options = %+v", evidence.Scan)
+	}
+}
+
+func TestBatchScreenshotRequestsStreaming_ContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	client := &Client{pool: &fakeDriverPool{}, opts: DefaultClientOptions()}
+	ch := client.BatchScreenshotRequestsStreaming(ctx, []ScreenshotRequest{
+		{Name: "one", URL: "https://a.test"},
+		{Name: "two", URL: "https://b.test"},
+	})
+
+	seen := map[string]error{}
+	for result := range ch {
+		seen[result.Name] = result.Error
+		if result.Result != nil {
+			t.Fatalf("BatchScreenshotRequestsStreaming() result = %+v, want no result", result)
+		}
+	}
+	if !errors.Is(seen["one"], context.Canceled) || !errors.Is(seen["two"], context.Canceled) {
+		t.Fatalf("seen = %#v, want canceled errors", seen)
+	}
+}
+
+func TestBatchScreenshotRequestsBytesCallback_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	seen := map[string]string{}
+	client.BatchScreenshotRequestsBytesCallback(context.Background(), []ScreenshotRequest{
+		{Name: "mobile", URL: "https://a.test", Options: NewScreenshotOptions(WithDevice("pixel-8"))},
+	}, func(result BatchBytesResult) {
+		seen[result.Name] = string(result.Data)
+	})
+
+	if seen["mobile"] != "png" || pool.calls != 1 {
+		t.Fatalf("callback seen/pool calls = %#v/%d", seen, pool.calls)
+	}
+	if pool.optionsByURL["https://a.test"].Chrome.DeviceName != "Pixel 8" {
+		t.Fatalf("request options = %+v", pool.optionsByURL["https://a.test"].Chrome)
 	}
 }
 

@@ -73,6 +73,7 @@ Common SDK entrypoints:
 - `CaptureEvidenceBundle` / `ScreenshotEvidenceBundle` for one-call full evidence capture plus portable bundle export.
 - `WrapResult`, `EvidenceSummary`, `SaveJSON`, `SaveHTML`, `ReadScreenshot`, `WriteScreenshot`, `SaveScreenshot`, and `SaveEvidenceBundle` for post-capture evidence handling.
 - `BatchScreenshotBytes`, `BatchScreenshotBytesStreaming`, and `BatchScreenshotBytesCallback` for in-memory batch screenshots.
+- `ScreenshotRequest`, `BatchScreenshotRequests`, `BatchScreenshotRequestsBytes`, `BatchScreenshotRequestsStreaming`, and callback variants for per-target option matrices.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsBytes`, `BatchScreenshotTargetsStreaming`, `BatchScreenshotTargetsBytesStreaming`, `BatchScreenshotTargetsCallback`, and `BatchScreenshotTargetsBytesCallback` for bare host/IP expansion across protocols and ports.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.

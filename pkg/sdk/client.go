@@ -579,6 +579,65 @@ func (c *Client) BatchScreenshotBytesWithContext(ctx context.Context, urls []str
 	return results
 }
 
+// BatchScreenshotRequests captures each request with its own URL and screenshot options.
+func (c *Client) BatchScreenshotRequests(requests []ScreenshotRequest) []BatchResult {
+	return c.BatchScreenshotRequestsWithContext(context.Background(), requests)
+}
+
+// BatchScreenshotRequestsWithContext supports cancellation while capturing per-request screenshot options.
+func (c *Client) BatchScreenshotRequestsWithContext(ctx context.Context, requests []ScreenshotRequest) []BatchResult {
+	results := make([]BatchResult, len(requests))
+	var wg sync.WaitGroup
+
+	for i, request := range requests {
+		wg.Add(1)
+		go func(idx int, req ScreenshotRequest) {
+			defer wg.Done()
+
+			result, err := c.ScreenshotWithContext(ctx, req.URL, req.Options)
+			results[idx] = BatchResult{
+				Name:   req.Name,
+				URL:    req.URL,
+				Result: result,
+				Error:  err,
+			}
+		}(i, request)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// BatchScreenshotRequestsBytes captures each request with its own options and returns image bytes.
+func (c *Client) BatchScreenshotRequestsBytes(requests []ScreenshotRequest) []BatchBytesResult {
+	return c.BatchScreenshotRequestsBytesWithContext(context.Background(), requests)
+}
+
+// BatchScreenshotRequestsBytesWithContext supports cancellation for per-request byte screenshots.
+func (c *Client) BatchScreenshotRequestsBytesWithContext(ctx context.Context, requests []ScreenshotRequest) []BatchBytesResult {
+	results := make([]BatchBytesResult, len(requests))
+	var wg sync.WaitGroup
+
+	for i, request := range requests {
+		wg.Add(1)
+		go func(idx int, req ScreenshotRequest) {
+			defer wg.Done()
+
+			data, result, err := c.ScreenshotBytesWithContext(ctx, req.URL, req.Options)
+			results[idx] = BatchBytesResult{
+				Name:   req.Name,
+				URL:    req.URL,
+				Data:   data,
+				Result: result,
+				Error:  err,
+			}
+		}(i, request)
+	}
+
+	wg.Wait()
+	return results
+}
+
 // BatchScreenshotTargets expands bare hosts/IPs by configured schemes and ports, then captures each URL.
 func (c *Client) BatchScreenshotTargets(targets []string, screenshotOpts *ScreenshotOptions) []BatchResult {
 	return c.BatchScreenshotTargetsWithContext(context.Background(), targets, screenshotOpts)
@@ -686,6 +745,79 @@ func (c *Client) BatchScreenshotBytesStreaming(ctx context.Context, urls []strin
 	return ch
 }
 
+// BatchScreenshotRequestsStreaming streams per-request screenshot results as each one completes.
+func (c *Client) BatchScreenshotRequestsStreaming(ctx context.Context, requests []ScreenshotRequest) <-chan BatchResult {
+	ch := make(chan BatchResult, len(requests))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, request := range requests {
+			select {
+			case <-ctx.Done():
+				ch <- BatchResult{Name: request.Name, URL: request.URL, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(req ScreenshotRequest) {
+				defer wg.Done()
+
+				result, err := c.ScreenshotWithContext(ctx, req.URL, req.Options)
+				ch <- BatchResult{
+					Name:   req.Name,
+					URL:    req.URL,
+					Result: result,
+					Error:  err,
+				}
+			}(request)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// BatchScreenshotRequestsBytesStreaming streams per-request byte screenshot results as each one completes.
+func (c *Client) BatchScreenshotRequestsBytesStreaming(ctx context.Context, requests []ScreenshotRequest) <-chan BatchBytesResult {
+	ch := make(chan BatchBytesResult, len(requests))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, request := range requests {
+			select {
+			case <-ctx.Done():
+				ch <- BatchBytesResult{Name: request.Name, URL: request.URL, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(req ScreenshotRequest) {
+				defer wg.Done()
+
+				data, result, err := c.ScreenshotBytesWithContext(ctx, req.URL, req.Options)
+				ch <- BatchBytesResult{
+					Name:   req.Name,
+					URL:    req.URL,
+					Data:   data,
+					Result: result,
+					Error:  err,
+				}
+			}(request)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
 // BatchScreenshotTargetsStreaming expands bare hosts/IPs, then streams each screenshot result as it completes.
 func (c *Client) BatchScreenshotTargetsStreaming(ctx context.Context, targets []string, screenshotOpts *ScreenshotOptions) <-chan BatchResult {
 	expanded := c.ExpandTargets(targets, screenshotOpts)
@@ -733,6 +865,26 @@ func (c *Client) BatchScreenshotCallback(ctx context.Context, urls []string, scr
 // BatchScreenshotBytesCallback calls callback for each completed byte screenshot result.
 func (c *Client) BatchScreenshotBytesCallback(ctx context.Context, urls []string, screenshotOpts *ScreenshotOptions, callback func(BatchBytesResult)) {
 	ch := c.BatchScreenshotBytesStreaming(ctx, urls, screenshotOpts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// BatchScreenshotRequestsCallback calls callback for each completed per-request result.
+func (c *Client) BatchScreenshotRequestsCallback(ctx context.Context, requests []ScreenshotRequest, callback func(BatchResult)) {
+	ch := c.BatchScreenshotRequestsStreaming(ctx, requests)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// BatchScreenshotRequestsBytesCallback calls callback for each completed per-request byte result.
+func (c *Client) BatchScreenshotRequestsBytesCallback(ctx context.Context, requests []ScreenshotRequest, callback func(BatchBytesResult)) {
+	ch := c.BatchScreenshotRequestsBytesStreaming(ctx, requests)
 	for result := range ch {
 		if callback != nil {
 			callback(result)
@@ -834,6 +986,7 @@ func (c *Client) Close() {
 
 // BatchResult 批量截图中的单个结果
 type BatchResult struct {
+	Name   string         `json:"name,omitempty"`
 	URL    string         `json:"url"`
 	Result *models.Result `json:"result,omitempty"`
 	Error  error          `json:"error,omitempty"`
@@ -841,10 +994,18 @@ type BatchResult struct {
 
 // BatchBytesResult 批量截图中的单个字节结果
 type BatchBytesResult struct {
+	Name   string         `json:"name,omitempty"`
 	URL    string         `json:"url"`
 	Data   []byte         `json:"data,omitempty"`
 	Result *models.Result `json:"result,omitempty"`
 	Error  error          `json:"error,omitempty"`
+}
+
+// ScreenshotRequest describes one batch item with independent screenshot options.
+type ScreenshotRequest struct {
+	Name    string             `json:"name,omitempty"`
+	URL     string             `json:"url"`
+	Options *ScreenshotOptions `json:"options,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

@@ -229,6 +229,7 @@ SDK highlights:
 - `WrapResult` helpers for evidence summaries plus JSON, HTML, screenshot, and evidence-bundle export.
 - Typed interaction and form builders such as `ActionClick`, `ActionType`, `ActionWait`, `FormInput`, and `FormWithSubmit`.
 - Per-request proxy rotation, manual mobile/touch emulation, Cookie header injection, persistent JSON Cookie files, Netscape cookie import/export, CookieJar write-back, and blacklist guards.
+- `ScreenshotRequest`, `BatchScreenshotRequests`, `BatchScreenshotRequestsBytes`, and streaming/callback variants for per-target option matrices.
 - `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsBytes`, `BatchScreenshotTargetsStreaming`, `BatchScreenshotTargetsBytesStreaming`, `BatchScreenshotTargetsCallback`, and `BatchScreenshotTargetsBytesCallback` for host/IP inputs expanded across HTTP/HTTPS and ports.
 - Batch, streaming, callback, and byte-returning batch APIs for larger workflows.
 
