@@ -1956,6 +1956,174 @@ func TestSharedWrappers_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("batch screenshot uses shared pool", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var mu sync.Mutex
+		optionsByURL := map[string]runner.Options{}
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			mu.Lock()
+			optionsByURL[target] = *opts
+			mu.Unlock()
+			return &models.Result{URL: target, Title: "ok"}, nil
+		}
+
+		results := SharedBatchScreenshot([]string{"https://a.example", "https://b.example"}, NewScreenshotOptions(
+			WithFullPage(),
+		))
+		if len(results) != 2 {
+			t.Fatalf("SharedBatchScreenshot() len = %d, want 2", len(results))
+		}
+		if results[0].URL != "https://a.example" || results[0].Error != nil ||
+			results[0].Result == nil || results[0].Result.Title != "ok" {
+			t.Fatalf("first batch result = %+v", results[0])
+		}
+		mu.Lock()
+		firstOpts := optionsByURL["https://a.example"]
+		secondOpts := optionsByURL["https://b.example"]
+		mu.Unlock()
+		if !firstOpts.Scan.CaptureFullPage || !secondOpts.Scan.CaptureFullPage {
+			t.Fatalf("batch options were not merged: %+v / %+v", firstOpts.Scan, secondOpts.Scan)
+		}
+	})
+
+	t.Run("batch requests bytes preserve names and options", func(t *testing.T) {
+		restoreSDKHooks(t)
+		var mu sync.Mutex
+		optionsByURL := map[string]runner.Options{}
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			mu.Lock()
+			optionsByURL[target] = *opts
+			mu.Unlock()
+			return &models.Result{URL: target, ScreenshotBytes: []byte(target)}, nil
+		}
+
+		results := SharedBatchScreenshotRequestsBytes([]ScreenshotRequest{
+			{Name: "hero", URL: "https://example.com", Options: NewScreenshotOptions(WithElement("#hero"))},
+			{Name: "mobile", URL: "https://m.example.com", Options: NewScreenshotOptions(WithDevice("iphone-15"))},
+		})
+		if len(results) != 2 {
+			t.Fatalf("SharedBatchScreenshotRequestsBytes() len = %d, want 2", len(results))
+		}
+		if results[0].Name != "hero" || string(results[0].Data) != "https://example.com" ||
+			results[0].Error != nil {
+			t.Fatalf("first byte request result = %+v", results[0])
+		}
+		if results[1].Name != "mobile" || string(results[1].Data) != "https://m.example.com" ||
+			results[1].Error != nil {
+			t.Fatalf("second byte request result = %+v", results[1])
+		}
+
+		mu.Lock()
+		heroOpts := optionsByURL["https://example.com"]
+		mobileOpts := optionsByURL["https://m.example.com"]
+		mu.Unlock()
+		if heroOpts.Scan.Selector != "#hero" ||
+			!heroOpts.Scan.ReturnScreenshotBytes || !heroOpts.Scan.ScreenshotSkipSave {
+			t.Fatalf("hero options = %+v", heroOpts.Scan)
+		}
+		if mobileOpts.Chrome.DeviceName != "iPhone 15" ||
+			!mobileOpts.Scan.ReturnScreenshotBytes || !mobileOpts.Scan.ScreenshotSkipSave {
+			t.Fatalf("mobile options = chrome:%+v scan:%+v", mobileOpts.Chrome, mobileOpts.Scan)
+		}
+	})
+
+	t.Run("batch evidence bundles write files", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if !opts.Scan.SaveHTML || !opts.Scan.SaveHeaders || !opts.Scan.SaveConsole ||
+				!opts.Scan.SaveCookies || !opts.Scan.SaveNetwork {
+				t.Fatalf("evidence options were not enabled: %+v", opts.Scan)
+			}
+			if !opts.Scan.ReturnScreenshotBytes || !opts.Scan.ScreenshotSkipSave {
+				t.Fatalf("byte options were not enabled: %+v", opts.Scan)
+			}
+			return &models.Result{
+				URL:             target,
+				HTML:            "<html></html>",
+				ScreenshotBytes: []byte("png"),
+			}, nil
+		}
+
+		dir := t.TempDir()
+		results := SharedBatchScreenshotRequestsEvidenceBundles([]ScreenshotRequest{
+			{Name: "desktop", URL: "https://example.com", Options: NewScreenshotOptions(WithFullPage())},
+			{Name: "mobile", URL: "https://m.example.com", Options: NewScreenshotOptions(WithDevice("iphone-15"))},
+		}, dir)
+		if len(results) != 2 {
+			t.Fatalf("SharedBatchScreenshotRequestsEvidenceBundles() len = %d, want 2", len(results))
+		}
+		for _, result := range results {
+			if result.Error != nil || result.Bundle == nil || result.Result == nil {
+				t.Fatalf("bundle result = %+v", result)
+			}
+			if !strings.Contains(result.Dir, result.Name) {
+				t.Fatalf("bundle dir = %q, want name %q", result.Dir, result.Name)
+			}
+			for _, path := range []string{
+				result.Bundle.ManifestJSON,
+				result.Bundle.ResultJSON,
+				result.Bundle.SummaryJSON,
+				result.Bundle.HTML,
+				result.Bundle.Screenshot,
+			} {
+				if _, err := os.Stat(path); err != nil {
+					t.Fatalf("bundle file %s: %v", path, err)
+				}
+			}
+		}
+	})
+
+	t.Run("batch streaming reports canceled context", func(t *testing.T) {
+		restoreSDKHooks(t)
+		called := false
+		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
+			called = true
+			return &models.Result{Title: "unexpected"}, nil
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		ch := SharedBatchScreenshotStreaming(ctx, []string{"https://example.com"}, nil)
+		result := <-ch
+		if result.URL != "https://example.com" || result.Error == nil {
+			t.Fatalf("SharedBatchScreenshotStreaming() result = %+v", result)
+		}
+		if _, ok := <-ch; ok {
+			t.Fatal("SharedBatchScreenshotStreaming() channel still open")
+		}
+		if called {
+			t.Fatal("sharedScreenshotWithContext was called for canceled context")
+		}
+	})
+
+	t.Run("batch targets bytes callback expands targets", func(t *testing.T) {
+		restoreSDKHooks(t)
+		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {
+			if !opts.Scan.ReturnScreenshotBytes || !opts.Scan.ScreenshotSkipSave {
+				t.Fatalf("byte options were not enabled: %+v", opts.Scan)
+			}
+			return &models.Result{URL: target, ScreenshotBytes: []byte(target)}, nil
+		}
+
+		var results []BatchBytesResult
+		SharedBatchScreenshotTargetsBytesCallback(
+			context.Background(),
+			[]string{"example.com/admin"},
+			NewScreenshotOptions(WithHTTPOnly(), WithPorts(8080)),
+			func(result BatchBytesResult) {
+				results = append(results, result)
+			},
+		)
+		if len(results) != 1 {
+			t.Fatalf("callback results len = %d, want 1", len(results))
+		}
+		if results[0].URL != "http://example.com:8080/admin" ||
+			string(results[0].Data) != "http://example.com:8080/admin" ||
+			results[0].Error != nil {
+			t.Fatalf("callback result = %+v", results[0])
+		}
+	})
+
 	t.Run("html enables save html and returns source", func(t *testing.T) {
 		restoreSDKHooks(t)
 		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {

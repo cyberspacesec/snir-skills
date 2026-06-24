@@ -469,6 +469,28 @@ img, result, err = sdk.SharedScreenshotWithActionsBytes(
     nil,
 )
 
+// 批量、按请求独立配置、裸 host/IP 展开也可以直接走共享池
+batchResults := sdk.SharedBatchScreenshotBytes(
+    []string{"https://example.com", "https://example.org"},
+    sdk.NewScreenshotOptions(sdk.WithFullPage()),
+)
+requestResults := sdk.SharedBatchScreenshotRequests([]sdk.ScreenshotRequest{
+    {
+        Name:    "hero",
+        URL:     "https://example.com",
+        Options: sdk.NewScreenshotOptions(sdk.WithElement("#hero")),
+    },
+    {
+        Name:    "mobile",
+        URL:     "https://example.org",
+        Options: sdk.NewScreenshotOptions(sdk.WithDevice("iphone-15")),
+    },
+})
+targetResults := sdk.SharedBatchScreenshotTargetsBytes(
+    []string{"example.com/admin"},
+    sdk.NewScreenshotOptions(sdk.WithHTTPAndHTTPS(), sdk.WithPorts(80, 443, 8080)),
+)
+
 // 全证据采集和证据包导出也可以复用进程级共享池
 result, err = sdk.SharedScreenshotEvidence("https://example.com", nil)
 bundle, result, err := sdk.SharedScreenshotEvidenceBundle(
@@ -476,6 +498,17 @@ bundle, result, err := sdk.SharedScreenshotEvidenceBundle(
     "evidence/example",
     nil,
 )
+bundleResults := sdk.SharedBatchScreenshotEvidenceBundles(
+    []string{"https://example.com", "https://example.org"},
+    "evidence/shared-batch",
+    sdk.NewScreenshotOptions(sdk.WithFullPage()),
+)
+
+// 流式/回调批量接口同样可用
+ch := sdk.SharedBatchScreenshotStreaming(ctx, []string{"https://example.com"}, nil)
+for item := range ch {
+    fmt.Println(item.URL, item.Error)
+}
 
 // 查看统计
 stats, _ := sdk.SharedStats()

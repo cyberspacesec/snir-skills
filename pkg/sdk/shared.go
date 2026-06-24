@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cyberspacesec/snir-skills/pkg/log"
@@ -340,6 +341,547 @@ func SharedScreenshotEvidenceBundleWithContext(ctx context.Context, url string, 
 		return nil, result, err
 	}
 	return bundle, result, nil
+}
+
+// SharedBatchScreenshot 使用共享池批量截图。
+func SharedBatchScreenshot(urls []string, opts *ScreenshotOptions) []BatchResult {
+	return SharedBatchScreenshotWithContext(context.Background(), urls, opts)
+}
+
+// SharedBatchScreenshotWithContext 使用共享池执行可取消的批量截图。
+func SharedBatchScreenshotWithContext(ctx context.Context, urls []string, opts *ScreenshotOptions) []BatchResult {
+	results := make([]BatchResult, len(urls))
+	var wg sync.WaitGroup
+
+	for i, url := range urls {
+		wg.Add(1)
+		go func(idx int, target string) {
+			defer wg.Done()
+
+			result, err := SharedScreenshotWithContext(ctx, target, opts)
+			results[idx] = BatchResult{
+				URL:    target,
+				Result: result,
+				Error:  err,
+			}
+		}(i, url)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// SharedBatchScreenshotBytes 使用共享池批量截图，并返回每个目标的图片字节。
+func SharedBatchScreenshotBytes(urls []string, opts *ScreenshotOptions) []BatchBytesResult {
+	return SharedBatchScreenshotBytesWithContext(context.Background(), urls, opts)
+}
+
+// SharedBatchScreenshotBytesWithContext 使用共享池执行可取消的批量字节截图。
+func SharedBatchScreenshotBytesWithContext(ctx context.Context, urls []string, opts *ScreenshotOptions) []BatchBytesResult {
+	results := make([]BatchBytesResult, len(urls))
+	var wg sync.WaitGroup
+
+	for i, url := range urls {
+		wg.Add(1)
+		go func(idx int, target string) {
+			defer wg.Done()
+
+			data, result, err := SharedScreenshotBytesWithContext(ctx, target, opts)
+			results[idx] = BatchBytesResult{
+				URL:    target,
+				Data:   data,
+				Result: result,
+				Error:  err,
+			}
+		}(i, url)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// SharedBatchScreenshotRequests 使用共享池批量截图，每个请求可携带独立配置。
+func SharedBatchScreenshotRequests(requests []ScreenshotRequest) []BatchResult {
+	return SharedBatchScreenshotRequestsWithContext(context.Background(), requests)
+}
+
+// SharedBatchScreenshotRequestsWithContext 使用共享池执行可取消的 per-request 批量截图。
+func SharedBatchScreenshotRequestsWithContext(ctx context.Context, requests []ScreenshotRequest) []BatchResult {
+	results := make([]BatchResult, len(requests))
+	var wg sync.WaitGroup
+
+	for i, request := range requests {
+		wg.Add(1)
+		go func(idx int, req ScreenshotRequest) {
+			defer wg.Done()
+
+			result, err := SharedScreenshotWithContext(ctx, req.URL, req.Options)
+			results[idx] = BatchResult{
+				Name:   req.Name,
+				URL:    req.URL,
+				Result: result,
+				Error:  err,
+			}
+		}(i, request)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// SharedBatchScreenshotRequestsBytes 使用共享池批量截图，每个请求可携带独立配置，并返回图片字节。
+func SharedBatchScreenshotRequestsBytes(requests []ScreenshotRequest) []BatchBytesResult {
+	return SharedBatchScreenshotRequestsBytesWithContext(context.Background(), requests)
+}
+
+// SharedBatchScreenshotRequestsBytesWithContext 使用共享池执行可取消的 per-request 批量字节截图。
+func SharedBatchScreenshotRequestsBytesWithContext(ctx context.Context, requests []ScreenshotRequest) []BatchBytesResult {
+	results := make([]BatchBytesResult, len(requests))
+	var wg sync.WaitGroup
+
+	for i, request := range requests {
+		wg.Add(1)
+		go func(idx int, req ScreenshotRequest) {
+			defer wg.Done()
+
+			data, result, err := SharedScreenshotBytesWithContext(ctx, req.URL, req.Options)
+			results[idx] = BatchBytesResult{
+				Name:   req.Name,
+				URL:    req.URL,
+				Data:   data,
+				Result: result,
+				Error:  err,
+			}
+		}(i, request)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// SharedBatchScreenshotEvidenceBundles 使用共享池批量采集全证据，并为每个 URL 写入证据包目录。
+func SharedBatchScreenshotEvidenceBundles(urls []string, dir string, opts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	return SharedBatchScreenshotEvidenceBundlesWithContext(context.Background(), urls, dir, opts)
+}
+
+// SharedBatchScreenshotEvidenceBundlesWithContext 使用共享池执行可取消的批量证据包采集。
+func SharedBatchScreenshotEvidenceBundlesWithContext(ctx context.Context, urls []string, dir string, opts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	results := make([]BatchEvidenceBundleResult, len(urls))
+	var wg sync.WaitGroup
+
+	for i, url := range urls {
+		wg.Add(1)
+		go func(idx int, target string) {
+			defer wg.Done()
+
+			bundleDir := batchEvidenceBundleDir(dir, idx, "", target)
+			bundle, result, err := SharedScreenshotEvidenceBundleWithContext(ctx, target, bundleDir, opts)
+			results[idx] = BatchEvidenceBundleResult{
+				URL:    target,
+				Dir:    bundleDir,
+				Bundle: bundle,
+				Result: result,
+				Error:  err,
+			}
+		}(i, url)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// SharedBatchScreenshotRequestsEvidenceBundles 使用共享池按请求独立配置批量采集证据包。
+func SharedBatchScreenshotRequestsEvidenceBundles(requests []ScreenshotRequest, dir string) []BatchEvidenceBundleResult {
+	return SharedBatchScreenshotRequestsEvidenceBundlesWithContext(context.Background(), requests, dir)
+}
+
+// SharedBatchScreenshotRequestsEvidenceBundlesWithContext 使用共享池执行可取消的 per-request 证据包采集。
+func SharedBatchScreenshotRequestsEvidenceBundlesWithContext(ctx context.Context, requests []ScreenshotRequest, dir string) []BatchEvidenceBundleResult {
+	results := make([]BatchEvidenceBundleResult, len(requests))
+	var wg sync.WaitGroup
+
+	for i, request := range requests {
+		wg.Add(1)
+		go func(idx int, req ScreenshotRequest) {
+			defer wg.Done()
+
+			bundleDir := batchEvidenceBundleDir(dir, idx, req.Name, req.URL)
+			bundle, result, err := SharedScreenshotEvidenceBundleWithContext(ctx, req.URL, bundleDir, req.Options)
+			results[idx] = BatchEvidenceBundleResult{
+				Name:   req.Name,
+				URL:    req.URL,
+				Dir:    bundleDir,
+				Bundle: bundle,
+				Result: result,
+				Error:  err,
+			}
+		}(i, request)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// SharedBatchScreenshotTargets 展开裸 host/IP 目标后使用共享池批量截图。
+func SharedBatchScreenshotTargets(targets []string, opts *ScreenshotOptions) []BatchResult {
+	return SharedBatchScreenshotTargetsWithContext(context.Background(), targets, opts)
+}
+
+// SharedBatchScreenshotTargetsWithContext 展开裸 host/IP 目标后使用共享池执行可取消的批量截图。
+func SharedBatchScreenshotTargetsWithContext(ctx context.Context, targets []string, opts *ScreenshotOptions) []BatchResult {
+	expanded := ExpandTargets(targets, opts)
+	return SharedBatchScreenshotWithContext(ctx, expanded, opts)
+}
+
+// SharedBatchScreenshotTargetsBytes 展开裸 host/IP 目标后使用共享池批量截图，并返回图片字节。
+func SharedBatchScreenshotTargetsBytes(targets []string, opts *ScreenshotOptions) []BatchBytesResult {
+	return SharedBatchScreenshotTargetsBytesWithContext(context.Background(), targets, opts)
+}
+
+// SharedBatchScreenshotTargetsBytesWithContext 展开裸 host/IP 目标后使用共享池执行可取消的批量字节截图。
+func SharedBatchScreenshotTargetsBytesWithContext(ctx context.Context, targets []string, opts *ScreenshotOptions) []BatchBytesResult {
+	expanded := ExpandTargets(targets, opts)
+	return SharedBatchScreenshotBytesWithContext(ctx, expanded, opts)
+}
+
+// SharedBatchScreenshotTargetsEvidenceBundles 展开裸 host/IP 目标后使用共享池批量采集证据包。
+func SharedBatchScreenshotTargetsEvidenceBundles(targets []string, dir string, opts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	return SharedBatchScreenshotTargetsEvidenceBundlesWithContext(context.Background(), targets, dir, opts)
+}
+
+// SharedBatchScreenshotTargetsEvidenceBundlesWithContext 展开裸 host/IP 目标后使用共享池执行可取消的批量证据包采集。
+func SharedBatchScreenshotTargetsEvidenceBundlesWithContext(ctx context.Context, targets []string, dir string, opts *ScreenshotOptions) []BatchEvidenceBundleResult {
+	expanded := ExpandTargets(targets, opts)
+	return SharedBatchScreenshotEvidenceBundlesWithContext(ctx, expanded, dir, opts)
+}
+
+// SharedBatchScreenshotStreaming 使用共享池流式返回批量截图结果。
+func SharedBatchScreenshotStreaming(ctx context.Context, urls []string, opts *ScreenshotOptions) <-chan BatchResult {
+	ch := make(chan BatchResult, len(urls))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, url := range urls {
+			select {
+			case <-ctx.Done():
+				ch <- BatchResult{URL: url, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(target string) {
+				defer wg.Done()
+
+				result, err := SharedScreenshotWithContext(ctx, target, opts)
+				ch <- BatchResult{
+					URL:    target,
+					Result: result,
+					Error:  err,
+				}
+			}(url)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// SharedBatchScreenshotBytesStreaming 使用共享池流式返回批量字节截图结果。
+func SharedBatchScreenshotBytesStreaming(ctx context.Context, urls []string, opts *ScreenshotOptions) <-chan BatchBytesResult {
+	ch := make(chan BatchBytesResult, len(urls))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, url := range urls {
+			select {
+			case <-ctx.Done():
+				ch <- BatchBytesResult{URL: url, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(target string) {
+				defer wg.Done()
+
+				data, result, err := SharedScreenshotBytesWithContext(ctx, target, opts)
+				ch <- BatchBytesResult{
+					URL:    target,
+					Data:   data,
+					Result: result,
+					Error:  err,
+				}
+			}(url)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// SharedBatchScreenshotEvidenceBundlesStreaming 使用共享池流式返回批量证据包结果。
+func SharedBatchScreenshotEvidenceBundlesStreaming(ctx context.Context, urls []string, dir string, opts *ScreenshotOptions) <-chan BatchEvidenceBundleResult {
+	ch := make(chan BatchEvidenceBundleResult, len(urls))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for i, url := range urls {
+			bundleDir := batchEvidenceBundleDir(dir, i, "", url)
+			select {
+			case <-ctx.Done():
+				ch <- BatchEvidenceBundleResult{URL: url, Dir: bundleDir, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(target string, targetDir string) {
+				defer wg.Done()
+
+				bundle, result, err := SharedScreenshotEvidenceBundleWithContext(ctx, target, targetDir, opts)
+				ch <- BatchEvidenceBundleResult{
+					URL:    target,
+					Dir:    targetDir,
+					Bundle: bundle,
+					Result: result,
+					Error:  err,
+				}
+			}(url, bundleDir)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// SharedBatchScreenshotRequestsStreaming 使用共享池流式返回 per-request 批量截图结果。
+func SharedBatchScreenshotRequestsStreaming(ctx context.Context, requests []ScreenshotRequest) <-chan BatchResult {
+	ch := make(chan BatchResult, len(requests))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, request := range requests {
+			select {
+			case <-ctx.Done():
+				ch <- BatchResult{Name: request.Name, URL: request.URL, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(req ScreenshotRequest) {
+				defer wg.Done()
+
+				result, err := SharedScreenshotWithContext(ctx, req.URL, req.Options)
+				ch <- BatchResult{
+					Name:   req.Name,
+					URL:    req.URL,
+					Result: result,
+					Error:  err,
+				}
+			}(request)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// SharedBatchScreenshotRequestsBytesStreaming 使用共享池流式返回 per-request 批量字节截图结果。
+func SharedBatchScreenshotRequestsBytesStreaming(ctx context.Context, requests []ScreenshotRequest) <-chan BatchBytesResult {
+	ch := make(chan BatchBytesResult, len(requests))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for _, request := range requests {
+			select {
+			case <-ctx.Done():
+				ch <- BatchBytesResult{Name: request.Name, URL: request.URL, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(req ScreenshotRequest) {
+				defer wg.Done()
+
+				data, result, err := SharedScreenshotBytesWithContext(ctx, req.URL, req.Options)
+				ch <- BatchBytesResult{
+					Name:   req.Name,
+					URL:    req.URL,
+					Data:   data,
+					Result: result,
+					Error:  err,
+				}
+			}(request)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// SharedBatchScreenshotRequestsEvidenceBundlesStreaming 使用共享池流式返回 per-request 批量证据包结果。
+func SharedBatchScreenshotRequestsEvidenceBundlesStreaming(ctx context.Context, requests []ScreenshotRequest, dir string) <-chan BatchEvidenceBundleResult {
+	ch := make(chan BatchEvidenceBundleResult, len(requests))
+
+	go func() {
+		defer close(ch)
+
+		var wg sync.WaitGroup
+		for i, request := range requests {
+			bundleDir := batchEvidenceBundleDir(dir, i, request.Name, request.URL)
+			select {
+			case <-ctx.Done():
+				ch <- BatchEvidenceBundleResult{Name: request.Name, URL: request.URL, Dir: bundleDir, Error: ctx.Err()}
+				continue
+			default:
+			}
+
+			wg.Add(1)
+			go func(req ScreenshotRequest, targetDir string) {
+				defer wg.Done()
+
+				bundle, result, err := SharedScreenshotEvidenceBundleWithContext(ctx, req.URL, targetDir, req.Options)
+				ch <- BatchEvidenceBundleResult{
+					Name:   req.Name,
+					URL:    req.URL,
+					Dir:    targetDir,
+					Bundle: bundle,
+					Result: result,
+					Error:  err,
+				}
+			}(request, bundleDir)
+		}
+
+		wg.Wait()
+	}()
+
+	return ch
+}
+
+// SharedBatchScreenshotTargetsStreaming 展开裸 host/IP 目标后使用共享池流式返回截图结果。
+func SharedBatchScreenshotTargetsStreaming(ctx context.Context, targets []string, opts *ScreenshotOptions) <-chan BatchResult {
+	expanded := ExpandTargets(targets, opts)
+	return SharedBatchScreenshotStreaming(ctx, expanded, opts)
+}
+
+// SharedBatchScreenshotTargetsBytesStreaming 展开裸 host/IP 目标后使用共享池流式返回字节截图结果。
+func SharedBatchScreenshotTargetsBytesStreaming(ctx context.Context, targets []string, opts *ScreenshotOptions) <-chan BatchBytesResult {
+	expanded := ExpandTargets(targets, opts)
+	return SharedBatchScreenshotBytesStreaming(ctx, expanded, opts)
+}
+
+// SharedBatchScreenshotTargetsEvidenceBundlesStreaming 展开裸 host/IP 目标后使用共享池流式返回证据包结果。
+func SharedBatchScreenshotTargetsEvidenceBundlesStreaming(ctx context.Context, targets []string, dir string, opts *ScreenshotOptions) <-chan BatchEvidenceBundleResult {
+	expanded := ExpandTargets(targets, opts)
+	return SharedBatchScreenshotEvidenceBundlesStreaming(ctx, expanded, dir, opts)
+}
+
+// SharedBatchScreenshotCallback 使用共享池批量截图，每完成一个调用 callback。
+func SharedBatchScreenshotCallback(ctx context.Context, urls []string, opts *ScreenshotOptions, callback func(BatchResult)) {
+	ch := SharedBatchScreenshotStreaming(ctx, urls, opts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotBytesCallback 使用共享池批量字节截图，每完成一个调用 callback。
+func SharedBatchScreenshotBytesCallback(ctx context.Context, urls []string, opts *ScreenshotOptions, callback func(BatchBytesResult)) {
+	ch := SharedBatchScreenshotBytesStreaming(ctx, urls, opts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotEvidenceBundlesCallback 使用共享池批量采集证据包，每完成一个调用 callback。
+func SharedBatchScreenshotEvidenceBundlesCallback(ctx context.Context, urls []string, dir string, opts *ScreenshotOptions, callback func(BatchEvidenceBundleResult)) {
+	ch := SharedBatchScreenshotEvidenceBundlesStreaming(ctx, urls, dir, opts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotRequestsCallback 使用共享池 per-request 批量截图，每完成一个调用 callback。
+func SharedBatchScreenshotRequestsCallback(ctx context.Context, requests []ScreenshotRequest, callback func(BatchResult)) {
+	ch := SharedBatchScreenshotRequestsStreaming(ctx, requests)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotRequestsBytesCallback 使用共享池 per-request 批量字节截图，每完成一个调用 callback。
+func SharedBatchScreenshotRequestsBytesCallback(ctx context.Context, requests []ScreenshotRequest, callback func(BatchBytesResult)) {
+	ch := SharedBatchScreenshotRequestsBytesStreaming(ctx, requests)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotRequestsEvidenceBundlesCallback 使用共享池 per-request 批量采集证据包，每完成一个调用 callback。
+func SharedBatchScreenshotRequestsEvidenceBundlesCallback(ctx context.Context, requests []ScreenshotRequest, dir string, callback func(BatchEvidenceBundleResult)) {
+	ch := SharedBatchScreenshotRequestsEvidenceBundlesStreaming(ctx, requests, dir)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotTargetsCallback 展开裸 host/IP 目标后使用共享池批量截图，每完成一个调用 callback。
+func SharedBatchScreenshotTargetsCallback(ctx context.Context, targets []string, opts *ScreenshotOptions, callback func(BatchResult)) {
+	ch := SharedBatchScreenshotTargetsStreaming(ctx, targets, opts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotTargetsBytesCallback 展开裸 host/IP 目标后使用共享池批量字节截图，每完成一个调用 callback。
+func SharedBatchScreenshotTargetsBytesCallback(ctx context.Context, targets []string, opts *ScreenshotOptions, callback func(BatchBytesResult)) {
+	ch := SharedBatchScreenshotTargetsBytesStreaming(ctx, targets, opts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// SharedBatchScreenshotTargetsEvidenceBundlesCallback 展开裸 host/IP 目标后使用共享池批量采集证据包，每完成一个调用 callback。
+func SharedBatchScreenshotTargetsEvidenceBundlesCallback(ctx context.Context, targets []string, dir string, opts *ScreenshotOptions, callback func(BatchEvidenceBundleResult)) {
+	ch := SharedBatchScreenshotTargetsEvidenceBundlesStreaming(ctx, targets, dir, opts)
+	for result := range ch {
+		if callback != nil {
+			callback(result)
+		}
+	}
 }
 
 // SharedSetIdleTimeout 设置共享池的空闲超时
