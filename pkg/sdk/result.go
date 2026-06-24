@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
@@ -22,6 +24,17 @@ type EvidenceSummary struct {
 	NetworkErrorCount  int  `json:"network_error_count"`
 	TechnologyCount    int  `json:"technology_count"`
 	HasTLS             bool `json:"has_tls"`
+}
+
+// EvidenceBundle describes files written by SaveEvidenceBundle.
+type EvidenceBundle struct {
+	Dir             string          `json:"dir"`
+	ManifestJSON    string          `json:"manifest_json"`
+	ResultJSON      string          `json:"result_json"`
+	SummaryJSON     string          `json:"summary_json"`
+	HTML            string          `json:"html,omitempty"`
+	Screenshot      string          `json:"screenshot,omitempty"`
+	EvidenceSummary EvidenceSummary `json:"evidence_summary"`
 }
 
 // ResultWrapper 包装 models.Result 提供便捷访问方法
@@ -194,6 +207,51 @@ func (r *ResultWrapper) SaveScreenshot(path string) error {
 	return nil
 }
 
+// SaveEvidenceBundle writes a portable evidence directory for the result.
+func (r *ResultWrapper) SaveEvidenceBundle(dir string) (*EvidenceBundle, error) {
+	if r == nil || r.Result == nil {
+		return nil, fmt.Errorf("截图结果为空")
+	}
+	if dir == "" {
+		return nil, fmt.Errorf("证据包输出目录为空")
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("创建证据包目录失败: %v", err)
+	}
+
+	bundle := &EvidenceBundle{
+		Dir:             dir,
+		ManifestJSON:    filepath.Join(dir, "manifest.json"),
+		ResultJSON:      filepath.Join(dir, "result.json"),
+		SummaryJSON:     filepath.Join(dir, "summary.json"),
+		EvidenceSummary: r.EvidenceSummary(),
+	}
+
+	if err := r.SaveJSON(bundle.ResultJSON); err != nil {
+		return nil, err
+	}
+	if err := writePrettyJSON(bundle.SummaryJSON, bundle.EvidenceSummary); err != nil {
+		return nil, err
+	}
+	if r.HasHTML() {
+		bundle.HTML = filepath.Join(dir, "page.html")
+		if err := r.SaveHTML(bundle.HTML); err != nil {
+			return nil, err
+		}
+	}
+	if bundle.EvidenceSummary.HasScreenshot || bundle.EvidenceSummary.HasScreenshotBytes {
+		bundle.Screenshot = filepath.Join(dir, "screenshot"+r.screenshotExt())
+		if err := r.SaveScreenshot(bundle.Screenshot); err != nil {
+			return nil, err
+		}
+	}
+	if err := writePrettyJSON(bundle.ManifestJSON, bundle); err != nil {
+		return nil, err
+	}
+
+	return bundle, nil
+}
+
 // TitleOrDefault 返回页面标题，空则返回默认值
 func (r *ResultWrapper) TitleOrDefault(defaultTitle string) string {
 	if r == nil || r.Title == "" {
@@ -300,4 +358,30 @@ func hasTLSInfo(tls models.TLS) bool {
 		!tls.NotAfter.IsZero() ||
 		tls.SANs != "" ||
 		tls.FingerprintSHA1 != ""
+}
+
+func (r *ResultWrapper) screenshotExt() string {
+	if r != nil && r.Result != nil {
+		for _, path := range []string{r.Screenshot, r.Filename} {
+			ext := strings.ToLower(filepath.Ext(path))
+			if ext != "" {
+				return ext
+			}
+		}
+		if r.IsPDF {
+			return ".pdf"
+		}
+	}
+	return ".png"
+}
+
+func writePrettyJSON(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化 JSON 失败: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("写入 JSON 失败: %v", err)
+	}
+	return nil
 }

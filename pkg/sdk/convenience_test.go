@@ -744,6 +744,132 @@ func TestResultWrapper_ScreenshotExport_ErrorBranches(t *testing.T) {
 	}
 }
 
+func TestResultWrapper_SaveEvidenceBundle(t *testing.T) {
+	dir := t.TempDir()
+	w := WrapResult(&models.Result{
+		URL:             "https://example.com",
+		Title:           "Example",
+		HTML:            "<html><body>ok</body></html>",
+		ScreenshotBytes: []byte("png"),
+		Headers:         []models.Header{{Name: "Content-Type", Value: "text/html"}},
+		Console:         []models.ConsoleLog{{Level: "error", Message: "boom"}},
+		Network:         []models.NetworkLog{{URL: "https://example.com/missing", StatusCode: 404}},
+	})
+
+	bundle, err := w.SaveEvidenceBundle(dir)
+	if err != nil {
+		t.Fatalf("SaveEvidenceBundle() error = %v", err)
+	}
+	if bundle.Dir != dir {
+		t.Fatalf("bundle.Dir = %q, want %q", bundle.Dir, dir)
+	}
+	for _, path := range []string{bundle.ManifestJSON, bundle.ResultJSON, bundle.SummaryJSON, bundle.HTML, bundle.Screenshot} {
+		if path == "" {
+			t.Fatalf("SaveEvidenceBundle() returned empty path: %+v", bundle)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected bundle file %q: %v", path, err)
+		}
+	}
+	if filepath.Base(bundle.Screenshot) != "screenshot.png" {
+		t.Fatalf("screenshot file = %q, want screenshot.png", filepath.Base(bundle.Screenshot))
+	}
+
+	html, err := os.ReadFile(bundle.HTML)
+	if err != nil {
+		t.Fatalf("ReadFile(html) error = %v", err)
+	}
+	if string(html) != "<html><body>ok</body></html>" {
+		t.Fatalf("bundle HTML = %q", html)
+	}
+	shot, err := os.ReadFile(bundle.Screenshot)
+	if err != nil {
+		t.Fatalf("ReadFile(screenshot) error = %v", err)
+	}
+	if string(shot) != "png" {
+		t.Fatalf("bundle screenshot = %q", shot)
+	}
+
+	var summary EvidenceSummary
+	summaryData, err := os.ReadFile(bundle.SummaryJSON)
+	if err != nil {
+		t.Fatalf("ReadFile(summary) error = %v", err)
+	}
+	if err := json.Unmarshal(summaryData, &summary); err != nil {
+		t.Fatalf("summary JSON decode error = %v", err)
+	}
+	if !summary.HasHTML || !summary.HasScreenshotBytes || summary.ConsoleErrorCount != 1 || summary.NetworkErrorCount != 1 {
+		t.Fatalf("summary = %+v", summary)
+	}
+
+	var manifest EvidenceBundle
+	manifestData, err := os.ReadFile(bundle.ManifestJSON)
+	if err != nil {
+		t.Fatalf("ReadFile(manifest) error = %v", err)
+	}
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		t.Fatalf("manifest JSON decode error = %v", err)
+	}
+	if manifest.Screenshot != bundle.Screenshot || manifest.EvidenceSummary.ConsoleErrorCount != 1 {
+		t.Fatalf("manifest = %+v, bundle = %+v", manifest, bundle)
+	}
+}
+
+func TestResultWrapper_SaveEvidenceBundle_UsesScreenshotExtension(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source.jpeg")
+	if err := os.WriteFile(source, []byte("jpeg"), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	bundleDir := filepath.Join(dir, "bundle")
+	w := WrapResult(&models.Result{Screenshot: source})
+	bundle, err := w.SaveEvidenceBundle(bundleDir)
+	if err != nil {
+		t.Fatalf("SaveEvidenceBundle() error = %v", err)
+	}
+	if filepath.Base(bundle.Screenshot) != "screenshot.jpeg" {
+		t.Fatalf("screenshot file = %q, want screenshot.jpeg", filepath.Base(bundle.Screenshot))
+	}
+	if bundle.HTML != "" {
+		t.Fatalf("HTML path = %q, want empty", bundle.HTML)
+	}
+}
+
+func TestResultWrapper_SaveEvidenceBundle_MetadataOnly(t *testing.T) {
+	dir := t.TempDir()
+	w := WrapResult(&models.Result{URL: "https://example.com", Title: "Example"})
+
+	bundle, err := w.SaveEvidenceBundle(dir)
+	if err != nil {
+		t.Fatalf("SaveEvidenceBundle() error = %v", err)
+	}
+	if bundle.HTML != "" || bundle.Screenshot != "" {
+		t.Fatalf("metadata-only bundle optional paths = %+v", bundle)
+	}
+	if _, err := os.Stat(bundle.ResultJSON); err != nil {
+		t.Fatalf("result JSON missing: %v", err)
+	}
+	if _, err := os.Stat(bundle.SummaryJSON); err != nil {
+		t.Fatalf("summary JSON missing: %v", err)
+	}
+	if _, err := os.Stat(bundle.ManifestJSON); err != nil {
+		t.Fatalf("manifest JSON missing: %v", err)
+	}
+}
+
+func TestResultWrapper_SaveEvidenceBundle_ErrorBranches(t *testing.T) {
+	var nilWrapper *ResultWrapper
+	if _, err := nilWrapper.SaveEvidenceBundle(t.TempDir()); err == nil {
+		t.Fatal("nil wrapper SaveEvidenceBundle() 应该返回错误")
+	}
+
+	w := WrapResult(&models.Result{})
+	if _, err := w.SaveEvidenceBundle(""); err == nil {
+		t.Fatal("空目录 SaveEvidenceBundle() 应该返回错误")
+	}
+}
+
 func TestResultWrapper_IsSuccess_NilWrapper(t *testing.T) {
 	var w *ResultWrapper
 	if w.IsSuccess() {

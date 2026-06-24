@@ -540,6 +540,7 @@ w.SaveJSON("evidence/result.json")
 w.SaveHTML("evidence/page.html")
 w.SaveScreenshot("evidence/screenshot.png")
 w.WriteScreenshot(writer)
+bundle, err := w.SaveEvidenceBundle("evidence/example.com")
 ```
 
 ### 2.17 自定义截图选项
