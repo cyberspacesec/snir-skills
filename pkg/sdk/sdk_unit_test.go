@@ -214,6 +214,37 @@ func TestNewRemoteClient_UnitBranches(t *testing.T) {
 }
 
 func TestScreenshotWithContext_UnitBranches(t *testing.T) {
+	t.Run("blacklisted target skips pool", func(t *testing.T) {
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		result, err := client.ScreenshotWithContext(context.Background(), "https://example.com", NewScreenshotOptions(
+			WithBlacklist("example.com"),
+		))
+		if err == nil || !strings.Contains(err.Error(), "URL在黑名单中") {
+			t.Fatalf("ScreenshotWithContext() error = %v", err)
+		}
+		if result == nil || !result.Failed || !strings.Contains(result.FailedReason, "example.com") {
+			t.Fatalf("blacklist result = %+v", result)
+		}
+		if pool.calls != 0 {
+			t.Fatalf("pool calls = %d, want 0", pool.calls)
+		}
+	})
+
+	t.Run("blacklist init error", func(t *testing.T) {
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		result, err := client.ScreenshotWithContext(context.Background(), "https://safe-domain-example.org", NewScreenshotOptions(
+			WithBlacklistFile(filepath.Join(t.TempDir(), "missing.txt")),
+		))
+		if result != nil || err == nil || !strings.Contains(err.Error(), "初始化URL黑名单失败") {
+			t.Fatalf("ScreenshotWithContext() result/error = %+v/%v", result, err)
+		}
+		if pool.calls != 0 {
+			t.Fatalf("pool calls = %d, want 0", pool.calls)
+		}
+	})
+
 	t.Run("pool error", func(t *testing.T) {
 		client := &Client{pool: &fakeDriverPool{err: errors.New("boom")}, opts: DefaultClientOptions()}
 		_, err := client.ScreenshotWithContext(context.Background(), "https://example.com", nil)
@@ -326,6 +357,23 @@ func TestScreenshotWithContext_UnitBranches(t *testing.T) {
 }
 
 func TestScreenshotBytesWithContext_UnitBranches(t *testing.T) {
+	t.Run("blacklisted target skips pool", func(t *testing.T) {
+		pool := &fakeDriverPool{}
+		client := &Client{pool: pool, opts: DefaultClientOptions()}
+		data, result, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", NewScreenshotOptions(
+			WithBlacklist("example.com"),
+		))
+		if data != nil || err == nil || !strings.Contains(err.Error(), "URL在黑名单中") {
+			t.Fatalf("ScreenshotBytesWithContext() data/error = %v/%v", data, err)
+		}
+		if result == nil || !result.Failed || !strings.Contains(result.FailedReason, "example.com") {
+			t.Fatalf("blacklist result = %+v", result)
+		}
+		if pool.calls != 0 {
+			t.Fatalf("pool calls = %d, want 0", pool.calls)
+		}
+	})
+
 	t.Run("pool error", func(t *testing.T) {
 		client := &Client{pool: &fakeDriverPool{err: errors.New("boom")}, opts: DefaultClientOptions()}
 		data, result, err := client.ScreenshotBytesWithContext(context.Background(), "https://example.com", nil)
@@ -596,6 +644,8 @@ func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 	base := toRunnerOptions(DefaultClientOptions())
 	merged := mergeWithScreenshotOptions(base, NewScreenshotOptions(
 		WithViewport(1600, 900),
+		WithDeviceEmulation(390, 844, 3, true, true),
+		WithTouchEmulation(false),
 		WithIgnoreCertErrors(),
 		WithProxyList(runner.ProxyRoundRobin, "http://a:8080", "http://b:8080"),
 		WithPorts(8080, 8443),
@@ -607,8 +657,11 @@ func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 		WithSpoofedScreen(1600, 900),
 	))
 
-	if merged.Chrome.WindowX != 1600 || merged.Chrome.WindowY != 900 {
+	if merged.Chrome.WindowX != 390 || merged.Chrome.WindowY != 844 {
 		t.Fatalf("viewport = %dx%d", merged.Chrome.WindowX, merged.Chrome.WindowY)
+	}
+	if merged.Chrome.DeviceScaleFactor != 3 || !merged.Chrome.IsMobile || merged.Chrome.HasTouch {
+		t.Fatalf("device emulation = dpr:%v mobile:%t touch:%t", merged.Chrome.DeviceScaleFactor, merged.Chrome.IsMobile, merged.Chrome.HasTouch)
 	}
 	if !merged.Chrome.IgnoreCertErrors {
 		t.Fatal("IgnoreCertErrors was not merged")
@@ -638,6 +691,32 @@ func TestMergeWithScreenshotOptions_PerRequestBrowserOverrides(t *testing.T) {
 	}
 }
 
+func TestMergeWithScreenshotOptions_BlacklistOverrides(t *testing.T) {
+	base := toRunnerOptions(DefaultClientOptions())
+	base.Scan.BlacklistPatterns = []string{"base.example"}
+	base.Scan.BlacklistFile = "base.txt"
+
+	custom := mergeWithScreenshotOptions(base, NewScreenshotOptions(
+		WithBlacklist("*.internal.*"),
+		WithBlacklistFile("request.txt"),
+	))
+	if !custom.Scan.EnableBlacklist || custom.Scan.DefaultBlacklist {
+		t.Fatalf("blacklist flags = %+v", custom.Scan)
+	}
+	if len(custom.Scan.BlacklistPatterns) != 1 || custom.Scan.BlacklistPatterns[0] != "*.internal.*" {
+		t.Fatalf("blacklist patterns = %+v", custom.Scan.BlacklistPatterns)
+	}
+	if custom.Scan.BlacklistFile != "request.txt" {
+		t.Fatalf("blacklist file = %q", custom.Scan.BlacklistFile)
+	}
+
+	disabled := mergeWithScreenshotOptions(base, NewScreenshotOptions(WithNoBlacklist()))
+	if disabled.Scan.EnableBlacklist || disabled.Scan.DefaultBlacklist ||
+		len(disabled.Scan.BlacklistPatterns) != 0 || disabled.Scan.BlacklistFile != "" {
+		t.Fatalf("disabled blacklist = %+v", disabled.Scan)
+	}
+}
+
 func TestToRunnerOptions_ClientCookieProxyPorts(t *testing.T) {
 	opts := DefaultClientOptions()
 	opts.ProxyList = []string{"http://a:8080"}
@@ -650,6 +729,9 @@ func TestToRunnerOptions_ClientCookieProxyPorts(t *testing.T) {
 	opts.CookieImport = "cookies.txt"
 	opts.CookieExport = "out.txt"
 	opts.CookieWriteBack = true
+	opts.DeviceScaleFactor = 2
+	opts.IsMobile = true
+	opts.HasTouch = true
 
 	got := toRunnerOptions(opts)
 	if len(got.Chrome.ProxyList) != 1 || got.Chrome.ProxyFile != "proxies.txt" ||
@@ -663,6 +745,9 @@ func TestToRunnerOptions_ClientCookieProxyPorts(t *testing.T) {
 		got.Scan.CookieImport != "cookies.txt" || got.Scan.CookieExport != "out.txt" ||
 		!got.Scan.CookieWriteBack || !got.Scan.SaveCookies {
 		t.Fatalf("cookie fields = %+v", got.Scan)
+	}
+	if got.Chrome.DeviceScaleFactor != 2 || !got.Chrome.IsMobile || !got.Chrome.HasTouch {
+		t.Fatalf("device fields = %+v", got.Chrome)
 	}
 }
 
@@ -827,6 +912,27 @@ func TestApplyDevicePreset_Invalid(t *testing.T) {
 }
 
 func TestSharedWrappers_Unit(t *testing.T) {
+	t.Run("blacklisted target skips shared pool", func(t *testing.T) {
+		restoreSDKHooks(t)
+		called := false
+		sharedScreenshotWithContext = func(context.Context, string, *runner.Options) (*models.Result, error) {
+			called = true
+			return &models.Result{Title: "unexpected"}, nil
+		}
+		result, err := SharedScreenshotWithContext(context.Background(), "https://example.com", NewScreenshotOptions(
+			WithBlacklist("example.com"),
+		))
+		if err != nil {
+			t.Fatalf("SharedScreenshotWithContext() error = %v", err)
+		}
+		if result == nil || !result.Failed || !strings.Contains(result.FailedReason, "example.com") {
+			t.Fatalf("blacklist result = %+v", result)
+		}
+		if called {
+			t.Fatal("sharedScreenshotWithContext was called for a blacklisted target")
+		}
+	})
+
 	t.Run("screenshot success and option merge", func(t *testing.T) {
 		restoreSDKHooks(t)
 		sharedScreenshotWithContext = func(_ context.Context, target string, opts *runner.Options) (*models.Result, error) {

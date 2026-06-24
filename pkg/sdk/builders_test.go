@@ -19,6 +19,8 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithUserAgent("agent"),
 		WithProxy("http://127.0.0.1:8080"),
 		WithDevice("iphone-15"),
+		WithDeviceEmulation(390, 844, 3, true, true),
+		WithTouchEmulation(false),
 		WithIgnoreCertErrors(),
 		WithFullPage(),
 		WithElement("#main"),
@@ -41,6 +43,8 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithCookieImport("cookies.txt"),
 		WithCookieExport("out.txt"),
 		WithCookieWriteBack(),
+		WithBlacklist("*.internal.*"),
+		WithBlacklistFile("blacklist.txt"),
 		WithActions(action),
 		WithForm(form),
 		WithMaxRetries(3),
@@ -54,6 +58,10 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 	if opts.UserAgent != "agent" || opts.Proxy != "http://127.0.0.1:8080" || opts.Device != "iphone-15" {
 		t.Fatalf("browser overrides not set: %+v", opts)
+	}
+	if opts.DeviceScaleFactor != 3 || opts.IsMobile == nil || !*opts.IsMobile ||
+		opts.HasTouch == nil || *opts.HasTouch {
+		t.Fatalf("device emulation not set: %+v", opts)
 	}
 	if len(opts.ProxyList) != 0 || opts.ProxyFile != "" || opts.ProxyURL != "" {
 		t.Fatalf("static proxy should clear rotation sources: %+v", opts)
@@ -96,6 +104,12 @@ func TestNewScreenshotOptions(t *testing.T) {
 		opts.CookieImport != "cookies.txt" || opts.CookieExport != "out.txt" || !opts.CookieWriteBack {
 		t.Fatalf("cookie source options not set: %+v", opts)
 	}
+	if opts.EnableBlacklist == nil || !*opts.EnableBlacklist ||
+		opts.DefaultBlacklist == nil || *opts.DefaultBlacklist ||
+		len(opts.BlacklistPatterns) != 1 || opts.BlacklistPatterns[0] != "*.internal.*" ||
+		opts.BlacklistFile != "blacklist.txt" {
+		t.Fatalf("blacklist options not set: %+v", opts)
+	}
 	if len(opts.Actions) != 1 || opts.Actions[0].Selector != "#submit" {
 		t.Fatalf("actions = %+v", opts.Actions)
 	}
@@ -117,6 +131,19 @@ func TestNewScreenshotOptions(t *testing.T) {
 	fileAfterOpts := NewScreenshotOptions(WithJSFile("after.js", false))
 	if fileAfterOpts.JavaScriptFile != "after.js" || fileAfterOpts.RunJSBefore || !fileAfterOpts.RunJSAfter {
 		t.Fatalf("WithJSFile after timing = %+v", fileAfterOpts)
+	}
+
+	mobileOpts := NewScreenshotOptions(WithMobileEmulation(2.5))
+	if mobileOpts.DeviceScaleFactor != 2.5 || mobileOpts.IsMobile == nil || !*mobileOpts.IsMobile ||
+		mobileOpts.HasTouch == nil || !*mobileOpts.HasTouch {
+		t.Fatalf("WithMobileEmulation = %+v", mobileOpts)
+	}
+
+	noBlacklistOpts := NewScreenshotOptions(WithBlacklist("example.com"), WithNoBlacklist())
+	if noBlacklistOpts.EnableBlacklist == nil || *noBlacklistOpts.EnableBlacklist ||
+		noBlacklistOpts.DefaultBlacklist == nil || *noBlacklistOpts.DefaultBlacklist ||
+		len(noBlacklistOpts.BlacklistPatterns) != 0 || noBlacklistOpts.BlacklistFile != "" {
+		t.Fatalf("WithNoBlacklist = %+v", noBlacklistOpts)
 	}
 }
 
@@ -164,14 +191,19 @@ func TestCloneScreenshotOptions(t *testing.T) {
 	}
 
 	opts := &ScreenshotOptions{
-		UserAgent:     "agent",
-		ProxyList:     []string{"http://a:8080"},
-		Ports:         []int{80, 443},
-		Plugins:       []string{"PDF Viewer"},
-		CustomHeaders: map[string]string{"X-Test": "1"},
-		Cookies:       []runner.CustomCookie{{Name: "session", Value: "abc"}},
-		CookieStrings: []string{"sid=abc"},
-		Actions:       []runner.InteractionAction{{Type: "click", Selector: "#submit"}},
+		UserAgent:         "agent",
+		ProxyList:         []string{"http://a:8080"},
+		Ports:             []int{80, 443},
+		Plugins:           []string{"PDF Viewer"},
+		CustomHeaders:     map[string]string{"X-Test": "1"},
+		Cookies:           []runner.CustomCookie{{Name: "session", Value: "abc"}},
+		CookieStrings:     []string{"sid=abc"},
+		Actions:           []runner.InteractionAction{{Type: "click", Selector: "#submit"}},
+		BlacklistPatterns: []string{"example.com"},
+		IsMobile:          boolPtr(true),
+		HasTouch:          boolPtr(false),
+		EnableBlacklist:   boolPtr(true),
+		DefaultBlacklist:  boolPtr(false),
 	}
 	cloned := CloneScreenshotOptions(opts)
 	if cloned == opts {
@@ -187,10 +219,16 @@ func TestCloneScreenshotOptions(t *testing.T) {
 	cloned.Cookies[0].Value = "changed"
 	cloned.CookieStrings[0] = "sid=changed"
 	cloned.Actions[0].Selector = "#changed"
+	cloned.BlacklistPatterns[0] = "changed.com"
+	*cloned.IsMobile = false
+	*cloned.HasTouch = true
+	*cloned.EnableBlacklist = false
+	*cloned.DefaultBlacklist = true
 	if opts.ProxyList[0] != "http://a:8080" || opts.Ports[0] != 80 ||
 		opts.Plugins[0] != "PDF Viewer" || opts.CustomHeaders["X-Test"] != "1" ||
 		opts.Cookies[0].Value != "abc" || opts.CookieStrings[0] != "sid=abc" ||
-		opts.Actions[0].Selector != "#submit" {
+		opts.Actions[0].Selector != "#submit" || opts.BlacklistPatterns[0] != "example.com" ||
+		!*opts.IsMobile || *opts.HasTouch || !*opts.EnableBlacklist || *opts.DefaultBlacklist {
 		t.Fatalf("CloneScreenshotOptions shared mutable fields: original=%+v cloned=%+v", opts, cloned)
 	}
 }

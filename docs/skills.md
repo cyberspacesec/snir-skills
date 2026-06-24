@@ -560,6 +560,7 @@ result, err := client.Capture(
     sdk.WithEvidence(),
     sdk.WithDevice("iphone-15"),
     sdk.WithViewport(390, 844),
+    sdk.WithDeviceEmulation(390, 844, 3, true, true),
     sdk.WithIgnoreCertErrors(),
     sdk.WithCustomHeaders(map[string]string{
         "X-Agent": "snir",
@@ -606,6 +607,8 @@ result, err = client.Capture(
     sdk.WithUserAgent("Mozilla/5.0 Custom"),
     sdk.WithAcceptLanguage("zh-CN,zh;q=0.9"),
     sdk.WithFingerprint("Win32", "Google Inc.", "Intel Inc.", "Intel Iris"),
+    sdk.WithMobileEmulation(3),
+    sdk.WithTouchEmulation(true),
     sdk.WithDisableWebRTC(),
 )
 
@@ -624,6 +627,16 @@ result, err = client.Capture(
     sdk.WithCookieImport("cookies.txt"),
     sdk.WithCookieExport("out-cookies.txt"),
     sdk.WithCookies(),
+)
+
+// 单次截图覆盖 URL 黑名单
+result, err = client.Capture(
+    "https://example.com",
+    sdk.WithBlacklist("*.internal.*", "metadata.google.internal"),
+)
+result, err = client.Capture(
+    "https://example.com",
+    sdk.WithNoBlacklist(),
 )
 ```
 
@@ -857,6 +870,9 @@ type ClientOptions struct {
     ProxyURL         string        // 动态代理 API
     ProxyStrategy    runner.ProxyStrategy
     Device           string        // 设备预设名称
+    DeviceScaleFactor float64      // 设备像素比
+    IsMobile          bool         // 启用移动端仿真
+    HasTouch          bool         // 启用触摸仿真
     WSSURL           string        // 远程 Chrome WebSocket URL
     IgnoreCertErrors bool          // 忽略证书错误
 
@@ -938,6 +954,9 @@ type ScreenshotOptions struct {
     ProxyURL         string
     ProxyStrategy    runner.ProxyStrategy
     Device           string
+    DeviceScaleFactor float64
+    IsMobile          *bool
+    HasTouch          *bool
     IgnoreCertErrors bool
 
     // 浏览器指纹覆盖
@@ -986,6 +1005,12 @@ type ScreenshotOptions struct {
     // 浏览器交互
     Actions []runner.InteractionAction
     Form    runner.Form
+
+    // 黑名单覆盖
+    EnableBlacklist   *bool
+    DefaultBlacklist  *bool
+    BlacklistPatterns []string
+    BlacklistFile     string
 
     // 重试覆盖
     MaxRetries int

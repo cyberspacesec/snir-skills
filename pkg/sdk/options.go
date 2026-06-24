@@ -10,19 +10,22 @@ import (
 // 控制浏览器行为、截图参数、数据收集等
 type ClientOptions struct {
 	// Chrome 浏览器配置
-	ChromePath       string // Chrome 可执行文件路径
-	Headless         bool   // 无头模式（默认 true）
-	WindowWidth      int    // 窗口宽度（默认 1280）
-	WindowHeight     int    // 窗口高度（默认 800）
-	UserAgent        string // 自定义 User-Agent
-	Proxy            string // 代理服务器地址
-	ProxyList        []string
-	ProxyFile        string
-	ProxyURL         string
-	ProxyStrategy    runner.ProxyStrategy
-	Device           string // 设备预设名称
-	WSSURL           string // 远程 Chrome WebSocket URL
-	IgnoreCertErrors bool   // 忽略证书错误
+	ChromePath        string // Chrome 可执行文件路径
+	Headless          bool   // 无头模式（默认 true）
+	WindowWidth       int    // 窗口宽度（默认 1280）
+	WindowHeight      int    // 窗口高度（默认 800）
+	UserAgent         string // 自定义 User-Agent
+	Proxy             string // 代理服务器地址
+	ProxyList         []string
+	ProxyFile         string
+	ProxyURL          string
+	ProxyStrategy     runner.ProxyStrategy
+	Device            string // 设备预设名称
+	DeviceScaleFactor float64
+	IsMobile          bool
+	HasTouch          bool
+	WSSURL            string // 远程 Chrome WebSocket URL
+	IgnoreCertErrors  bool   // 忽略证书错误
 
 	// 浏览器指纹配置（反检测）
 	AcceptLanguage  string            // Accept-Language 头（如 "zh-CN,zh;q=0.9"）
@@ -118,16 +121,19 @@ type ScreenshotOptions struct {
 	Delay   time.Duration // 截图前等待（覆盖 ClientOptions）
 
 	// 浏览器覆盖
-	WindowWidth      int    // 窗口宽度（覆盖 ClientOptions）
-	WindowHeight     int    // 窗口高度（覆盖 ClientOptions）
-	UserAgent        string // User-Agent（覆盖 ClientOptions）
-	Proxy            string // 代理（覆盖 ClientOptions）
-	ProxyList        []string
-	ProxyFile        string
-	ProxyURL         string
-	ProxyStrategy    runner.ProxyStrategy
-	Device           string // 设备预设名称（覆盖 ClientOptions）
-	IgnoreCertErrors bool   // 忽略证书错误（覆盖 ClientOptions）
+	WindowWidth       int    // 窗口宽度（覆盖 ClientOptions）
+	WindowHeight      int    // 窗口高度（覆盖 ClientOptions）
+	UserAgent         string // User-Agent（覆盖 ClientOptions）
+	Proxy             string // 代理（覆盖 ClientOptions）
+	ProxyList         []string
+	ProxyFile         string
+	ProxyURL          string
+	ProxyStrategy     runner.ProxyStrategy
+	Device            string // 设备预设名称（覆盖 ClientOptions）
+	DeviceScaleFactor float64
+	IsMobile          *bool
+	HasTouch          *bool
+	IgnoreCertErrors  bool // 忽略证书错误（覆盖 ClientOptions）
 
 	// 浏览器指纹覆盖
 	AcceptLanguage  string            // Accept-Language 头
@@ -175,6 +181,13 @@ type ScreenshotOptions struct {
 	// 浏览器交互
 	Actions []runner.InteractionAction // 交互动作序列
 	Form    runner.Form                // 表单填写
+
+	// 黑名单覆盖
+	EnableBlacklist    *bool
+	DefaultBlacklist   *bool
+	BlacklistPatterns  []string
+	BlacklistFile      string
+	clearBlacklistFile bool
 
 	// 重试覆盖
 	MaxRetries int // 最大重试次数
@@ -238,6 +251,15 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	}
 	if co.ScreenHeight > 0 {
 		opts.Chrome.ScreenHeight = co.ScreenHeight
+	}
+	if co.DeviceScaleFactor > 0 {
+		opts.Chrome.DeviceScaleFactor = co.DeviceScaleFactor
+	}
+	if co.IsMobile {
+		opts.Chrome.IsMobile = true
+	}
+	if co.HasTouch {
+		opts.Chrome.HasTouch = true
 	}
 
 	// Scan 配置
@@ -349,6 +371,15 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 	if so.UserAgent != "" {
 		base.Chrome.UserAgent = so.UserAgent
+	}
+	if so.DeviceScaleFactor > 0 {
+		base.Chrome.DeviceScaleFactor = so.DeviceScaleFactor
+	}
+	if so.IsMobile != nil {
+		base.Chrome.IsMobile = *so.IsMobile
+	}
+	if so.HasTouch != nil {
+		base.Chrome.HasTouch = *so.HasTouch
 	}
 	if so.IgnoreCertErrors {
 		base.Chrome.IgnoreCertErrors = true
@@ -480,6 +511,23 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 	if so.Form.Fields != nil {
 		base.Scan.Form = so.Form
+	}
+
+	// 黑名单
+	if so.EnableBlacklist != nil {
+		base.Scan.EnableBlacklist = *so.EnableBlacklist
+	}
+	if so.DefaultBlacklist != nil {
+		base.Scan.DefaultBlacklist = *so.DefaultBlacklist
+	}
+	if so.BlacklistPatterns != nil {
+		base.Scan.BlacklistPatterns = so.BlacklistPatterns
+	}
+	if so.clearBlacklistFile {
+		base.Scan.BlacklistFile = ""
+	}
+	if so.BlacklistFile != "" {
+		base.Scan.BlacklistFile = so.BlacklistFile
 	}
 
 	// 重试

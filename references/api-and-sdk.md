@@ -47,6 +47,7 @@ result, err := client.Capture(
     sdk.WithFullPage(),
     sdk.WithEvidence(),
     sdk.WithDevice("iphone-15"),
+    sdk.WithDeviceEmulation(390, 844, 3, true, true),
     sdk.WithProxyList(runner.ProxyRoundRobin, "http://proxy-a:8080", "http://proxy-b:8080"),
     sdk.WithCookieHeader("session=abc; tenant=demo"),
     sdk.WithIgnoreCertErrors(),
@@ -58,10 +59,11 @@ Common SDK entrypoints:
 - `Capture` / `CaptureBytes` for composable functional options.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.
-- `ScreenshotDevice` and `ScreenshotViewport` for per-request browser profile control.
+- `ScreenshotDevice`, `ScreenshotViewport`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.
 - `ScreenshotWithJSBefore` and `ScreenshotWithJSFile` for preload or file-based JavaScript injection.
 - `WithProxyList`, `WithProxyFile`, `WithProxyURL`, and `WithProxyStrategy` for per-request proxy rotation.
 - `WithCookieHeader`, `WithCookieStrings`, `WithCookieImport`, `WithCookieExport`, and `WithCookieWriteBack` for authenticated and stateful captures.
+- `WithBlacklist`, `WithDefaultBlacklist`, `WithBlacklistFile`, and `WithNoBlacklist` for per-request URL blacklist guards before SDK pool execution.
 - `NewScreenshotOptions`, `WithFullPage`, `WithEvidence`, `WithDevice`, `WithViewport`, `WithPorts`, `WithJSAfter`, `WithCustomHeaders`, and related `With...` helpers for reusable scenario presets.
 
 ## CDP Provider

@@ -28,6 +28,11 @@ func SharedScreenshotWithContext(ctx context.Context, url string, opts *Screensh
 	runnerOpts := defaultRunnerOptions()
 	runnerOpts = mergeWithScreenshotOptions(runnerOpts, opts)
 	appendCookieSources(url, &runnerOpts)
+	if result, err := blacklistedResult(url, &runnerOpts); err != nil {
+		return nil, err
+	} else if result != nil {
+		return result, nil
+	}
 
 	result, err := sharedScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {

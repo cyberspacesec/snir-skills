@@ -163,6 +163,9 @@ func (c *Client) Screenshot(url string, screenshotOpts *ScreenshotOptions) (*mod
 // ctx 可用于取消长时间运行的截图任务
 func (c *Client) ScreenshotWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) (*models.Result, error) {
 	runnerOpts := c.runnerOptionsForScreenshot(url, screenshotOpts)
+	if result, err := rejectBlacklistedTarget(url, &runnerOpts); err != nil {
+		return result, err
+	}
 
 	result, err := c.pool.ScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
@@ -200,6 +203,9 @@ func (c *Client) ScreenshotBytesWithContext(ctx context.Context, url string, scr
 	runnerOpts := c.runnerOptionsForScreenshot(url, screenshotOpts)
 	runnerOpts.Scan.ReturnScreenshotBytes = true
 	runnerOpts.Scan.ScreenshotSkipSave = true
+	if result, err := rejectBlacklistedTarget(url, &runnerOpts); err != nil {
+		return nil, result, err
+	}
 
 	result, err := c.pool.ScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
@@ -629,6 +635,35 @@ func (c *Client) runnerOptionsForScreenshot(target string, screenshotOpts *Scree
 	appendCookieSources(target, &runnerOpts)
 	c.mergeCookieJar(target, &runnerOpts)
 	return runnerOpts
+}
+
+func rejectBlacklistedTarget(target string, opts *runner.Options) (*models.Result, error) {
+	result, err := blacklistedResult(target, opts)
+	if err != nil {
+		return nil, fmt.Errorf("初始化URL黑名单失败: %v", err)
+	}
+	if result != nil {
+		return result, fmt.Errorf("截图失败: %s", result.FailedReason)
+	}
+	return nil, nil
+}
+
+func blacklistedResult(target string, opts *runner.Options) (*models.Result, error) {
+	blacklist, err := runner.NewURLBlacklist(opts)
+	if err != nil {
+		return nil, err
+	}
+	if isBlacklisted, reason := blacklist.IsBlacklisted(target); isBlacklisted {
+		result := &models.Result{
+			URL:          target,
+			ProbedAt:     time.Now(),
+			Failed:       true,
+			FailedReason: fmt.Sprintf("URL在黑名单中: %s", reason),
+		}
+		models.EnrichEndpoint(result)
+		return result, nil
+	}
+	return nil, nil
 }
 
 func (c *Client) mergeCookieJar(target string, opts *runner.Options) {

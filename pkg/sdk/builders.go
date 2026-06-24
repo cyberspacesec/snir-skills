@@ -58,7 +58,26 @@ func CloneScreenshotOptions(opts *ScreenshotOptions) *ScreenshotOptions {
 	if opts.Actions != nil {
 		cloned.Actions = append([]runner.InteractionAction(nil), opts.Actions...)
 	}
+	if opts.BlacklistPatterns != nil {
+		cloned.BlacklistPatterns = append(make([]string, 0, len(opts.BlacklistPatterns)), opts.BlacklistPatterns...)
+	}
+	if opts.IsMobile != nil {
+		cloned.IsMobile = boolPtr(*opts.IsMobile)
+	}
+	if opts.HasTouch != nil {
+		cloned.HasTouch = boolPtr(*opts.HasTouch)
+	}
+	if opts.EnableBlacklist != nil {
+		cloned.EnableBlacklist = boolPtr(*opts.EnableBlacklist)
+	}
+	if opts.DefaultBlacklist != nil {
+		cloned.DefaultBlacklist = boolPtr(*opts.DefaultBlacklist)
+	}
 	return &cloned
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 // WithTimeout sets the page load timeout for this screenshot.
@@ -144,6 +163,35 @@ func WithProxyStrategy(strategy runner.ProxyStrategy) ScreenshotOption {
 func WithDevice(device string) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.Device = device
+	}
+}
+
+// WithDeviceEmulation sets viewport, device scale factor, and touch/mobile emulation.
+func WithDeviceEmulation(width, height int, scaleFactor float64, isMobile, hasTouch bool) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.WindowWidth = width
+		opts.WindowHeight = height
+		opts.DeviceScaleFactor = scaleFactor
+		opts.IsMobile = boolPtr(isMobile)
+		opts.HasTouch = boolPtr(hasTouch)
+	}
+}
+
+// WithMobileEmulation enables mobile and touch emulation, optionally with a device scale factor.
+func WithMobileEmulation(scaleFactor float64) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		if scaleFactor > 0 {
+			opts.DeviceScaleFactor = scaleFactor
+		}
+		opts.IsMobile = boolPtr(true)
+		opts.HasTouch = boolPtr(true)
+	}
+}
+
+// WithTouchEmulation enables or disables touch emulation for this screenshot.
+func WithTouchEmulation(enabled bool) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.HasTouch = boolPtr(enabled)
 	}
 }
 
@@ -371,6 +419,45 @@ func WithCookieExport(path string) ScreenshotOption {
 func WithCookieWriteBack() ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
 		opts.CookieWriteBack = true
+	}
+}
+
+// WithBlacklist enables URL blacklist checks using only the provided custom patterns.
+func WithBlacklist(patterns ...string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.EnableBlacklist = boolPtr(true)
+		opts.DefaultBlacklist = boolPtr(false)
+		opts.BlacklistPatterns = append([]string{}, patterns...)
+		opts.BlacklistFile = ""
+		opts.clearBlacklistFile = true
+	}
+}
+
+// WithDefaultBlacklist enables the built-in URL blacklist for this screenshot.
+func WithDefaultBlacklist() ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.EnableBlacklist = boolPtr(true)
+		opts.DefaultBlacklist = boolPtr(true)
+	}
+}
+
+// WithBlacklistFile enables URL blacklist checks from a pattern file.
+func WithBlacklistFile(path string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.EnableBlacklist = boolPtr(true)
+		opts.BlacklistFile = path
+		opts.clearBlacklistFile = false
+	}
+}
+
+// WithNoBlacklist disables URL blacklist checks for this screenshot.
+func WithNoBlacklist() ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.EnableBlacklist = boolPtr(false)
+		opts.DefaultBlacklist = boolPtr(false)
+		opts.BlacklistPatterns = []string{}
+		opts.BlacklistFile = ""
+		opts.clearBlacklistFile = true
 	}
 }
 
