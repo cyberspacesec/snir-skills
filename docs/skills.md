@@ -293,6 +293,15 @@ for _, r := range results {
         fmt.Printf("✅ %s: %s\n", r.URL, r.Result.Title)
     }
 }
+
+byteResults := client.BatchScreenshotBytes(urls, nil)
+for _, r := range byteResults {
+    if r.Error != nil {
+        fmt.Printf("❌ %s: %v\n", r.URL, r.Error)
+    } else {
+        fmt.Printf("✅ %s: %d bytes\n", r.URL, len(r.Data))
+    }
+}
 ```
 
 #### Host/IP 目标展开
@@ -302,6 +311,11 @@ for _, r := range results {
 ```go
 targets := []string{"example.com/admin", "192.0.2.10"}
 results := client.BatchScreenshotTargets(targets, sdk.NewScreenshotOptions(
+    sdk.WithPorts(80, 443, 8080),
+    sdk.WithHTTPAndHTTPS(),
+))
+
+byteResults := client.BatchScreenshotTargetsBytes(targets, sdk.NewScreenshotOptions(
     sdk.WithPorts(80, 443, 8080),
     sdk.WithHTTPAndHTTPS(),
 ))
@@ -342,6 +356,11 @@ ch := client.BatchScreenshotTargetsStreaming(ctx, targets, sdk.NewScreenshotOpti
     sdk.WithHTTPSOnly(),
     sdk.WithPorts(443, 8443),
 ))
+
+byteCh := client.BatchScreenshotBytesStreaming(ctx, urls, nil)
+for result := range byteCh {
+    fmt.Printf("完成: %s %d bytes\n", result.URL, len(result.Data))
+}
 ```
 
 ### 2.8 回调式批量截图
@@ -350,6 +369,10 @@ ch := client.BatchScreenshotTargetsStreaming(ctx, targets, sdk.NewScreenshotOpti
 // 每完成一个截图调用回调
 client.BatchScreenshotCallback(ctx, urls, nil, func(r sdk.BatchResult) {
     fmt.Printf("完成: %s\n", r.URL)
+})
+
+client.BatchScreenshotBytesCallback(ctx, urls, nil, func(r sdk.BatchBytesResult) {
+    fmt.Printf("完成: %s %d bytes\n", r.URL, len(r.Data))
 })
 ```
 

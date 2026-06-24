@@ -72,7 +72,8 @@ Common SDK entrypoints:
 - `Capture` / `CaptureBytes` for composable functional options.
 - `CaptureEvidenceBundle` / `ScreenshotEvidenceBundle` for one-call full evidence capture plus portable bundle export.
 - `WrapResult`, `EvidenceSummary`, `SaveJSON`, `SaveHTML`, `ReadScreenshot`, `WriteScreenshot`, `SaveScreenshot`, and `SaveEvidenceBundle` for post-capture evidence handling.
-- `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsStreaming`, and `BatchScreenshotTargetsCallback` for bare host/IP expansion across protocols and ports.
+- `BatchScreenshotBytes`, `BatchScreenshotBytesStreaming`, and `BatchScreenshotBytesCallback` for in-memory batch screenshots.
+- `ExpandTarget`, `ExpandTargets`, `BatchScreenshotTargets`, `BatchScreenshotTargetsBytes`, `BatchScreenshotTargetsStreaming`, `BatchScreenshotTargetsBytesStreaming`, `BatchScreenshotTargetsCallback`, and `BatchScreenshotTargetsBytesCallback` for bare host/IP expansion across protocols and ports.
 - `ScreenshotEvidence` / `ScreenshotEvidenceBytes` for HTML, headers, cookies, console, and network evidence.
 - `ScreenshotElement`, `ScreenshotXPath`, `ScreenshotElementBytes`, and `ScreenshotXPathBytes` for targeted capture.
 - `ScreenshotDevice`, `ScreenshotViewport`, `ScreenshotDeviceBytes`, `ScreenshotViewportBytes`, `WithDeviceEmulation`, `WithMobileEmulation`, and `WithTouchEmulation` for per-request browser profile control.

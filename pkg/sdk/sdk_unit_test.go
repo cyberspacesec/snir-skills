@@ -1107,6 +1107,54 @@ func TestBatchScreenshotStreaming_ContextCanceled(t *testing.T) {
 	}
 }
 
+func TestBatchScreenshotBytes_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	results := client.BatchScreenshotBytes([]string{"https://a.test", "https://b.test"}, NewScreenshotOptions(
+		WithFullPage(),
+	))
+	if len(results) != 2 {
+		t.Fatalf("BatchScreenshotBytes() len = %d, want 2", len(results))
+	}
+	for _, result := range results {
+		if result.Error != nil || string(result.Data) != "png" || result.Result == nil {
+			t.Fatalf("BatchScreenshotBytes() result = %+v", result)
+		}
+	}
+	if pool.calls != 2 {
+		t.Fatalf("pool calls = %d, want 2", pool.calls)
+	}
+	if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+		t.Fatalf("byte options = %+v", pool.lastOptions.Scan)
+	}
+	if !pool.lastOptions.Scan.CaptureFullPage {
+		t.Fatal("BatchScreenshotBytes() did not keep screenshot options")
+	}
+}
+
+func TestBatchScreenshotBytesStreaming_ContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	client := &Client{pool: &fakeDriverPool{}, opts: DefaultClientOptions()}
+	ch := client.BatchScreenshotBytesStreaming(ctx, []string{"https://a.test", "https://b.test"}, nil)
+
+	count := 0
+	for result := range ch {
+		count++
+		if !errors.Is(result.Error, context.Canceled) {
+			t.Fatalf("BatchScreenshotBytesStreaming() error = %v, want context.Canceled", result.Error)
+		}
+		if result.Result != nil || result.Data != nil {
+			t.Fatalf("BatchScreenshotBytesStreaming() result = %+v, want no data/result", result)
+		}
+	}
+	if count != 2 {
+		t.Fatalf("BatchScreenshotBytesStreaming() count = %d, want 2", count)
+	}
+}
+
 func TestExpandTargets_Unit(t *testing.T) {
 	got := ExpandTarget("example.com/admin?x=1", NewScreenshotOptions(
 		WithHTTPOnly(),
@@ -1167,6 +1215,36 @@ func TestBatchScreenshotTargets_Unit(t *testing.T) {
 	}
 }
 
+func TestBatchScreenshotTargetsBytes_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	results := client.BatchScreenshotTargetsBytes([]string{"example.com/path", "https://already.test/login"}, NewScreenshotOptions(
+		WithHTTPOnly(),
+		WithPorts(80, 8080),
+	))
+	wantURLs := []string{
+		"http://example.com:80/path",
+		"http://example.com:8080/path",
+		"https://already.test/login",
+	}
+	if len(results) != len(wantURLs) {
+		t.Fatalf("BatchScreenshotTargetsBytes() len = %d, want %d", len(results), len(wantURLs))
+	}
+	for i, want := range wantURLs {
+		if results[i].URL != want || string(results[i].Data) != "png" ||
+			results[i].Result == nil || results[i].Error != nil {
+			t.Fatalf("result[%d] = %+v, want URL %q with bytes", i, results[i], want)
+		}
+	}
+	if pool.calls != len(wantURLs) {
+		t.Fatalf("pool calls = %d, want %d", pool.calls, len(wantURLs))
+	}
+	if !pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+		t.Fatalf("byte options = %+v", pool.lastOptions.Scan)
+	}
+}
+
 func TestBatchScreenshotTargets_BlacklistBeforePool(t *testing.T) {
 	pool := &fakeDriverPool{}
 	client := &Client{pool: pool, opts: DefaultClientOptions()}
@@ -1203,6 +1281,23 @@ func TestBatchScreenshotTargetsCallback_Unit(t *testing.T) {
 	})
 
 	if !seen["https://example.com:443"] || pool.calls != 1 {
+		t.Fatalf("callback seen/pool calls = %#v/%d", seen, pool.calls)
+	}
+}
+
+func TestBatchScreenshotTargetsBytesCallback_Unit(t *testing.T) {
+	pool := &fakeDriverPool{result: &models.Result{ScreenshotBytes: []byte("png")}}
+	client := &Client{pool: pool, opts: DefaultClientOptions()}
+
+	seen := map[string]string{}
+	client.BatchScreenshotTargetsBytesCallback(context.Background(), []string{"example.com"}, NewScreenshotOptions(
+		WithHTTPSOnly(),
+		WithPorts(443),
+	), func(result BatchBytesResult) {
+		seen[result.URL] = string(result.Data)
+	})
+
+	if seen["https://example.com:443"] != "png" || pool.calls != 1 {
 		t.Fatalf("callback seen/pool calls = %#v/%d", seen, pool.calls)
 	}
 }
