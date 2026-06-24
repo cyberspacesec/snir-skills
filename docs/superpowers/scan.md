@@ -16,8 +16,14 @@
 # 批量扫描 — 从文件读取 URL 列表
 ./snir scan file -f urls.txt
 
+# 从 host/IP 列表按协议和端口展开 URL
+./snir scan file -f hosts.txt --ports 80,443,8080,8443
+
 # 网段扫描 — 自动展开 CIDR
 ./snir scan cidr 192.168.1.0/24
+
+# 网段扫描常见 Web 端口
+./snir scan cidr 192.168.1.0/24 --ports 80,443,8080,8443
 ```
 
 ---
@@ -176,6 +182,29 @@
 | `--screenshot-path` | `screenshots` | 截图保存路径 |
 | `--skip-screenshot` | `false` | 跳过保存截图文件 |
 
+### 设备预设
+
+```bash
+# 移动端截图，模拟 viewport、DPR、mobile/touch 和 User-Agent
+./snir scan example.com --device iphone-15
+
+# Android 设备预设
+./snir scan example.com --device pixel-8-pro
+
+# 桌面设备预设
+./snir scan example.com --device desktop-1080p
+
+# 列出所有可用设备预设
+./snir scan --list-devices
+```
+
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--device` | `""` | 设备预设名称，例如 `iphone-15`、`pixel-8-pro`、`ipad-pro-12`、`desktop-1080p` |
+| `--list-devices` | `false` | 列出可用设备预设并退出 |
+
+设备预设会在页面导航前通过 CDP 模拟窗口大小、device scale factor、mobile/touch 能力，并设置对应 User-Agent。CLI 中使用 `--device` 时，以设备预设中的窗口尺寸和 User-Agent 为准。
+
 ### JavaScript 执行
 
 ```bash
@@ -265,6 +294,8 @@
 | `random` | 随机选择代理 |
 | `sequential` | 顺序使用，当前代理失败时切换到下一个 |
 
+本地 Chrome 模式下，代理是 Chrome 进程级配置，工具会为不同代理隔离浏览器进程，避免请求间串用代理。远程 Chrome（`--wss`）无法在连接后为单个请求切换进程级代理，需在远程 Chrome 启动时配置代理。
+
 ### Cookie 管理
 
 ```bash
@@ -318,12 +349,18 @@
 
 # 同时扫描 HTTP 和 HTTPS（默认行为）
 ./snir scan cidr 192.168.1.0/24
+
+# 对裸 host/IP 按端口展开；已有协议的 URL 会保持原样
+./snir scan file -f hosts.txt --ports 80,443,8080,8443
 ```
 
 | 标志 | 默认值 | 说明 |
 |------|--------|------|
 | `--http` | `true` | 使用 HTTP 协议 |
 | `--https` | `true` | 使用 HTTPS 协议 |
+| `--ports` | `[]` | 对无协议 host/IP 目标展开端口列表 |
+
+`--ports` 只负责 URL 组合，不是 TCP/UDP 端口发现器。输入 `example.com/admin` 会展开成类似 `https://example.com:8443/admin`；输入 `https://example.com:9443/path` 会保持原样；输入 `example.com:9443/path` 会只补协议并保留显式端口。
 
 ### 黑名单
 
@@ -363,6 +400,8 @@
 | `--full-page` | bool | `false` | 截取完整页面（包括滚动区域） |
 | `--selector` | string | `""` | CSS 选择器截图 |
 | `--xpath` | string | `""` | XPath 截图 |
+| `--device` | string | `""` | 设备预设名称，例如 `iphone-15`、`pixel-8-pro` |
+| `--list-devices` | bool | `false` | 列出可用设备预设并退出 |
 
 ### Chrome 选项
 
@@ -390,6 +429,7 @@
 | `--threads` | int | `2` | 并发线程数 |
 | `--http` | bool | `true` | 使用 HTTP 协议 |
 | `--https` | bool | `true` | 使用 HTTPS 协议 |
+| `--ports` | intSlice | `[]` | 对无协议 host/IP 目标展开端口列表 |
 | `--max-retries` | int | `1` | 最大重试次数 |
 | `--js` | string | `""` | 在页面上执行的 JavaScript |
 | `--js-file` | string | `""` | JavaScript 文件路径 |
@@ -434,6 +474,8 @@
 |------|------|--------|------|
 | `--db` | bool | `false` | 启用数据库存储 |
 | `--db-path` | string | `go-web-screenshot.db` | 数据库文件路径 |
+
+SQLite 会保存标准化的 `schema_version`、`scheme`、`host`、`port`、`endpoint` 字段，并以 JSON 字段保存 TLS、Headers、Technologies、Network、Console、Cookies 等 Web 证据。
 
 ### 输出选项
 

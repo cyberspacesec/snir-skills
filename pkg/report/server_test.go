@@ -164,3 +164,262 @@ func TestGetFiles(t *testing.T) {
 		t.Errorf("对于不存在的目录，期望得到空切片，但找到了 %d 个文件", len(files))
 	}
 }
+
+func TestServeIndex_NotFound(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server_404_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	screenshotDir := filepath.Join(tempDir, "screenshots")
+	reportDir := filepath.Join(tempDir, "reports")
+	os.Mkdir(screenshotDir, 0755)
+	os.Mkdir(reportDir, 0755)
+
+	options := ServerOptions{
+		Host:           "localhost",
+		Port:           8080,
+		ScreenshotPath: screenshotDir,
+		ReportPath:     reportDir,
+	}
+	server := NewServer(options)
+
+	// 请求非根路径
+	req := httptest.NewRequest("GET", "/nonexistent", nil)
+	w := httptest.NewRecorder()
+
+	server.serveIndex(w, req, screenshotDir, reportDir)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("非根路径应返回 404, 得到 %d", w.Code)
+	}
+}
+
+func TestServeIndex_WithScreenshots(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server_screenshot_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	screenshotDir := filepath.Join(tempDir, "screenshots")
+	reportDir := filepath.Join(tempDir, "reports")
+	os.Mkdir(screenshotDir, 0755)
+	os.Mkdir(reportDir, 0755)
+
+	// 创建多个截图文件
+	for _, fn := range []string{"example.com_20210101.png", "test.org_20210102.jpg"} {
+		os.WriteFile(filepath.Join(screenshotDir, fn), []byte("fake"), 0644)
+	}
+
+	options := ServerOptions{
+		Host:           "localhost",
+		Port:           8080,
+		ScreenshotPath: screenshotDir,
+		ReportPath:     reportDir,
+	}
+	server := NewServer(options)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	server.serveIndex(w, req, screenshotDir, reportDir)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("期望状态码 200, 得到 %d", resp.StatusCode)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "截图 (2)") {
+		t.Errorf("HTML 应包含截图计数, got: ...%s...", body[strings.LastIndex(body, "截图"):][:min(50, len(body)-strings.LastIndex(body, "截图"))])
+	}
+}
+
+func TestServeIndex_WithReports(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server_report_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	screenshotDir := filepath.Join(tempDir, "screenshots")
+	reportDir := filepath.Join(tempDir, "reports")
+	os.Mkdir(screenshotDir, 0755)
+	os.Mkdir(reportDir, 0755)
+
+	// 创建报告文件
+	for _, fn := range []string{"report.html", "data.json", "export.csv"} {
+		os.WriteFile(filepath.Join(reportDir, fn), []byte("fake"), 0644)
+	}
+
+	options := ServerOptions{
+		Host:           "localhost",
+		Port:           8080,
+		ScreenshotPath: screenshotDir,
+		ReportPath:     reportDir,
+	}
+	server := NewServer(options)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	server.serveIndex(w, req, screenshotDir, reportDir)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("期望状态码 200, 得到 %d", resp.StatusCode)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "报告 (3)") {
+		t.Errorf("HTML 应包含报告计数, got snippet: %s", body[max(0, strings.LastIndex(body, "报告")-5):][:60])
+	}
+}
+
+func TestServeIndex_NoFiles(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server_empty_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	screenshotDir := filepath.Join(tempDir, "screenshots")
+	reportDir := filepath.Join(tempDir, "reports")
+	os.Mkdir(screenshotDir, 0755)
+	os.Mkdir(reportDir, 0755)
+
+	options := ServerOptions{
+		Host:           "localhost",
+		Port:           8080,
+		ScreenshotPath: screenshotDir,
+		ReportPath:     reportDir,
+	}
+	server := NewServer(options)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	server.serveIndex(w, req, screenshotDir, reportDir)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "没有找到截图文件") {
+		t.Error("无截图时应显示提示信息")
+	}
+	if !strings.Contains(body, "没有找到报告文件") {
+		t.Error("无报告时应显示提示信息")
+	}
+}
+
+func TestGetFiles_NoExtensions(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "get_no_ext_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	os.WriteFile(filepath.Join(tempDir, "test.png"), []byte("test"), 0644)
+
+	// 不指定扩展名——不应找到任何文件
+	files, err := getFiles(tempDir)
+	if err != nil {
+		t.Errorf("getFiles 失败: %v", err)
+	}
+	if len(files) != 0 {
+		t.Errorf("不带扩展名参数应找到 0 个文件，但找到了 %d 个", len(files))
+	}
+}
+
+func TestGetFiles_MixedExtensions(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "get_mixed_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	os.WriteFile(filepath.Join(tempDir, "a.png"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(tempDir, "b.jpg"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(tempDir, "c.gif"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(tempDir, "d.txt"), []byte(""), 0644)
+
+	// 只匹配 png 和 jpg
+	files, err := getFiles(tempDir, ".png", ".jpg")
+	if err != nil {
+		t.Errorf("getFiles 失败: %v", err)
+	}
+	if len(files) != 2 {
+		t.Errorf("期望找到 2 个文件，但找到了 %d 个: %v", len(files), files)
+	}
+}
+
+func TestServerOptions(t *testing.T) {
+	opts := ServerOptions{
+		Host:           "127.0.0.1",
+		Port:           9999,
+		ScreenshotPath: "/tmp/screenshots",
+		ReportPath:     "/tmp/reports",
+	}
+
+	s := NewServer(opts)
+	if s.Options.Host != "127.0.0.1" {
+		t.Errorf("Host = %s, want 127.0.0.1", s.Options.Host)
+	}
+	if s.Options.Port != 9999 {
+		t.Errorf("Port = %d, want 9999", s.Options.Port)
+	}
+	if s.Options.ScreenshotPath != "/tmp/screenshots" {
+		t.Errorf("ScreenshotPath = %s, want /tmp/screenshots", s.Options.ScreenshotPath)
+	}
+}
+
+func TestServeIndex_ContentType(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server_ct_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	screenshotDir := filepath.Join(tempDir, "screenshots")
+	reportDir := filepath.Join(tempDir, "reports")
+	os.Mkdir(screenshotDir, 0755)
+	os.Mkdir(reportDir, 0755)
+
+	server := NewServer(ServerOptions{
+		Host:           "localhost",
+		Port:           8080,
+		ScreenshotPath: screenshotDir,
+		ReportPath:     reportDir,
+	})
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	server.serveIndex(w, req, screenshotDir, reportDir)
+
+	contentType := w.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "charset=utf-8") {
+		t.Errorf("Content-Type 应包含 charset=utf-8, 得到 %s", contentType)
+	}
+}
+
+func TestGetFiles_SubDirectoriesNotListed(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "get_subdir_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 创建子目录——它不应被当作文件列出
+	subDir := filepath.Join(tempDir, "subdir")
+	os.Mkdir(subDir, 0755)
+	os.WriteFile(filepath.Join(tempDir, "file.png"), []byte("test"), 0644)
+
+	files, err := getFiles(tempDir, ".png")
+	if err != nil {
+		t.Errorf("getFiles 失败: %v", err)
+	}
+	if len(files) != 1 {
+		t.Errorf("子目录不应计入，期望 1 个文件，但得到了 %d 个", len(files))
+	}
+}

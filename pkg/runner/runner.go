@@ -150,6 +150,7 @@ func (run *Runner) Run() error {
 							Failed:       true,
 							FailedReason: fmt.Sprintf("URL在黑名单中: %s", reason),
 						}
+						models.EnrichEndpoint(result)
 
 						// 发送到结果通道
 						run.Results <- result
@@ -167,6 +168,7 @@ func (run *Runner) Run() error {
 						continue
 					}
 
+					models.EnrichEndpoint(result)
 					if err := run.runWriters(result); err != nil {
 						run.log.Error("写入结果失败", "url", target, "error", err)
 					}
@@ -194,6 +196,7 @@ func (r *Runner) write() {
 			continue
 		}
 
+		models.EnrichEndpoint(result)
 		for _, writer := range r.writers {
 			if err := writer.Write(result); err != nil {
 				r.log.Error("写入结果失败", "error", err)

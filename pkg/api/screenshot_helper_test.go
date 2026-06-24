@@ -180,6 +180,37 @@ func TestCreateRunnerOptions(t *testing.T) {
 			},
 		},
 		{
+			name: "截图格式质量和跳过保存",
+			req: ScreenshotRequest{
+				URL:               "example.com",
+				ScreenshotFormat:  "jpeg",
+				ScreenshotQuality: 80,
+				SkipSave:          true,
+				SaveHTML:          true,
+				SaveHeaders:       true,
+				SaveConsole:       true,
+				SaveCookies:       true,
+				SaveNetwork:       true,
+			},
+			serverOpts: ServerOptions{
+				ScreenshotPath: "/tmp/screenshots",
+			},
+			checkFunc: func(t *testing.T, opts runner.Options) {
+				if opts.Scan.ScreenshotFormat != "jpeg" {
+					t.Errorf("截图格式设置错误: 得到 %v, 期望 jpeg", opts.Scan.ScreenshotFormat)
+				}
+				if opts.Scan.ScreenshotQuality != 80 {
+					t.Errorf("截图质量设置错误: 得到 %v, 期望 80", opts.Scan.ScreenshotQuality)
+				}
+				if !opts.Scan.ScreenshotSkipSave {
+					t.Error("应该跳过保存截图")
+				}
+				if !opts.Scan.SaveHTML || !opts.Scan.SaveHeaders || !opts.Scan.SaveConsole || !opts.Scan.SaveCookies || !opts.Scan.SaveNetwork {
+					t.Error("应该启用所有数据采集开关")
+				}
+			},
+		},
+		{
 			name: "黑名单设置",
 			req: ScreenshotRequest{
 				URL: "example.com",
@@ -199,6 +230,62 @@ func TestCreateRunnerOptions(t *testing.T) {
 				}
 				if len(opts.Scan.BlacklistPatterns) != 2 {
 					t.Errorf("黑名单模式数量错误: 得到 %v, 期望 %v", len(opts.Scan.BlacklistPatterns), 2)
+				}
+			},
+		},
+		{
+			name: "设备预设",
+			req: ScreenshotRequest{
+				URL:    "example.com",
+				Device: "iphone-15",
+			},
+			serverOpts: ServerOptions{
+				ScreenshotPath: "/tmp/screenshots",
+			},
+			checkFunc: func(t *testing.T, opts runner.Options) {
+				if opts.Chrome.DeviceName != "iPhone 15" {
+					t.Errorf("设备名称错误: 得到 %q, 期望 iPhone 15", opts.Chrome.DeviceName)
+				}
+				if opts.Chrome.WindowX != 393 || opts.Chrome.WindowY != 852 {
+					t.Errorf("设备视口错误: 得到 %dx%d, 期望 393x852", opts.Chrome.WindowX, opts.Chrome.WindowY)
+				}
+				if opts.Chrome.DeviceScaleFactor != 3 {
+					t.Errorf("设备 DPR 错误: 得到 %v, 期望 3", opts.Chrome.DeviceScaleFactor)
+				}
+				if !opts.Chrome.IsMobile || !opts.Chrome.HasTouch {
+					t.Error("设备预设应该启用 mobile 和 touch")
+				}
+				if !opts.Chrome.SpoofScreenSize || opts.Chrome.ScreenWidth != 393 || opts.Chrome.ScreenHeight != 852 {
+					t.Errorf("设备屏幕伪装错误: spoof=%t screen=%dx%d", opts.Chrome.SpoofScreenSize, opts.Chrome.ScreenWidth, opts.Chrome.ScreenHeight)
+				}
+			},
+		},
+		{
+			name: "设备预设允许显式指纹覆盖",
+			req: ScreenshotRequest{
+				URL:    "example.com",
+				Device: "iphone-15",
+				Fingerprint: BrowserFingerprint{
+					UserAgent:   "custom-agent",
+					Platform:    "CustomOS",
+					ScreenWidth: 360,
+				},
+			},
+			serverOpts: ServerOptions{
+				ScreenshotPath: "/tmp/screenshots",
+			},
+			checkFunc: func(t *testing.T, opts runner.Options) {
+				if opts.Chrome.UserAgent != "custom-agent" {
+					t.Errorf("UserAgent 未覆盖: %q", opts.Chrome.UserAgent)
+				}
+				if opts.Chrome.Platform != "CustomOS" {
+					t.Errorf("Platform 未覆盖: %q", opts.Chrome.Platform)
+				}
+				if opts.Chrome.ScreenWidth != 360 {
+					t.Errorf("ScreenWidth 未覆盖: %d", opts.Chrome.ScreenWidth)
+				}
+				if opts.Chrome.ScreenHeight != 852 {
+					t.Errorf("未显式提供的 ScreenHeight 应保留设备值, got %d", opts.Chrome.ScreenHeight)
 				}
 			},
 		},

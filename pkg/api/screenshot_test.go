@@ -315,6 +315,171 @@ func TestHandleGetScreenshot(t *testing.T) {
 	}
 }
 
+// TestHandleScreenshotServerMethod tests the actual server method with validation paths
+// that don't require a Chrome instance (invalid JSON, empty URL, invalid URL format)
+func TestHandleScreenshotServerMethod(t *testing.T) {
+	tests := []struct {
+		name           string
+		requestBody    string
+		expectedStatus int
+		expectSuccess  bool
+	}{
+		{
+			name:           "invalid JSON body",
+			requestBody:    "not json",
+			expectedStatus: http.StatusBadRequest,
+			expectSuccess:  false,
+		},
+		{
+			name:           "empty URL",
+			requestBody:    `{"url":""}`,
+			expectedStatus: http.StatusBadRequest,
+			expectSuccess:  false,
+		},
+		{
+			name:           "invalid URL format with newlines",
+			requestBody:    `{"url":"http://\ninvalid"}`,
+			expectedStatus: http.StatusBadRequest,
+			expectSuccess:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &Server{
+				Options: ServerOptions{
+					ScreenshotPath: "/tmp/test-screenshots",
+				},
+			}
+
+			req, err := http.NewRequest("POST", "/screenshot", bytes.NewBufferString(tt.requestBody))
+			if err != nil {
+				t.Fatalf("failed to create request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(server.HandleScreenshot)
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("status code = %v, want %v", rr.Code, tt.expectedStatus)
+			}
+
+			var response APIResponse
+			if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+				t.Errorf("failed to parse response: %v", err)
+			}
+			if response.Success != tt.expectSuccess {
+				t.Errorf("Success = %v, want %v", response.Success, tt.expectSuccess)
+			}
+		})
+	}
+}
+
+// TestHandleGetScreenshotServerMethod tests the actual server method HandleGetScreenshot
+func TestHandleGetScreenshotServerMethod(t *testing.T) {
+	// Create a temp directory with a test image
+	tempDir, err := ioutil.TempDir("", "get_screenshot_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create a test PNG file
+	testFilename := "test_screenshot.png"
+	testFilePath := filepath.Join(tempDir, testFilename)
+	testContent := []byte("fake png content")
+	if err := ioutil.WriteFile(testFilePath, testContent, 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Create a test JPG file
+	testJpgFilename := "test_photo.jpg"
+	testJpgPath := filepath.Join(tempDir, testJpgFilename)
+	if err := ioutil.WriteFile(testJpgPath, []byte("fake jpg content"), 0644); err != nil {
+		t.Fatalf("failed to create test jpg file: %v", err)
+	}
+
+	server := &Server{
+		Options: ServerOptions{
+			ScreenshotPath: tempDir,
+		},
+	}
+
+	router := mux.NewRouter()
+	router.HandleFunc("/get_screenshot/{filename}", server.HandleGetScreenshot)
+
+	tests := []struct {
+		name           string
+		filename       string
+		expectedStatus int
+		expectedType   string
+		checkBody      bool
+		expectedBody   []byte
+	}{
+		{
+			name:           "existing PNG file",
+			filename:       testFilename,
+			expectedStatus: http.StatusOK,
+			expectedType:   "image/png",
+			checkBody:      true,
+			expectedBody:   testContent,
+		},
+		{
+			name:           "existing JPG file",
+			filename:       testJpgFilename,
+			expectedStatus: http.StatusOK,
+			expectedType:   "image/jpeg",
+			checkBody:      true,
+			expectedBody:   []byte("fake jpg content"),
+		},
+		{
+			name:           "non-existent file",
+			filename:       "does_not_exist.png",
+			expectedStatus: http.StatusNotFound,
+			expectedType:   "application/json",
+		},
+		{
+			name:           "path traversal attempt",
+			filename:       "..%2F..%2Fetc%2Fpasswd",
+			expectedStatus: http.StatusMovedPermanently,
+			expectedType:   "",
+		},
+		{
+			name:           "double dot traversal",
+			filename:       "../etc/passwd",
+			expectedStatus: http.StatusMovedPermanently,
+			expectedType:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestURL := "/get_screenshot/" + tt.filename
+			req, err := http.NewRequest("GET", requestURL, nil)
+			if err != nil {
+				t.Fatalf("failed to create request: %v", err)
+			}
+
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("status code = %v, want %v", rr.Code, tt.expectedStatus)
+			}
+
+			if ct := rr.Header().Get("Content-Type"); tt.expectedType != "" && ct != tt.expectedType {
+				t.Errorf("Content-Type = %v, want %v", ct, tt.expectedType)
+			}
+
+			if tt.checkBody && !bytes.Equal(rr.Body.Bytes(), tt.expectedBody) {
+				t.Errorf("response body mismatch")
+			}
+		})
+	}
+}
+
 func TestHandleListScreenshots(t *testing.T) {
 	// 创建临时目录
 	tempDir, err := ioutil.TempDir("", "screenshot_list_test")

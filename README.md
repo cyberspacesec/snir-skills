@@ -53,6 +53,9 @@ snir scan example.com
 # Batch from file
 snir scan file -f urls.txt
 
+# Expand bare hosts/IPs by common Web ports
+snir scan file -f hosts.txt --ports 80,443,8080,8443
+
 # CIDR network scan
 snir scan cidr 192.168.1.0/24
 
@@ -102,15 +105,18 @@ snir provider --port 9223 --idle-timeout 5m
 
 ## Features
 
-- **Screenshot** — Full-page, element-level (CSS selector / XPath), PNG/JPEG with quality control
-- **Intelligence** — HTML source, HTTP headers, cookies, console logs, network requests
+- **Screenshot** — Full-page, element-level (CSS selector / XPath), PNG/JPEG with quality control, file or in-memory bytes
+- **Intelligence** — HTML source, HTTP headers, cookies, console logs, network requests, TLS/final URL/status metadata
 - **Browser interaction** — JavaScript execution, form filling, click/scroll/input actions
-- **Browser fingerprinting** — Custom User-Agent, WebGL, platform, language, WebRTC disable
+- **Device and fingerprinting** — CDP device presets, mobile/touch/DPR emulation, custom User-Agent, WebGL, platform, language, WebRTC disable
 - **Chrome reuse** — Connection pool, singleton pool, remote connection, auto-discovery
-- **Proxy rotation** — Proxy list, proxy file (hot-reload), proxy API, round-robin/random/sequential strategies
+- **Proxy rotation** — Proxy list, proxy file (hot-reload), proxy API, round-robin/random/sequential strategies, local Chrome process isolation per proxy
 - **Cookie management** — Persistent JSON cookie jar, Netscape format import/export, inline cookies
+- **Library helpers** — Go SDK, HTTP API, pHash, technology detection, streaming/callback batch capture
 - **Output** — JSONL, CSV, SQLite database, stdout
 - **Cross-platform** — 43 platform combinations (Linux/Windows/macOS/FreeBSD/OpenBSD/NetBSD × amd64/arm64/386/arm/mips/ppc64le/riscv64/s390x)
+
+For cyberspace mapping systems, snir is best treated as the Web asset collection, screenshot, fingerprinting, and page-evidence subsystem. See the Chinese [cyberspace mapping support assessment](docs/cyberspace-mapping-assessment.md) for scope boundaries and gaps.
 
 ---
 
@@ -194,6 +200,7 @@ snir scan file -f urls.txt --write-jsonl --db --db-path results.db
 |----------|-------------|
 | [SKILLS Index](docs/superpowers/SKILLS.md) | AI agent integration — install, commands, all 70 CLI flags |
 | [Full Capabilities](docs/skills.md) | CLI + Go SDK + HTTP API + Provider complete reference |
+| [Cyberspace Mapping Assessment](docs/cyberspace-mapping-assessment.md) | Scope, gaps, and priorities when used as a cyberspace mapping lower-level library |
 | [Quick Examples](docs/quick_examples.md) | Copy-paste examples for common scenarios |
 | [Usage Examples](docs/usage_examples.md) | Detailed examples with explanations |
 

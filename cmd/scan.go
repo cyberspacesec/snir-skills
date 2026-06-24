@@ -7,8 +7,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cyberspacesec/snir-skills/pkg/log"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 	"github.com/cyberspacesec/snir-skills/pkg/scan"
 )
+
+var scanListDevices bool
 
 var scanCmd = &cobra.Command{
 	Use:   "scan",
@@ -22,6 +25,9 @@ var scanCmd = &cobra.Command{
   
   # 从文件批量扫描
   ./snir scan file -f urls.txt
+
+  # 按协议和端口展开裸 host/IP
+  ./snir scan file -f hosts.txt --ports 80,443,8080,8443
   
   # 扫描网段
   ./snir scan cidr 192.168.1.0/24
@@ -31,12 +37,27 @@ var scanCmd = &cobra.Command{
   
   # 高分辨率截图
   ./snir scan example.com --resolution-x 1920 --resolution-y 1080
+
+  # 移动端设备预设截图
+  ./snir scan example.com --device iphone-15
   
   # 使用代理
   ./snir scan example.com --proxy http://127.0.0.1:8080
   
   # 更多示例请查看 docs/usage_examples.md`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if scanListDevices {
+			printDevicePresets()
+			return nil
+		}
+		if opts.Chrome.DeviceName != "" {
+			preset, err := runner.GetDevicePreset(opts.Chrome.DeviceName)
+			if err != nil {
+				return err
+			}
+			preset.ApplyToOptions(opts)
+		}
+
 		// 如果直接提供了URL参数，则视为单URL扫描模式
 		if len(args) == 1 {
 			target := args[0]
@@ -153,11 +174,14 @@ func init() {
 	scanCmd.PersistentFlags().StringVar(&opts.Chrome.ProxyFile, "proxy-file", "", log.Cyan("代理文件路径 (每行一个代理, 支持热加载)"))
 	scanCmd.PersistentFlags().StringVar(&opts.Chrome.ProxyURL, "proxy-url", "", log.Cyan("代理 API URL (动态代理服务, 每次获取新代理)"))
 	scanCmd.PersistentFlags().Var(&proxyStrategyFlag{&opts.Chrome.ProxyStrategy}, "proxy-strategy", log.Cyan("代理轮换策略: round-robin, random, sequential"))
+	scanCmd.PersistentFlags().StringVar(&opts.Chrome.DeviceName, "device", "", log.Cyan("设备预设名称 (如 iphone-15, pixel-8-pro)"))
+	scanCmd.PersistentFlags().BoolVar(&scanListDevices, "list-devices", false, log.Cyan("列出可用设备预设"))
 
 	// 扫描相关选项
 	scanCmd.PersistentFlags().IntVar(&opts.Scan.Threads, "threads", 2, log.Cyan("并发线程数"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.HTTP, "http", true, log.Cyan("使用HTTP协议"))
 	scanCmd.PersistentFlags().BoolVar(&opts.Scan.HTTPS, "https", true, log.Cyan("使用HTTPS协议"))
+	scanCmd.PersistentFlags().IntSliceVar(&opts.Scan.Ports, "ports", []int{}, log.Cyan("扫描端口列表 (如 80,443,8080)"))
 	scanCmd.PersistentFlags().IntVar(&opts.Scan.MaxRetries, "max-retries", 1, log.Cyan("最大重试次数"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.JavaScript, "js", "", log.Cyan("要在页面上执行的JavaScript代码"))
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.JavaScriptFile, "js-file", "", log.Cyan("包含JavaScript代码的文件路径"))
@@ -190,4 +214,18 @@ func init() {
 	scanCmd.PersistentFlags().StringVar(&opts.Scan.BlacklistFile, "blacklist-file", "", log.Cyan("黑名单规则文件路径"))
 
 	log.Debug(log.Green("已注册scan命令"))
+}
+
+func printDevicePresets() {
+	fmt.Println("Available devices:")
+	for _, preset := range runner.ListDevicePresets() {
+		fmt.Printf("  %-24s %4dx%-4d dpr %.3g mobile=%t touch=%t\n",
+			preset.Name,
+			preset.Width,
+			preset.Height,
+			preset.DeviceScaleFactor,
+			preset.IsMobile,
+			preset.HasTouch,
+		)
+	}
 }

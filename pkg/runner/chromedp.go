@@ -1,22 +1,34 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/jpeg"
+	"image/png"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 
 	"github.com/chromedp/chromedp"
 
 	"github.com/cyberspacesec/snir-skills/pkg/log"
 	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/phash"
+	"github.com/cyberspacesec/snir-skills/pkg/techdetect"
 )
 
 // ChromeDP implements the Driver interface using chromedp
@@ -51,13 +63,37 @@ func NewChromeDP(opts *Options) (*ChromeDP, error) {
 
 // Witness implements the Driver interface
 func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error) {
+	if opts != nil {
+		c.opts = opts
+	}
+
 	result := &models.Result{
 		URL:      target,
 		ProbedAt: time.Now(),
 	}
+	defer result.EnrichEndpoint()
+
+	if c.opts.Scan.JavaScriptFile != "" && c.opts.Scan.JavaScript == "" {
+		javascript, err := os.ReadFile(c.opts.Scan.JavaScriptFile)
+		if err != nil {
+			result.Failed = true
+			result.FailedReason = err.Error()
+			return result, err
+		}
+		c.opts.Scan.JavaScript = string(javascript)
+	}
 
 	// 创建网络事件监听器
 	networkEvents := make(map[string]*models.NetworkLog)
+	var responseHeaders []models.Header
+	var responseTLS models.TLS
+	var finalURL string
+	var responseReason string
+	var protocol string
+	var contentLength int64
+	var isPDF bool
+	var consoleLogs []models.ConsoleLog
+
 	chromedp.ListenTarget(c.ctx, func(ev interface{}) {
 		switch e := ev.(type) {
 		case *network.EventRequestWillBeSent:
@@ -66,20 +102,148 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 				URL:    e.Request.URL,
 				Method: e.Request.Method,
 			}
+			// 跟踪重定向：记录重定向后的最终URL
+			if e.RedirectResponse != nil {
+				finalURL = e.RedirectResponse.URL
+			}
 		case *network.EventResponseReceived:
 			if nl, ok := networkEvents[e.RequestID.String()]; ok {
 				nl.StatusCode = int(e.Response.Status)
 				nl.ContentType = e.Response.MimeType
 			}
+			// 记录主请求的响应详情（精确匹配或后缀匹配目标URL）
+			respURL := e.Response.URL
+			if respURL == target || strings.HasSuffix(respURL, target) || strings.HasSuffix(target, respURL) {
+				// 提取响应头
+				if e.Response.Headers != nil {
+					for name, val := range e.Response.Headers {
+						responseHeaders = append(responseHeaders, models.Header{
+							Name:  name,
+							Value: fmt.Sprintf("%v", val),
+						})
+					}
+				}
+				// 提取TLS信息
+				if e.Response.SecurityDetails != nil {
+					sd := e.Response.SecurityDetails
+					responseTLS = models.TLS{
+						Version:     sd.Protocol,
+						CipherSuite: sd.Cipher,
+						Issuer:      sd.Issuer,
+						Subject:     sd.SubjectName,
+					}
+					if sd.ValidFrom != nil {
+						responseTLS.NotBefore = time.Time(*sd.ValidFrom)
+					}
+					if sd.ValidTo != nil {
+						responseTLS.NotAfter = time.Time(*sd.ValidTo)
+					}
+					if len(sd.SanList) > 0 {
+						responseTLS.SANs = strings.Join(sd.SanList, ", ")
+					}
+				}
+				// 记录最终URL（重定向后的真实URL）
+				finalURL = respURL
+				// 记录响应原因短语
+				responseReason = e.Response.StatusText
+				// 记录协议版本
+				if e.Response.Protocol != "" {
+					protocol = e.Response.Protocol
+				}
+				// 记录内容长度（从响应头中提取）
+				if cl, ok := e.Response.Headers["Content-Length"]; ok {
+					if clStr, ok := cl.(string); ok {
+						if clInt, err := strconv.ParseInt(clStr, 10, 64); err == nil {
+							contentLength = clInt
+						}
+					}
+				}
+				// 检测PDF
+				if strings.Contains(strings.ToLower(e.Response.MimeType), "pdf") {
+					isPDF = true
+				}
+			}
+		case *runtime.EventConsoleAPICalled:
+			// 捕获控制台日志
+			level := string(e.Type)
+			var msgParts []string
+			for _, arg := range e.Args {
+				if len(arg.Value) > 0 {
+					msgParts = append(msgParts, string(arg.Value))
+				} else if arg.Description != "" {
+					msgParts = append(msgParts, arg.Description)
+				}
+			}
+			consoleLogs = append(consoleLogs, models.ConsoleLog{
+				Level:   level,
+				Message: strings.Join(msgParts, " "),
+			})
+		case *runtime.EventExceptionThrown:
+			// 捕获未捕获的异常
+			if e.ExceptionDetails != nil {
+				msg := e.ExceptionDetails.Text
+				if e.ExceptionDetails.Exception != nil && e.ExceptionDetails.Exception.Description != "" {
+					msg = e.ExceptionDetails.Exception.Description
+				}
+				consoleLogs = append(consoleLogs, models.ConsoleLog{
+					Level:   "error",
+					Message: msg,
+				})
+			}
 		default:
-			// 忽略其他 CDP 事件（如 page.EventFrameStartedNavigating）
-			// 避免输出 "unhandled page event" 错误日志
+			// 忽略其他 CDP 事件
 		}
 	})
 
 	// 准备任务序列
 	tasks := []chromedp.Action{
 		network.Enable(),
+		runtime.Enable(),
+		page.Enable(),
+	}
+
+	if c.opts.Chrome.UserAgent != "" {
+		userAgentOverride := emulation.SetUserAgentOverride(c.opts.Chrome.UserAgent)
+		if c.opts.Chrome.AcceptLanguage != "" {
+			userAgentOverride = userAgentOverride.WithAcceptLanguage(c.opts.Chrome.AcceptLanguage)
+		}
+		if c.opts.Chrome.Platform != "" {
+			userAgentOverride = userAgentOverride.WithPlatform(c.opts.Chrome.Platform)
+		}
+		tasks = append(tasks, userAgentOverride)
+	} else if c.opts.Chrome.AcceptLanguage != "" || c.opts.Chrome.Platform != "" {
+		// CDP requires a userAgent value for SetUserAgentOverride. Use the
+		// current navigator value while still applying language/platform.
+		var currentUserAgent string
+		tasks = append(tasks,
+			chromedp.Evaluate(`navigator.userAgent`, &currentUserAgent),
+			chromedp.ActionFunc(func(ctx context.Context) error {
+				if currentUserAgent == "" {
+					return nil
+				}
+				params := emulation.SetUserAgentOverride(currentUserAgent)
+				if c.opts.Chrome.AcceptLanguage != "" {
+					params = params.WithAcceptLanguage(c.opts.Chrome.AcceptLanguage)
+				}
+				if c.opts.Chrome.Platform != "" {
+					params = params.WithPlatform(c.opts.Chrome.Platform)
+				}
+				return params.Do(ctx)
+			}),
+		)
+	}
+
+	tasks = append(tasks, buildDeviceEmulationActions(c.opts)...)
+
+	if c.opts.Chrome.AcceptLanguage != "" || len(c.opts.Chrome.CustomHeaders) > 0 {
+		headers := network.Headers{}
+		if c.opts.Chrome.AcceptLanguage != "" {
+			headers["Accept-Language"] = c.opts.Chrome.AcceptLanguage
+		}
+		for name, value := range c.opts.Chrome.CustomHeaders {
+			headers[name] = value
+		}
+		tasks = append(tasks, network.SetExtraHTTPHeaders(headers))
 	}
 
 	// 设置Cookie
@@ -107,102 +271,12 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 
 	// 加载前执行JavaScript
 	if c.opts.Scan.RunJSBefore && c.opts.Scan.JavaScript != "" {
-		tasks = append(tasks, chromedp.Evaluate(c.opts.Scan.JavaScript, nil))
+		tasks = append(tasks, addScriptToEvaluateOnNewDocument(c.opts.Scan.JavaScript))
 	}
 
 	// 添加指纹伪装脚本
-	if c.opts.Chrome.Platform != "" || c.opts.Chrome.Vendor != "" ||
-		len(c.opts.Chrome.Plugins) > 0 || c.opts.Chrome.WebGLVendor != "" ||
-		c.opts.Chrome.WebGLRenderer != "" || c.opts.Chrome.SpoofScreenSize {
-
-		// 构建指纹伪装脚本
-		fingerprintJS := "(() => {"
-
-		// 修改navigator.platform
-		if c.opts.Chrome.Platform != "" {
-			fingerprintJS += fmt.Sprintf(`
-				Object.defineProperty(navigator, 'platform', {
-					get: function() { return '%s'; }
-				});`, c.opts.Chrome.Platform)
-		}
-
-		// 修改vendor
-		if c.opts.Chrome.Vendor != "" {
-			fingerprintJS += fmt.Sprintf(`
-				Object.defineProperty(navigator, 'vendor', {
-					get: function() { return '%s'; }
-				});`, c.opts.Chrome.Vendor)
-		}
-
-		// 修改plugins
-		if len(c.opts.Chrome.Plugins) > 0 {
-			pluginsJSON, _ := json.Marshal(c.opts.Chrome.Plugins)
-			fingerprintJS += fmt.Sprintf(`
-				Object.defineProperty(navigator, 'plugins', {
-					get: function() { return %s; }
-				});`, string(pluginsJSON))
-		}
-
-		// WebGL相关
-		if c.opts.Chrome.WebGLVendor != "" || c.opts.Chrome.WebGLRenderer != "" {
-			fingerprintJS += `
-				const getParameter = WebGLRenderingContext.prototype.getParameter;
-				WebGLRenderingContext.prototype.getParameter = function(parameter) {
-			`
-
-			if c.opts.Chrome.WebGLVendor != "" {
-				fingerprintJS += fmt.Sprintf(`
-					if (parameter === 37445) {
-						return '%s';
-					}`, c.opts.Chrome.WebGLVendor)
-			}
-
-			if c.opts.Chrome.WebGLRenderer != "" {
-				fingerprintJS += fmt.Sprintf(`
-					if (parameter === 37446) {
-						return '%s';
-					}`, c.opts.Chrome.WebGLRenderer)
-			}
-
-			fingerprintJS += `
-					return getParameter.call(this, parameter);
-				};`
-		}
-
-		// 屏幕尺寸
-		if c.opts.Chrome.SpoofScreenSize && c.opts.Chrome.ScreenWidth > 0 && c.opts.Chrome.ScreenHeight > 0 {
-			fingerprintJS += fmt.Sprintf(`
-				Object.defineProperty(window, 'screen', {
-					get: function() {
-						return {
-							width: %d,
-							height: %d,
-							availWidth: %d,
-							availHeight: %d,
-							colorDepth: 24,
-							pixelDepth: 24
-						};
-					}
-				});`, c.opts.Chrome.ScreenWidth, c.opts.Chrome.ScreenHeight,
-				c.opts.Chrome.ScreenWidth, c.opts.Chrome.ScreenHeight)
-		}
-
-		// WebRTC
-		if c.opts.Chrome.DisableWebRTC {
-			fingerprintJS += `
-				// 禁用WebRTC
-				Object.defineProperty(window, 'RTCPeerConnection', {
-					value: undefined
-				});
-				Object.defineProperty(window, 'webkitRTCPeerConnection', {
-					value: undefined
-				});`
-		}
-
-		fingerprintJS += "})();"
-
-		// 执行指纹伪装脚本
-		tasks = append(tasks, chromedp.Evaluate(fingerprintJS, nil))
+	if fingerprintJS := buildFingerprintScript(c.opts); fingerprintJS != "" {
+		tasks = append(tasks, addScriptToEvaluateOnNewDocument(fingerprintJS))
 	}
 
 	// 页面导航
@@ -431,11 +505,27 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 		result.FailedReason = err.Error()
 		return result, err
 	}
+	buf, err = encodeScreenshot(buf, c.opts.Scan.ScreenshotFormat, c.opts.Scan.ScreenshotQuality)
+	if err != nil {
+		result.Failed = true
+		result.FailedReason = err.Error()
+		return result, err
+	}
 
 	// 填充结果
 	result.Title = title
 	result.ResponseCode = responseCode
 	result.HTML = htmlContent
+
+	// 填充从CDP事件收集的额外信息
+	result.FinalURL = finalURL
+	result.ResponseReason = responseReason
+	result.Protocol = protocol
+	result.ContentLength = contentLength
+	result.IsPDF = isPDF
+	if c.opts.Scan.ReturnScreenshotBytes {
+		result.ScreenshotBytes = append([]byte(nil), buf...)
+	}
 
 	// 保存截图
 	if !c.opts.Scan.ScreenshotSkipSave {
@@ -445,7 +535,7 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 			c.opts.Scan.ScreenshotFormat)
 		screenshotFilepath := filepath.Join(c.opts.Scan.ScreenshotPath, filename)
 
-		err = ioutil.WriteFile(screenshotFilepath, buf, 0644)
+		err = os.WriteFile(screenshotFilepath, buf, 0644)
 		if err != nil {
 			log.Error("保存截图失败", "error", err)
 		} else {
@@ -454,6 +544,30 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 			result.Filename = absPath
 			result.Screenshot = absPath
 		}
+	}
+
+	// 计算感知哈希（用于截图去重和相似度检测）
+	if len(buf) > 0 {
+		if hashResult, err := phash.ComputeHash(buf); err == nil {
+			result.PerceptionHash = hashResult.Hash
+		} else {
+			log.Debug("计算感知哈希失败", "error", err)
+		}
+	}
+
+	// 保存响应头
+	if c.opts.Scan.SaveHeaders && len(responseHeaders) > 0 {
+		result.Headers = responseHeaders
+	}
+
+	// 保存TLS信息
+	if responseTLS.Version != "" || responseTLS.Issuer != "" {
+		result.TLS = responseTLS
+	}
+
+	// 保存控制台日志
+	if c.opts.Scan.SaveConsole && len(consoleLogs) > 0 {
+		result.Console = consoleLogs
 	}
 
 	// 保存Cookies
@@ -473,6 +587,13 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 		for _, nl := range networkEvents {
 			result.Network = append(result.Network, *nl)
 		}
+	}
+
+	// 技术指纹识别
+	detector := techdetect.NewDetector()
+	techs := detector.DetectFromResult(result)
+	if len(techs) > 0 {
+		result.Technologies = techdetect.ToModelsTechnologies(techs)
 	}
 
 	return result, nil
@@ -497,4 +618,203 @@ func parseSameSite(s string) network.CookieSameSite {
 	default:
 		return network.CookieSameSiteLax
 	}
+}
+
+func buildFingerprintScript(opts *Options) string {
+	if opts == nil {
+		return ""
+	}
+
+	if opts.Chrome.Platform == "" && opts.Chrome.Vendor == "" &&
+		len(opts.Chrome.Plugins) == 0 && opts.Chrome.WebGLVendor == "" &&
+		opts.Chrome.WebGLRenderer == "" && !opts.Chrome.SpoofScreenSize &&
+		!opts.Chrome.DisableWebRTC {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("(() => {")
+
+	if opts.Chrome.Platform != "" {
+		b.WriteString(`
+			Object.defineProperty(navigator, 'platform', {
+				get: function() { return `)
+		b.WriteString(jsStringLiteral(opts.Chrome.Platform))
+		b.WriteString(`; }
+			});`)
+	}
+
+	if opts.Chrome.Vendor != "" {
+		b.WriteString(`
+			Object.defineProperty(navigator, 'vendor', {
+				get: function() { return `)
+		b.WriteString(jsStringLiteral(opts.Chrome.Vendor))
+		b.WriteString(`; }
+			});`)
+	}
+
+	if len(opts.Chrome.Plugins) > 0 {
+		pluginsJSON, _ := json.Marshal(opts.Chrome.Plugins)
+		b.WriteString(`
+			Object.defineProperty(navigator, 'plugins', {
+				get: function() { return `)
+		b.Write(pluginsJSON)
+		b.WriteString(`; }
+			});`)
+	}
+
+	if opts.Chrome.WebGLVendor != "" || opts.Chrome.WebGLRenderer != "" {
+		b.WriteString(`
+			const getParameter = WebGLRenderingContext.prototype.getParameter;
+			WebGLRenderingContext.prototype.getParameter = function(parameter) {`)
+
+		if opts.Chrome.WebGLVendor != "" {
+			b.WriteString(`
+				if (parameter === 37445) {
+					return `)
+			b.WriteString(jsStringLiteral(opts.Chrome.WebGLVendor))
+			b.WriteString(`;
+				}`)
+		}
+
+		if opts.Chrome.WebGLRenderer != "" {
+			b.WriteString(`
+				if (parameter === 37446) {
+					return `)
+			b.WriteString(jsStringLiteral(opts.Chrome.WebGLRenderer))
+			b.WriteString(`;
+				}`)
+		}
+
+		b.WriteString(`
+				return getParameter.call(this, parameter);
+			};`)
+	}
+
+	if opts.Chrome.SpoofScreenSize && opts.Chrome.ScreenWidth > 0 && opts.Chrome.ScreenHeight > 0 {
+		b.WriteString(fmt.Sprintf(`
+			Object.defineProperty(window, 'screen', {
+				get: function() {
+					return {
+						width: %d,
+						height: %d,
+						availWidth: %d,
+						availHeight: %d,
+						colorDepth: 24,
+						pixelDepth: 24
+					};
+				}
+			});`, opts.Chrome.ScreenWidth, opts.Chrome.ScreenHeight,
+			opts.Chrome.ScreenWidth, opts.Chrome.ScreenHeight))
+	}
+
+	if opts.Chrome.DisableWebRTC {
+		b.WriteString(`
+			Object.defineProperty(window, 'RTCPeerConnection', {
+				value: undefined
+			});
+			Object.defineProperty(window, 'webkitRTCPeerConnection', {
+				value: undefined
+			});`)
+	}
+
+	b.WriteString("})();")
+	return b.String()
+}
+
+func buildDeviceEmulationActions(opts *Options) []chromedp.Action {
+	if opts == nil {
+		return nil
+	}
+
+	width := opts.Chrome.WindowX
+	height := opts.Chrome.WindowY
+	if opts.Chrome.ScreenWidth > 0 {
+		width = opts.Chrome.ScreenWidth
+	}
+	if opts.Chrome.ScreenHeight > 0 {
+		height = opts.Chrome.ScreenHeight
+	}
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+
+	scaleFactor := opts.Chrome.DeviceScaleFactor
+	if scaleFactor == 0 && (opts.Chrome.IsMobile || opts.Chrome.HasTouch || opts.Chrome.SpoofScreenSize) {
+		scaleFactor = 1
+	}
+	if scaleFactor == 0 && !opts.Chrome.IsMobile && !opts.Chrome.HasTouch && !opts.Chrome.SpoofScreenSize {
+		return nil
+	}
+
+	metrics := emulation.SetDeviceMetricsOverride(
+		int64(width),
+		int64(height),
+		scaleFactor,
+		opts.Chrome.IsMobile,
+	).WithScreenWidth(int64(width)).WithScreenHeight(int64(height))
+
+	actions := []chromedp.Action{metrics}
+	if opts.Chrome.HasTouch {
+		actions = append(actions, emulation.SetTouchEmulationEnabled(true).WithMaxTouchPoints(1))
+	}
+	return actions
+}
+
+func jsStringLiteral(value string) string {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return `""`
+	}
+	return string(encoded)
+}
+
+func addScriptToEvaluateOnNewDocument(script string) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		_, err := page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
+		return err
+	})
+}
+
+func encodeScreenshot(buf []byte, format string, quality int) ([]byte, error) {
+	format = strings.ToLower(format)
+	if format == "" {
+		format = "png"
+	}
+
+	if format != "jpeg" && format != "jpg" && format != "png" {
+		return nil, fmt.Errorf("unsupported screenshot format: %s", format)
+	}
+
+	if format == "png" && bytes.HasPrefix(buf, []byte{0x89, 'P', 'N', 'G'}) {
+		return buf, nil
+	}
+	if (format == "jpeg" || format == "jpg") && bytes.HasPrefix(buf, []byte{0xff, 0xd8}) {
+		return buf, nil
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(buf))
+	if err != nil {
+		return nil, fmt.Errorf("decode screenshot: %w", err)
+	}
+
+	var out bytes.Buffer
+	switch format {
+	case "png":
+		if err := png.Encode(&out, img); err != nil {
+			return nil, fmt.Errorf("encode png screenshot: %w", err)
+		}
+	default:
+		if quality <= 0 || quality > 100 {
+			quality = 90
+		}
+		opaque := image.NewRGBA(img.Bounds())
+		draw.Draw(opaque, opaque.Bounds(), &image.Uniform{C: color.White}, image.Point{}, draw.Src)
+		draw.Draw(opaque, opaque.Bounds(), img, img.Bounds().Min, draw.Over)
+		if err := jpeg.Encode(&out, opaque, &jpeg.Options{Quality: quality}); err != nil {
+			return nil, fmt.Errorf("encode jpeg screenshot: %w", err)
+		}
+	}
+
+	return out.Bytes(), nil
 }

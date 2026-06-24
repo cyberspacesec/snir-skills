@@ -16,6 +16,7 @@ type ClientOptions struct {
 	WindowHeight     int    // 窗口高度（默认 800）
 	UserAgent        string // 自定义 User-Agent
 	Proxy            string // 代理服务器地址
+	Device           string // 设备预设名称
 	WSSURL           string // 远程 Chrome WebSocket URL
 	IgnoreCertErrors bool   // 忽略证书错误
 
@@ -108,11 +109,13 @@ type ScreenshotOptions struct {
 	// 浏览器覆盖
 	UserAgent string // User-Agent（覆盖 ClientOptions）
 	Proxy     string // 代理（覆盖 ClientOptions）
+	Device    string // 设备预设名称（覆盖 ClientOptions）
 
 	// 截图覆盖
 	Selector          string // CSS 选择器
 	XPath             string // XPath
 	CaptureFullPage   bool   // 全页截图
+	ScreenshotFormat  string // 截图格式 png/jpeg
 	ScreenshotQuality int    // JPEG 质量
 
 	// JavaScript
@@ -155,18 +158,45 @@ func toRunnerOptions(co ClientOptions) runner.Options {
 	opts.Chrome.Timeout = int(co.Timeout.Seconds())
 	opts.Chrome.Delay = int(co.Delay.Seconds())
 
-	// 浏览器指纹
-	opts.Chrome.AcceptLanguage = co.AcceptLanguage
-	opts.Chrome.Platform = co.Platform
-	opts.Chrome.Vendor = co.Vendor
-	opts.Chrome.Plugins = co.Plugins
-	opts.Chrome.WebGLVendor = co.WebGLVendor
-	opts.Chrome.WebGLRenderer = co.WebGLRenderer
-	opts.Chrome.CustomHeaders = co.CustomHeaders
-	opts.Chrome.DisableWebRTC = co.DisableWebRTC
-	opts.Chrome.SpoofScreenSize = co.SpoofScreenSize
-	opts.Chrome.ScreenWidth = co.ScreenWidth
-	opts.Chrome.ScreenHeight = co.ScreenHeight
+	applyDevicePreset(co.Device, &opts)
+
+	// 浏览器指纹：只用非零字段覆盖，避免空值清掉设备预设。
+	if co.UserAgent != "" {
+		opts.Chrome.UserAgent = co.UserAgent
+	}
+	if co.AcceptLanguage != "" {
+		opts.Chrome.AcceptLanguage = co.AcceptLanguage
+	}
+	if co.Platform != "" {
+		opts.Chrome.Platform = co.Platform
+	}
+	if co.Vendor != "" {
+		opts.Chrome.Vendor = co.Vendor
+	}
+	if len(co.Plugins) > 0 {
+		opts.Chrome.Plugins = co.Plugins
+	}
+	if co.WebGLVendor != "" {
+		opts.Chrome.WebGLVendor = co.WebGLVendor
+	}
+	if co.WebGLRenderer != "" {
+		opts.Chrome.WebGLRenderer = co.WebGLRenderer
+	}
+	if len(co.CustomHeaders) > 0 {
+		opts.Chrome.CustomHeaders = co.CustomHeaders
+	}
+	if co.DisableWebRTC {
+		opts.Chrome.DisableWebRTC = true
+	}
+	if co.SpoofScreenSize {
+		opts.Chrome.SpoofScreenSize = true
+	}
+	if co.ScreenWidth > 0 {
+		opts.Chrome.ScreenWidth = co.ScreenWidth
+	}
+	if co.ScreenHeight > 0 {
+		opts.Chrome.ScreenHeight = co.ScreenHeight
+	}
 
 	// Scan 配置
 	opts.Scan.ScreenshotPath = co.ScreenshotPath
@@ -233,6 +263,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	if so.Proxy != "" {
 		base.Chrome.Proxy = so.Proxy
 	}
+	if so.Device != "" {
+		applyDevicePreset(so.Device, &base)
+	}
 
 	// 截图覆盖
 	if so.Selector != "" {
@@ -243,6 +276,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 	if so.CaptureFullPage {
 		base.Scan.CaptureFullPage = true
+	}
+	if so.ScreenshotFormat != "" {
+		base.Scan.ScreenshotFormat = so.ScreenshotFormat
 	}
 	if so.ScreenshotQuality > 0 {
 		base.Scan.ScreenshotQuality = so.ScreenshotQuality
@@ -299,4 +335,15 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 
 	return base
+}
+
+func applyDevicePreset(device string, opts *runner.Options) {
+	if device == "" {
+		return
+	}
+	preset, err := runner.GetDevicePreset(device)
+	if err != nil {
+		return
+	}
+	preset.ApplyToOptions(opts)
 }

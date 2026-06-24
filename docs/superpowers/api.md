@@ -158,11 +158,20 @@ curl -X POST http://localhost:8080/screenshot \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://example.com",
+    "device": "iphone-15",
     "timeout": 30,
     "delay": 0,
     "user_agent": "",
     "proxy": "",
     "ignore_cert_errors": false,
+    "screenshot_format": "jpeg",
+    "screenshot_quality": 85,
+    "skip_save": false,
+    "save_html": true,
+    "save_headers": true,
+    "save_console": true,
+    "save_cookies": true,
+    "save_network": true,
     "javascript": "",
     "selector": "",
     "xpath": "",
@@ -177,8 +186,11 @@ curl -X POST http://localhost:8080/batch \
   -H "Content-Type: application/json" \
   -d '{
     "urls": ["https://a.com", "https://b.com"],
+    "device": "pixel-8-pro",
     "threads": 4,
-    "timeout": 30
+    "timeout": 30,
+    "screenshot_format": "png",
+    "skip_save": true
   }'
 
 # 查看统计
@@ -187,6 +199,33 @@ curl http://localhost:8080/stats -H "X-API-Key: your-api-key"
 # 健康检查
 curl http://localhost:8080/health
 ```
+
+### 截图请求字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `url` | string | 单张截图 URL |
+| `urls` | []string | 批量截图 URL 列表 |
+| `device` | string | 设备预设名称，例如 `iphone-15`、`pixel-8-pro`、`ipad-pro-12`、`desktop-1080p` |
+| `timeout` | int | 页面加载超时时间（秒） |
+| `delay` | int | 截图前等待时间（秒） |
+| `user_agent` | string | 自定义 User-Agent |
+| `proxy` | string | 代理服务器地址 |
+| `ignore_cert_errors` | bool | 忽略证书错误 |
+| `screenshot_format` | string | 截图格式，`png` 或 `jpeg` |
+| `screenshot_quality` | int | JPEG 质量，1-100，仅对 `jpeg` 有效 |
+| `skip_save` | bool | 不写截图文件，仅返回截图结果元数据 |
+| `selector` | string | CSS 选择器元素截图 |
+| `xpath` | string | XPath 元素截图 |
+| `capture_full_page` | bool | 全页截图 |
+| `javascript` / `javascript_file` | string | 截图前执行 JS 或加载 JS 文件 |
+| `run_js_before` | bool | 页面加载前执行 JS |
+| `save_html` / `save_headers` / `save_console` / `save_cookies` / `save_network` | bool | 保存对应采集数据 |
+| `fingerprint` | object | 浏览器指纹覆盖，可设置 UA、语言、平台、WebGL、屏幕尺寸等 |
+| `cookies` / `cookie_file` / `cookie_import` / `cookie_header` | mixed | Cookie 注入或导入 |
+| `actions` / `form` | mixed | 点击、滚动、输入、等待、表单填写等交互 |
+
+`device` 会在导航前通过 CDP 模拟 viewport、DPR、mobile/touch 和 User-Agent。`fingerprint` 中显式传入的非空字段会覆盖设备预设对应字段。
 
 ---
 

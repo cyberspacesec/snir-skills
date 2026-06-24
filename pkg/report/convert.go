@@ -1,9 +1,13 @@
 package report
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cyberspacesec/snir-skills/pkg/database"
 	"github.com/cyberspacesec/snir-skills/pkg/islazy"
@@ -155,7 +159,74 @@ func writeResults(filePath, ext string, results []*models.Result) error {
 
 // readCSVResults 从CSV文件读取结果
 func readCSVResults(filePath string) ([]*models.Result, error) {
-	// CSV读取较为复杂，需要解析CSV格式并转换为Result对象
-	// 暂时返回未实现
-	return nil, fmt.Errorf("从CSV读取结果暂未实现")
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("打开CSV文件失败: %v", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("读取CSV文件失败: %v", err)
+	}
+
+	if len(records) == 0 {
+		return nil, fmt.Errorf("CSV文件为空")
+	}
+
+	// 跳过表头行
+	var results []*models.Result
+	for i, record := range records {
+		if i == 0 {
+			// 验证表头格式
+			if len(record) >= 7 && record[0] == "URL" {
+				continue
+			}
+			// 没有表头，当作数据行处理
+		}
+
+		if len(record) < 7 {
+			continue
+		}
+
+		result := &models.Result{
+			URL:      record[0],
+			Title:    record[1],
+			Filename: record[3],
+			FinalURL: record[5],
+		}
+
+		// 解析响应码
+		if code, err := strconv.Atoi(record[2]); err == nil {
+			result.ResponseCode = code
+		}
+
+		// 解析扫描时间
+		if record[4] != "" {
+			if t, err := time.Parse(time.RFC3339, record[4]); err == nil {
+				result.ProbedAt = t
+			} else {
+				result.ProbedAt = time.Now()
+			}
+		} else {
+			result.ProbedAt = time.Now()
+		}
+
+		// 解析状态（成功或失败）
+		if strings.HasPrefix(record[6], "失败") {
+			result.Failed = true
+			reason := strings.TrimPrefix(record[6], "失败: ")
+			result.FailedReason = reason
+		}
+
+		// 截图路径也设置为Screenshot
+		if result.Filename != "" {
+			result.Screenshot = result.Filename
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
 }

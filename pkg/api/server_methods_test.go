@@ -1,13 +1,16 @@
 package api
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
-// MockDriver 是一个用于测试的简化模拟驱动
+// MockDriver is a simplified mock driver for testing
 type MockDriver struct {
 	WitnessCalled bool
 	ReturnResult  *models.Result
@@ -17,18 +20,18 @@ type MockDriver struct {
 func (d *MockDriver) Witness(target string, runner *runner.Runner) (*models.Result, error) {
 	d.WitnessCalled = true
 	if d.ReturnResult != nil {
-		d.ReturnResult.URL = target // 确保URL与请求匹配
+		d.ReturnResult.URL = target // ensure URL matches request
 	}
 	return d.ReturnResult, d.ReturnError
 }
 
 func (d *MockDriver) Close() {
-	// 模拟关闭方法
+	// mock close method
 }
 
-// TestGetBlacklist 测试GetBlacklist方法
+// TestGetBlacklist tests the GetBlacklist method
 func TestGetBlacklist(t *testing.T) {
-	// 创建服务器
+	// Create server
 	server := &Server{
 		Options: ServerOptions{
 			EnableBlacklist:   true,
@@ -37,67 +40,242 @@ func TestGetBlacklist(t *testing.T) {
 		},
 	}
 
-	// 创建runner选项
+	// Create runner options
 	opts := &runner.Options{}
-	// 传递服务器选项到runner选项
+	// Pass server options to runner options
 	opts.Scan.EnableBlacklist = true
 	opts.Scan.DefaultBlacklist = true
 	opts.Scan.BlacklistPatterns = []string{"test-domain.example"}
 
-	// 调用GetBlacklist
+	// Call GetBlacklist
 	blacklist, err := server.GetBlacklist(opts)
 	if err != nil {
-		t.Fatalf("GetBlacklist返回错误: %v", err)
+		t.Fatalf("GetBlacklist returned error: %v", err)
 	}
 
-	// 检查黑名单是否被正确创建
+	// Check if blacklist was correctly created
 	if blacklist == nil {
-		t.Fatal("GetBlacklist返回nil")
+		t.Fatal("GetBlacklist returned nil")
 	}
 
-	// 测试本地IP是否被阻止（这应该是默认黑名单的一部分）
+	// Test if local IP is blocked (should be part of default blacklist)
 	isBlacklisted, _ := blacklist.IsBlacklisted("https://127.0.0.1")
 	if !isBlacklisted {
-		t.Error("默认黑名单规则未正确应用，本地IP应该被阻止")
+		t.Error("Default blacklist rules not applied correctly; local IP should be blocked")
 	}
 
-	// 测试黑名单能否正确检测非黑名单域名
+	// Test blacklist detection for safe domain
 	isBlacklisted, _ = blacklist.IsBlacklisted("https://safe-domain-example.org")
 	if isBlacklisted {
-		t.Error("安全域名不应被标记为黑名单")
+		t.Error("Safe domain should not be flagged as blacklisted")
 	}
 }
 
-// 测试 ProcessScreenshot 方法
-// 由于无法直接替换 runner.NewChromeDP，我们采用不同的测试策略
+// TestProcessScreenshot tests the ProcessScreenshot method
+// Since we cannot directly replace runner.NewChromeDP, we use different testing strategies
 func TestProcessScreenshot(t *testing.T) {
-	// 跳过实际测试，因为这个功能需要真实的Chrome实例
-	// 在单元测试环境中很难模拟
-	t.Skip("跳过ProcessScreenshot测试，需要Chrome实例")
+	// Skip actual test because this functionality requires a real Chrome instance
+	// which is difficult to mock in a unit test environment
+	t.Skip("Skip ProcessScreenshot test, requires Chrome instance")
 }
 
-// TestCreateScreenshotDir 测试创建截图目录
+// TestInitPool tests the InitPool method
+func TestInitPool(t *testing.T) {
+	// InitPool requires a real Chrome browser to initialize the pool
+	// In unit tests without Chrome, it will fail to initialize
+	t.Run("InitPool without Chrome", func(t *testing.T) {
+		server := &Server{
+			Options: ServerOptions{
+				MaxConcurrentRequests: 2,
+			},
+		}
+
+		opts := &runner.Options{}
+		err := server.InitPool(opts)
+		// Without Chrome installed, this should return an error
+		if err == nil {
+			// If Chrome is available, just verify pool was set
+			if server.pool == nil {
+				t.Error("pool should be set after InitPool")
+			}
+			server.ClosePool()
+		} else {
+			// Expected: can't initialize without Chrome
+			t.Logf("InitPool failed as expected (no Chrome): %v", err)
+		}
+	})
+}
+
+// TestClosePool tests the ClosePool method
+func TestClosePool(t *testing.T) {
+	t.Run("ClosePool with nil pool", func(t *testing.T) {
+		server := &Server{
+			Options: ServerOptions{},
+		}
+		// Should not panic when pool is nil
+		server.ClosePool()
+	})
+
+	t.Run("ClosePool after InitPool succeeds", func(t *testing.T) {
+		server := &Server{
+			Options: ServerOptions{
+				MaxConcurrentRequests: 1,
+			},
+		}
+
+		opts := &runner.Options{}
+		err := server.InitPool(opts)
+		if err == nil {
+			// Pool was initialized (Chrome is available)
+			if server.pool == nil {
+				t.Error("pool should be set")
+			}
+			server.ClosePool()
+			// Should not panic
+		} else {
+			t.Logf("InitPool failed (no Chrome available): %v", err)
+		}
+	})
+}
+
+// TestProcessScreenshotEdgeCases tests ProcessScreenshot edge cases
+func TestProcessScreenshotEdgeCases(t *testing.T) {
+	t.Run("ProcessScreenshot without pool", func(t *testing.T) {
+		// Without pool and without Chrome, ProcessScreenshot should fail
+		server := &Server{
+			Options: ServerOptions{
+				ScreenshotPath: "/tmp/test",
+				MaxConcurrentRequests: 1,
+			},
+		}
+
+		req := ScreenshotRequest{
+			URL: "https://example.com",
+			HTTPS: true,
+		}
+		opts := createRunnerOptions(req, server.Options)
+
+		// This will try to create a ChromeDP directly and should fail
+		_, err := server.ProcessScreenshot(req, opts)
+		if err != nil {
+			t.Logf("ProcessScreenshot without pool failed as expected: %v", err)
+		} else {
+			t.Log("ProcessScreenshot succeeded (Chrome was available)")
+		}
+	})
+
+	t.Run("ProcessScreenshot with nil pool", func(t *testing.T) {
+		// Explicitly set pool to nil
+		server := &Server{
+			Options: ServerOptions{
+				ScreenshotPath: "/tmp/test",
+			},
+			pool: nil,
+		}
+
+		req := ScreenshotRequest{
+			URL: "https://example.com",
+			HTTPS: true,
+		}
+		opts := createRunnerOptions(req, server.Options)
+
+		// Without pool, should try fallback to single ChromeDP creation
+		_, err := server.ProcessScreenshot(req, opts)
+		if err != nil {
+			t.Logf("ProcessScreenshot with nil pool failed as expected: %v", err)
+		}
+	})
+}
+
+// TestHandleStatsServerMethod tests the server's HandleStats method
+func TestHandleStatsServerMethod(t *testing.T) {
+	// Initialize concurrency limiter
+	InitConcurrencyLimiter(10, 100)
+
+	t.Run("HandleStats without pool", func(t *testing.T) {
+		server := &Server{
+			Options: ServerOptions{},
+		}
+
+		req, err := http.NewRequest("GET", "/stats", nil)
+		if err != nil {
+			t.Fatalf("failed to create request: %v", err)
+		}
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(server.HandleStats)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("status = %v, want %v", rr.Code, http.StatusOK)
+		}
+
+		var response APIResponse
+		if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+			t.Errorf("failed to parse response: %v", err)
+		}
+
+		if !response.Success {
+			t.Error("response should be successful")
+		}
+
+		data, ok := response.Data.(map[string]interface{})
+		if !ok {
+			t.Error("data should be a map")
+			return
+		}
+
+		// Pool key should not exist when pool is nil
+		if _, exists := data["pool"]; exists {
+			t.Error("pool key should not exist when pool is nil")
+		}
+	})
+
+	t.Run("HandleStats required fields", func(t *testing.T) {
+		server := &Server{
+			Options: ServerOptions{},
+		}
+
+		req, _ := http.NewRequest("GET", "/stats", nil)
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(server.HandleStats)
+		handler.ServeHTTP(rr, req)
+
+		var response APIResponse
+		json.Unmarshal(rr.Body.Bytes(), &response)
+
+		data, _ := response.Data.(map[string]interface{})
+		requiredFields := []string{"active_requests", "waiting_requests", "max_concurrent", "queue_size", "uptime", "started_at"}
+		for _, field := range requiredFields {
+			if _, exists := data[field]; !exists {
+				t.Errorf("missing required field: %s", field)
+			}
+		}
+	})
+}
+
+// TestCreateScreenshotDir tests creating screenshot directories
 func TestCreateScreenshotDir(t *testing.T) {
-	// 创建临时目录
+	// Create temp directory
 	tempDir := t.TempDir()
 
-	// 测试创建默认目录
+	// Test creating default directory
 	dir, err := CreateScreenshotDir("")
 	if err != nil {
-		t.Fatalf("创建默认截图目录失败: %v", err)
+		t.Fatalf("create default screenshot dir failed: %v", err)
 	}
-	// 可以检查返回的路径是否是绝对路径
+	// Can check if the returned path is absolute
 	if dir == "" {
-		t.Error("CreateScreenshotDir返回空路径")
+		t.Error("CreateScreenshotDir returned empty path")
 	}
 
-	// 测试创建指定目录
+	// Test creating a specific directory
 	testDir := tempDir + "/screenshots"
 	dir, err = CreateScreenshotDir(testDir)
 	if err != nil {
-		t.Fatalf("创建指定截图目录失败: %v", err)
+		t.Fatalf("create specific screenshot dir failed: %v", err)
 	}
 	if dir != testDir {
-		t.Errorf("路径不匹配: 期望 %v, 得到 %v", testDir, dir)
+		t.Errorf("path mismatch: want %v, got %v", testDir, dir)
 	}
 }

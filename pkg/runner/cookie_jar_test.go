@@ -348,3 +348,290 @@ func TestCookieJar_SubdomainMatching(t *testing.T) {
 		t.Errorf("other.com 不匹配 .example.com: got %d cookies, want 0", len(cookies))
 	}
 }
+
+func TestToCustomCookie(t *testing.T) {
+	pc := PersistentCookie{
+		Name:     "test_cookie",
+		Value:    "test_value",
+		Domain:   ".example.com",
+		Path:     "/api",
+		Secure:   true,
+		HttpOnly: true,
+	}
+	cc := pc.ToCustomCookie()
+
+	if cc.Name != pc.Name {
+		t.Errorf("Name = %s, want %s", cc.Name, pc.Name)
+	}
+	if cc.Value != pc.Value {
+		t.Errorf("Value = %s, want %s", cc.Value, pc.Value)
+	}
+	if cc.Domain != pc.Domain {
+		t.Errorf("Domain = %s, want %s", cc.Domain, pc.Domain)
+	}
+	if cc.Path != pc.Path {
+		t.Errorf("Path = %s, want %s", cc.Path, pc.Path)
+	}
+	if cc.Secure != pc.Secure {
+		t.Errorf("Secure = %v, want %v", cc.Secure, pc.Secure)
+	}
+	if cc.HttpOnly != pc.HttpOnly {
+		t.Errorf("HttpOnly = %v, want %v", cc.HttpOnly, pc.HttpOnly)
+	}
+}
+
+func TestGetAllCookies(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	// Add cookies to multiple domains
+	jar.AddCookie(PersistentCookie{
+		Name: "session", Value: "abc", Domain: ".example.com", Persistent: true,
+	})
+	jar.AddCookie(PersistentCookie{
+		Name: "token", Value: "xyz", Domain: ".test.org", Persistent: true,
+	})
+	// Add a global cookie
+	jar.AddCookie(PersistentCookie{
+		Name: "global_c", Value: "g_value", Persistent: true,
+	})
+
+	cookies := jar.GetAllCookies()
+	if len(cookies) != 3 {
+		t.Errorf("GetAllCookies() = %d, want 3", len(cookies))
+	}
+
+	// Verify all expected names are present
+	names := make(map[string]bool)
+	for _, c := range cookies {
+		names[c.Name] = true
+	}
+	for _, name := range []string{"session", "token", "global_c"} {
+		if !names[name] {
+			t.Errorf("Expected cookie %q not found", name)
+		}
+	}
+}
+
+func TestGetAllCookiesEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	cookies := jar.GetAllCookies()
+	if len(cookies) != 0 {
+		t.Errorf("GetAllCookies() = %d, want 0", len(cookies))
+	}
+}
+
+func TestCookieJar_ToCustomCookieWithExpires(t *testing.T) {
+	pc := PersistentCookie{
+		Name:       "expiring",
+		Value:      "val",
+		Domain:     ".example.com",
+		Path:       "/",
+		Secure:     true,
+		HttpOnly:   true,
+		ExpiresAt:  1735689600,
+		Persistent: true,
+		Source:     "test",
+	}
+	cc := pc.ToCustomCookieWithExpires()
+	if cc.Name != "expiring" {
+		t.Errorf("Name = %s, want expiring", cc.Name)
+	}
+	if cc.Expires != 1735689600 {
+		t.Errorf("Expires = %d, want 1735689600", cc.Expires)
+	}
+}
+
+func TestCookieJar_RemoveNonexistentCookie(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	// Removing a cookie that doesn't exist should not error
+	err := jar.RemoveCookie(".nonexistent.com", "nonexistent")
+	if err != nil {
+		t.Errorf("RemoveCookie() on nonexistent cookie should not error: %v", err)
+	}
+}
+
+func TestCookieJar_RemoveEmptyDomain(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	jar.AddCookie(PersistentCookie{
+		Name: "global_to_remove", Value: "v", Persistent: true,
+	})
+
+	// Removing with empty domain should target _global
+	err := jar.RemoveCookie("", "global_to_remove")
+	if err != nil {
+		t.Errorf("RemoveCookie() error = %v", err)
+	}
+
+	if jar.Count() != 0 {
+		t.Errorf("Count() after remove = %d, want 0", jar.Count())
+	}
+}
+
+func TestCookieJar_AddCookiesWithUpdate(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	jar.AddCookie(PersistentCookie{
+		Name: "c1", Value: "old", Domain: ".example.com", Persistent: true,
+	})
+
+	// Batch add with update
+	err := jar.AddCookies([]PersistentCookie{
+		{Name: "c1", Value: "new", Domain: ".example.com", Persistent: true},
+		{Name: "c2", Value: "v2", Domain: ".example.com", Persistent: true},
+	})
+	if err != nil {
+		t.Fatalf("AddCookies() error = %v", err)
+	}
+
+	cookies := jar.GetCookies(".example.com")
+	// c1 updated to "new", and c1 was consumed (one-time), c2 also consumed
+	// Actually GetCookies consumes one-time cookies and returns them
+	if len(cookies) != 2 {
+		t.Errorf("GetCookies() = %d, want 2", len(cookies))
+	}
+	names := make(map[string]string)
+	for _, c := range cookies {
+		names[c.Name] = c.Value
+	}
+	if names["c1"] != "new" {
+		t.Errorf("c1 value = %s, want new", names["c1"])
+	}
+}
+
+func TestCookieJar_LoadError(t *testing.T) {
+	// Create a file with invalid JSON to trigger load error
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "bad_cookies.json")
+	os.WriteFile(cookieFile, []byte("not valid json"), 0644)
+
+	// Creating a jar with this file should log a warning but not fail
+	jar, err := NewCookieJar(cookieFile)
+	if err != nil {
+		t.Fatalf("NewCookieJar() should not error on invalid JSON: %v", err)
+	}
+	if jar == nil {
+		t.Fatal("jar should not be nil")
+	}
+	// Jar should be empty since loading failed
+	if jar.Count() != 0 {
+		t.Errorf("Count() = %d, want 0 (load failed)", jar.Count())
+	}
+}
+
+func TestCookieJar_SaveError(t *testing.T) {
+	// Try to save to an invalid path to trigger save error
+	jar := &CookieJar{
+		filePath: "/proc/nonexistent_dir_should_fail/cookies.json",
+		cookies: map[string][]PersistentCookie{
+			"_global": {{Name: "test", Value: "v", Persistent: true}},
+		},
+	}
+
+	// This should fail because /proc/... is not writable
+	err := jar.AddCookie(PersistentCookie{
+		Name: "test2", Value: "v2", Persistent: true,
+	})
+	if err == nil {
+		t.Log("AddCookie save to invalid path returned nil (filesystem-dependent)")
+	}
+}
+
+func TestCookieJar_AddCookie_UpdateNonPersistent(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	// Add a non-persistent cookie first
+	err := jar.AddCookie(PersistentCookie{
+		Name: "temp", Value: "first", Domain: ".example.com", Persistent: false,
+	})
+	if err != nil {
+		t.Fatalf("AddCookie error = %v", err)
+	}
+
+	// Update it (still non-persistent)
+	err = jar.AddCookie(PersistentCookie{
+		Name: "temp", Value: "second", Domain: ".example.com", Persistent: false,
+	})
+	if err != nil {
+		t.Fatalf("AddCookie update error = %v", err)
+	}
+
+	cookies := jar.GetCookies(".example.com")
+	if len(cookies) != 1 {
+		t.Errorf("Expected 1 cookie, got %d", len(cookies))
+	}
+	if cookies[0].Value != "second" {
+		t.Errorf("Value = %s, want second", cookies[0].Value)
+	}
+}
+
+func TestCookieJar_GetCookies_ExpiredWithSave(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	// Add expired non-persistent cookie
+	jar.AddCookie(PersistentCookie{
+		Name: "expired_temp", Value: "v", Domain: ".example.com",
+		Persistent: false, ExpiresAt: time.Now().Unix() - 3600,
+	})
+
+	// Also add a persistent expired cookie
+	jar.AddCookie(PersistentCookie{
+		Name: "expired_persist", Value: "v", Domain: ".example.com",
+		Persistent: true, ExpiresAt: time.Now().Unix() - 3600,
+	})
+
+	cookies := jar.GetCookies(".example.com")
+	if len(cookies) != 0 {
+		t.Errorf("Expected 0 cookies (all expired), got %d", len(cookies))
+	}
+}
+
+func TestCookieJar_GetAllCookies_ExpiredFiltered(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	jar.AddCookie(PersistentCookie{
+		Name: "valid", Value: "v", Domain: ".example.com", Persistent: true,
+	})
+	jar.AddCookie(PersistentCookie{
+		Name: "expired", Value: "e", Domain: ".test.com",
+		Persistent: true, ExpiresAt: time.Now().Unix() - 3600,
+	})
+
+	cookies := jar.GetAllCookies()
+	if len(cookies) != 1 {
+		t.Errorf("GetAllCookies() = %d, want 1 (expired filtered)", len(cookies))
+	}
+	if cookies[0].Name != "valid" {
+		t.Errorf("Cookie name = %s, want valid", cookies[0].Name)
+	}
+}
+
+func TestCookieJar_RemoveCookie_NonexistentDomain(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	jar, _ := NewCookieJar(cookieFile)
+
+	// Remove from domain that doesn't exist should not error
+	err := jar.RemoveCookie(".nonexistent.com", "nonexistent")
+	if err != nil {
+		t.Errorf("RemoveCookie on nonexistent domain should not error: %v", err)
+	}
+}

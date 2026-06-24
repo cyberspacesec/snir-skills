@@ -64,6 +64,26 @@ func TestMarkdown(t *testing.T) {
 			markdown: "",
 			wantErr:  false,
 		},
+		{
+			name:     "图片",
+			markdown: "![alt text](https://example.com/image.png)",
+			wantErr:  false,
+		},
+		{
+			name:     "水平分割线",
+			markdown: "---",
+			wantErr:  false,
+		},
+		{
+			name:     "代码块",
+			markdown: "```go\nfunc main() {}\n```",
+			wantErr:  false,
+		},
+		{
+			name:     "强调文本",
+			markdown: "**bold** *italic*",
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -93,8 +113,13 @@ func TestMarkdown(t *testing.T) {
 			if !tt.wantErr && tt.markdown != "" && !strings.Contains(result, strings.TrimSpace(tt.markdown)) {
 				// 特别处理: glamour 可能会添加格式，所以检查是否包含核心内容
 				coreContent := tt.markdown
-				if tt.name == "基本标题" {
+				switch tt.name {
+				case "基本标题":
 					coreContent = "Test Heading"
+				case "图片":
+					coreContent = "image.png"
+				case "代码块":
+					coreContent = "func main()"
 				}
 
 				if !strings.Contains(result, coreContent) {

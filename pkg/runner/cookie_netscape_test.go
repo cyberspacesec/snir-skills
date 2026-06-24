@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 func TestLoadNetscapeCookieFile(t *testing.T) {
@@ -170,5 +173,163 @@ func TestSaveAndLoadNetscapeCookie_RoundTrip(t *testing.T) {
 	}
 	if loaded[0].HttpOnly != true {
 		t.Error("roundtrip: HttpOnly not preserved")
+	}
+}
+
+func TestExportResultCookiesToNetscape(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "exported.txt")
+
+	resultCookies := []models.Cookie{
+		{Name: "session", Value: "abc123", Domain: ".example.com", Path: "/"},
+		{Name: "token", Value: "xyz789", Domain: "", Path: "/api"},
+	}
+
+	err := ExportResultCookiesToNetscape(cookieFile, resultCookies, "https://example.com/page")
+	if err != nil {
+		t.Fatalf("ExportResultCookiesToNetscape() error = %v", err)
+	}
+
+	// Verify file was created and is loadable
+	loaded, err := LoadNetscapeCookieFile(cookieFile)
+	if err != nil {
+		t.Fatalf("Failed to reload exported cookies: %v", err)
+	}
+
+	if len(loaded) != 2 {
+		t.Errorf("Reloaded cookies count = %d, want 2", len(loaded))
+	}
+
+	if loaded[0].Name != "session" {
+		t.Errorf("First cookie name = %s, want session", loaded[0].Name)
+	}
+
+	// The second cookie had empty domain, should get domain from URL
+	if loaded[1].Name != "token" {
+		t.Errorf("Second cookie name = %s, want token", loaded[1].Name)
+	}
+}
+
+func TestLoadNetscapeCookieFile_InvalidFile(t *testing.T) {
+	_, err := LoadNetscapeCookieFile("/nonexistent/cookies.txt")
+	if err == nil {
+		t.Error("Should return error for nonexistent file")
+	}
+}
+
+func TestLoadNetscapeCookieFileToJar_InvalidFile(t *testing.T) {
+	_, _, err := LoadNetscapeCookieFileToJar("/nonexistent/cookies.txt", true, "test")
+	if err == nil {
+		t.Error("Should return error for nonexistent file")
+	}
+}
+
+func TestSaveNetscapeCookieFile_ExpiredSkipped(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "output.txt")
+
+	cookies := []PersistentCookie{
+		{Name: "valid", Value: "v", Domain: ".example.com", Persistent: true},
+		{Name: "expired", Value: "e", Domain: ".example.com", Persistent: true, ExpiresAt: time.Now().Unix() - 3600},
+	}
+
+	err := SaveNetscapeCookieFile(cookieFile, cookies)
+	if err != nil {
+		t.Fatalf("SaveNetscapeCookieFile() error = %v", err)
+	}
+
+	loaded, _ := LoadNetscapeCookieFile(cookieFile)
+	if len(loaded) != 1 {
+		t.Errorf("Expired cookie should be skipped: got %d, want 1", len(loaded))
+	}
+	if loaded[0].Name != "valid" {
+		t.Errorf("Cookie name = %s, want valid", loaded[0].Name)
+	}
+}
+
+func TestSaveNetscapeCookieFile_EmptyDomain(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "output.txt")
+
+	cookies := []PersistentCookie{
+		{Name: "c", Value: "v", Domain: "", Path: "", Persistent: true},
+	}
+
+	err := SaveNetscapeCookieFile(cookieFile, cookies)
+	if err != nil {
+		t.Fatalf("SaveNetscapeCookieFile() error = %v", err)
+	}
+
+	loaded, _ := LoadNetscapeCookieFile(cookieFile)
+	if len(loaded) != 1 {
+		t.Errorf("Expected 1 cookie, got %d", len(loaded))
+	}
+	// Empty domain should become _global
+	if loaded[0].Domain != "_global" {
+		t.Errorf("Domain = %s, want _global", loaded[0].Domain)
+	}
+}
+
+func TestLoadNetscapeCookieFile_HttpOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.txt")
+	// Netscape format with HttpOnly in 8th column
+	content := ".example.com\tTRUE\t/\tFALSE\t0\tsession\tabc123\tTRUE\n"
+	os.WriteFile(cookieFile, []byte(content), 0644)
+
+	cookies, err := LoadNetscapeCookieFile(cookieFile)
+	if err != nil {
+		t.Fatalf("LoadNetscapeCookieFile() error = %v", err)
+	}
+
+	if len(cookies) != 1 {
+		t.Fatalf("Expected 1 cookie, got %d", len(cookies))
+	}
+	if !cookies[0].HttpOnly {
+		t.Error("HttpOnly should be true")
+	}
+}
+
+func TestLoadNetscapeCookieFile_HttpOnlyLowercase(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.txt")
+	content := ".example.com\tTRUE\t/\tFALSE\t0\tsession\tabc123\thttponly\n"
+	os.WriteFile(cookieFile, []byte(content), 0644)
+
+	cookies, err := LoadNetscapeCookieFile(cookieFile)
+	if err != nil {
+		t.Fatalf("LoadNetscapeCookieFile() error = %v", err)
+	}
+
+	if len(cookies) != 1 {
+		t.Fatalf("Expected 1 cookie, got %d", len(cookies))
+	}
+	if !cookies[0].HttpOnly {
+		t.Error("HttpOnly should be true (lowercase)")
+	}
+}
+
+func TestLoadNetscapeCookieFileToJar_ExpiredSkipped(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.txt")
+	content := ".example.com\tTRUE\t/\tFALSE\t9999999999\tauth\txyz789\n"
+	os.WriteFile(cookieFile, []byte(content), 0644)
+
+	jar, cookies, err := LoadNetscapeCookieFileToJar(cookieFile, false, "file")
+	if err != nil {
+		t.Fatalf("LoadNetscapeCookieFileToJar() error = %v", err)
+	}
+
+	if len(cookies) != 1 {
+		t.Errorf("Expected 1 cookie, got %d", len(cookies))
+	}
+	if jar.Count() != 1 {
+		t.Errorf("jar.Count() = %d, want 1", jar.Count())
+	}
+	if cookies[0].Persistent {
+		t.Error("persistent should be false")
+	}
+	if cookies[0].Source != "file" {
+		t.Errorf("Source = %s, want file", cookies[0].Source)
 	}
 }

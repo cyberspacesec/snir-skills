@@ -2,7 +2,10 @@ package log
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -243,4 +246,215 @@ func TestIsDebugEnabled(t *testing.T) {
 	if IsDebugEnabled() {
 		t.Error("静默模式下，IsDebugEnabled应该返回false")
 	}
+}
+
+// TestCommandHelp 测试 CommandHelp 函数返回黄色高亮的文本
+func TestCommandHelp(t *testing.T) {
+	result := CommandHelp("帮助文本")
+
+	// CommandHelp 应该返回包含原始文本的字符串
+	if !strings.Contains(result, "帮助文本") {
+		t.Errorf("CommandHelp输出应该包含原始文本，但得到: %s", result)
+	}
+
+	// 验证 CommandHelp 使用了 Yellow 函数（非空结果）
+	if result == "" {
+		t.Error("CommandHelp不应该返回空字符串")
+	}
+}
+
+// TestFormatLogMessage 测试 formatLogMessage 内部函数
+func TestFormatLogMessage(t *testing.T) {
+	// 测试奇数个参数（覆盖 i+1 < len(args) 为 false 的分支）
+	result := formatLogMessage(InfoLevel, "消息", "key1", "value1", "oddkey")
+	if !strings.Contains(result, "消息") {
+		t.Errorf("formatLogMessage输出应该包含消息，但得到: %s", result)
+	}
+	// 奇数参数的最后一个键不应形成 key=value 对
+	if strings.Contains(result, "oddkey=") {
+		t.Errorf("奇数参数的最后一个键不应出现 key= 格式，但得到: %s", result)
+	}
+	// 正常的键值对应该存在
+	if !strings.Contains(result, "key1=value1") {
+		t.Errorf("formatLogMessage输出应该包含键值对，但得到: %s", result)
+	}
+
+	// 测试空参数
+	resultEmpty := formatLogMessage(InfoLevel, "空参数消息")
+	if !strings.Contains(resultEmpty, "空参数消息") {
+		t.Errorf("formatLogMessage输出应该包含消息，但得到: %s", resultEmpty)
+	}
+
+	// 测试所有日志级别的标签
+	tests := []struct {
+		name       string
+		level      charm.Level
+		wantLabel  string
+	}{
+		{name: "Debug级别标签", level: DebugLevel, wantLabel: "DEBG"},
+		{name: "Info级别标签", level: InfoLevel, wantLabel: "INFO"},
+		{name: "Warn级别标签", level: WarnLevel, wantLabel: "WARN"},
+		{name: "Error级别标签", level: ErrorLevel, wantLabel: "ERRO"},
+		{name: "Fatal级别标签", level: FatalLevel, wantLabel: "FATL"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatLogMessage(tt.level, "消息")
+			if !strings.Contains(result, tt.wantLabel) {
+				t.Errorf("formatLogMessage输出应该包含级别标签 %s，但得到: %s", tt.wantLabel, result)
+			}
+		})
+	}
+}
+
+// TestSlogToCharmEnabled 测试 slogToCharm.Enabled 方法
+func TestSlogToCharmEnabled(t *testing.T) {
+	_, origLogger := setupTestLogger()
+	defer resetLogger(origLogger)
+
+	handler := &slogToCharm{}
+	ctx := context.Background()
+
+	// 默认级别是 Info
+	tests := []struct {
+		name   string
+		level  slog.Level
+		expect bool
+	}{
+		{name: "Debug级别 - 默认不启用", level: slog.LevelDebug, expect: false},
+		{name: "Info级别 - 默认启用", level: slog.LevelInfo, expect: true},
+		{name: "Warn级别 - 默认启用", level: slog.LevelWarn, expect: true},
+		{name: "Error级别 - 默认启用", level: slog.LevelError, expect: true},
+		{name: "自定义级别(低于Debug) - default分支返回true", level: slog.Level(-10), expect: true},
+		{name: "自定义级别(高于Error) - default分支返回true", level: slog.Level(20), expect: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := handler.Enabled(ctx, tt.level)
+			if result != tt.expect {
+				t.Errorf("Enabled(%v) = %v, 期望 %v", tt.level, result, tt.expect)
+			}
+		})
+	}
+}
+
+// TestSlogToCharmHandle 测试 slogToCharm.Handle 方法
+func TestSlogToCharmHandle(t *testing.T) {
+	w, origLogger := setupTestLogger()
+	defer resetLogger(origLogger)
+
+	handler := &slogToCharm{}
+	ctx := context.Background()
+
+	tests := []struct {
+		name   string
+		level  slog.Level
+	}{
+		{name: "处理Debug级别记录", level: slog.LevelDebug},
+		{name: "处理Info级别记录", level: slog.LevelInfo},
+		{name: "处理Warn级别记录", level: slog.LevelWarn},
+		{name: "处理Error级别记录", level: slog.LevelError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w.Reset()
+
+			// Debug级别需要先启用
+			if tt.level == slog.LevelDebug {
+				EnableDebug()
+			}
+
+			record := slog.Record{
+				Level:  tt.level,
+				Message: "slog消息",
+			}
+
+			err := handler.Handle(ctx, record)
+			if err != nil {
+				t.Errorf("Handle不应该返回错误，但得到: %v", err)
+			}
+
+			// Debug级别在默认Info级别下不会输出
+			if tt.level == slog.LevelDebug {
+				if w.String() == "" {
+					t.Errorf("Handle应该在Debug级别启用后输出日志")
+				}
+			} else {
+				if w.String() == "" {
+					t.Errorf("Handle应该在%s级别输出日志", tt.level.String())
+				}
+				if !strings.Contains(w.String(), "slog消息") {
+					t.Errorf("Handle输出应该包含消息，但得到: %s", w.String())
+				}
+			}
+		})
+	}
+
+	// 测试带有属性的记录
+	t.Run("带属性的记录", func(t *testing.T) {
+		w.Reset()
+		record := slog.Record{
+			Level:   slog.LevelInfo,
+			Message: "带属性消息",
+		}
+		record.AddAttrs(slog.String("attr1", "val1"), slog.Int("attr2", 42))
+
+		err := handler.Handle(ctx, record)
+		if err != nil {
+			t.Errorf("Handle不应该返回错误，但得到: %v", err)
+		}
+		if !strings.Contains(w.String(), "带属性消息") {
+			t.Errorf("Handle输出应该包含消息，但得到: %s", w.String())
+		}
+	})
+}
+
+// TestSlogToCharmWithAttrs 测试 slogToCharm.WithAttrs 方法
+func TestSlogToCharmWithAttrs(t *testing.T) {
+	handler := &slogToCharm{}
+	attrs := []slog.Attr{slog.String("key", "value")}
+
+	result := handler.WithAttrs(attrs)
+
+	// WithAttrs 应该返回同一个处理程序
+	if result != handler {
+		t.Errorf("WithAttrs应该返回同一个处理程序，但得到: %v", result)
+	}
+}
+
+// TestSlogToCharmWithGroup 测试 slogToCharm.WithGroup 方法
+func TestSlogToCharmWithGroup(t *testing.T) {
+	handler := &slogToCharm{}
+
+	result := handler.WithGroup("testgroup")
+
+	// WithGroup 应该返回同一个处理程序
+	if result != handler {
+		t.Errorf("WithGroup应该返回同一个处理程序，但得到: %v", result)
+	}
+}
+
+// TestFatal 测试 Fatal 函数
+// 使用子进程模式来测试 os.Exit(1) 的行为
+func TestFatal(t *testing.T) {
+	if os.Getenv("BE_FATAL") == "1" {
+		w, _ := setupTestLogger()
+		Fatal("fatal message", "key", "value")
+		// Fatal应该已经退出，如果到这里说明没有退出，需要输出一些内容以便父进程检测
+		if w.String() == "" {
+			os.Exit(0) // 不应该到这里
+		}
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestFatal")
+	cmd.Env = append(os.Environ(), "BE_FATAL=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		return // 期望的行为 - 以非零状态退出
+	}
+	t.Fatalf("Fatal应该以非零状态退出，但得到: %v", err)
 }

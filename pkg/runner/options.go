@@ -36,44 +36,49 @@ type Options struct {
 		ProxyStrategy ProxyStrategy // 代理轮换策略：round-robin / random / sequential
 
 		// 高级浏览器控制
-		AcceptLanguage  string            // 接受的语言
-		Platform        string            // 平台
-		Vendor          string            // 浏览器供应商
-		Plugins         []string          // 插件列表
-		WebGLVendor     string            // WebGL供应商
-		WebGLRenderer   string            // WebGL渲染器
-		CustomHeaders   map[string]string // 自定义HTTP头
-		DisableWebRTC   bool              // 是否禁用WebRTC
-		SpoofScreenSize bool              // 是否欺骗屏幕尺寸
-		ScreenWidth     int               // 屏幕宽度
-		ScreenHeight    int               // 屏幕高度
+		AcceptLanguage    string            // 接受的语言
+		Platform          string            // 平台
+		Vendor            string            // 浏览器供应商
+		Plugins           []string          // 插件列表
+		WebGLVendor       string            // WebGL供应商
+		WebGLRenderer     string            // WebGL渲染器
+		CustomHeaders     map[string]string // 自定义HTTP头
+		DisableWebRTC     bool              // 是否禁用WebRTC
+		SpoofScreenSize   bool              // 是否欺骗屏幕尺寸
+		ScreenWidth       int               // 屏幕宽度
+		ScreenHeight      int               // 屏幕高度
+		DeviceName        string            // 设备预设名称
+		DeviceScaleFactor float64           // 设备像素比
+		IsMobile          bool              // 是否启用移动端视口仿真
+		HasTouch          bool              // 是否启用触摸仿真
 	}
 
 	// Scan options
 	Scan struct {
-		Driver             string   // 使用的驱动（chromedp）
-		Threads            int      // 并发线程数
-		ScreenshotPath     string   // 截图保存路径
-		ScreenshotFormat   string   // 截图格式（jpeg或png）
-		ScreenshotQuality  int      // 截图质量（仅对JPEG有效）
-		ScreenshotSkipSave bool     // 是否跳过保存截图
-		SaveHTML           bool     // 是否保存HTML内容
-		SaveHeaders        bool     // 是否保存HTTP头
-		SaveConsole        bool     // 是否保存控制台日志
-		SaveCookies        bool     // 是否保存Cookie
-		SaveNetwork        bool     // 是否保存网络请求日志
-		HTTP               bool     // 是否使用HTTP协议
-		HTTPS              bool     // 是否使用HTTPS协议
-		Ports              []int    // 扫描的端口列表
-		Timeout            int      // 扫描超时时间（秒）
-		MaxRetries         int      // 最大重试次数
-		JavaScript         string   // 要在页面上执行的JavaScript代码
-		JavaScriptFile     string   // 包含JavaScript代码的文件路径
-		FilePath           string   // URL文件路径，用于批量扫描
-		EnableBlacklist    bool     // 是否启用URL黑名单
-		DefaultBlacklist   bool     // 是否使用默认黑名单
-		BlacklistPatterns  []string // 自定义黑名单规则（支持CIDR和正则表达式）
-		BlacklistFile      string   // 黑名单文件路径
+		Driver                string   // 使用的驱动（chromedp）
+		Threads               int      // 并发线程数
+		ScreenshotPath        string   // 截图保存路径
+		ScreenshotFormat      string   // 截图格式（jpeg或png）
+		ScreenshotQuality     int      // 截图质量（仅对JPEG有效）
+		ScreenshotSkipSave    bool     // 是否跳过保存截图
+		ReturnScreenshotBytes bool     // 是否在结果中返回截图字节
+		SaveHTML              bool     // 是否保存HTML内容
+		SaveHeaders           bool     // 是否保存HTTP头
+		SaveConsole           bool     // 是否保存控制台日志
+		SaveCookies           bool     // 是否保存Cookie
+		SaveNetwork           bool     // 是否保存网络请求日志
+		HTTP                  bool     // 是否使用HTTP协议
+		HTTPS                 bool     // 是否使用HTTPS协议
+		Ports                 []int    // 扫描的端口列表
+		Timeout               int      // 扫描超时时间（秒）
+		MaxRetries            int      // 最大重试次数
+		JavaScript            string   // 要在页面上执行的JavaScript代码
+		JavaScriptFile        string   // 包含JavaScript代码的文件路径
+		FilePath              string   // URL文件路径，用于批量扫描
+		EnableBlacklist       bool     // 是否启用URL黑名单
+		DefaultBlacklist      bool     // 是否使用默认黑名单
+		BlacklistPatterns     []string // 自定义黑名单规则（支持CIDR和正则表达式）
+		BlacklistFile         string   // 黑名单文件路径
 
 		// 高级功能
 		RunJSBefore     bool                // 在页面加载前执行JS

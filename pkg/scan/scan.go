@@ -2,7 +2,9 @@ package scan
 
 import (
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,6 +192,104 @@ func ensureProtocol(target string, useHTTPS, useHTTP bool) string {
 	return "https://" + target
 }
 
+// ExpandTargets expands bare hosts/IPs by configured schemes and ports.
+func ExpandTargets(targets []string, options *runner.Options) []string {
+	if len(targets) == 0 {
+		return nil
+	}
+
+	expanded := make([]string, 0, len(targets))
+	for _, target := range targets {
+		expanded = append(expanded, expandTarget(target, options)...)
+	}
+	return expanded
+}
+
+func expandTarget(target string, options *runner.Options) []string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil
+	}
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+		return []string{target}
+	}
+	if options == nil || len(options.Scan.Ports) == 0 {
+		return []string{ensureProtocol(target, options != nil && options.Scan.HTTPS, options != nil && options.Scan.HTTP)}
+	}
+
+	schemes := targetSchemes(options.Scan.HTTPS, options.Scan.HTTP)
+	host, suffix := splitBareTarget(target)
+	if hasExplicitPort(host) {
+		results := make([]string, 0, len(schemes))
+		for _, scheme := range schemes {
+			results = append(results, scheme+"://"+host+suffix)
+		}
+		return results
+	}
+
+	results := make([]string, 0, len(schemes)*len(options.Scan.Ports))
+	for _, scheme := range schemes {
+		for _, port := range options.Scan.Ports {
+			if port <= 0 || port > 65535 {
+				continue
+			}
+			results = append(results, scheme+"://"+net.JoinHostPort(host, strconv.Itoa(port))+suffix)
+		}
+	}
+	if len(results) == 0 {
+		return []string{ensureProtocol(target, options.Scan.HTTPS, options.Scan.HTTP)}
+	}
+	return results
+}
+
+func hasExplicitPort(host string) bool {
+	if host == "" {
+		return false
+	}
+	if strings.HasPrefix(host, "[") {
+		_, port, err := net.SplitHostPort(host)
+		if err != nil {
+			return false
+		}
+		return validPort(port)
+	}
+
+	colon := strings.LastIndex(host, ":")
+	if colon <= 0 || colon == len(host)-1 || strings.Contains(host[:colon], ":") {
+		return false
+	}
+	return validPort(host[colon+1:])
+}
+
+func validPort(port string) bool {
+	parsedPort, err := strconv.Atoi(port)
+	return err == nil && parsedPort > 0 && parsedPort <= 65535
+}
+
+func targetSchemes(useHTTPS, useHTTP bool) []string {
+	schemes := make([]string, 0, 2)
+	if useHTTPS {
+		schemes = append(schemes, "https")
+	}
+	if useHTTP {
+		schemes = append(schemes, "http")
+	}
+	if len(schemes) == 0 {
+		return []string{"https"}
+	}
+	return schemes
+}
+
+func splitBareTarget(target string) (string, string) {
+	end := len(target)
+	for _, marker := range []string{"/", "?", "#"} {
+		if idx := strings.Index(target, marker); idx >= 0 && idx < end {
+			end = idx
+		}
+	}
+	return target[:end], target[end:]
+}
+
 // extractDomainFromURL 从 URL 中提取域名
 func extractDomainFromURL(rawURL string) string {
 	u := rawURL
@@ -273,6 +373,8 @@ func (s *Scanner) ScanSingle(target string) (*models.Result, error) {
 		return nil, fmt.Errorf("扫描失败: %v", lastErr)
 	}
 
+	models.EnrichEndpoint(result)
+
 	// 运行写入器
 	s.writeResult(result)
 
@@ -284,6 +386,7 @@ func (s *Scanner) ScanSingle(target string) (*models.Result, error) {
 // 参数:
 //   - result: 扫描结果
 func (s *Scanner) writeResult(result *models.Result) {
+	models.EnrichEndpoint(result)
 	for _, writer := range s.Writers {
 		if err := writer.Write(result); err != nil {
 			log.Error("写入结果失败", "error", err)
@@ -310,9 +413,7 @@ func (s *Scanner) ScanMulti(targets []string) error {
 
 	// 启动扫描，向通道发送目标
 	go func() {
-		for _, target := range targets {
-			// 确保URL格式正确
-			formattedTarget := ensureProtocol(target, s.Config.Options.Scan.HTTPS, s.Config.Options.Scan.HTTP)
+		for _, formattedTarget := range ExpandTargets(targets, s.Config.Options) {
 			s.Runner.Targets <- formattedTarget
 		}
 		close(s.Runner.Targets)

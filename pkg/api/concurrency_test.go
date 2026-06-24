@@ -398,3 +398,258 @@ func TestGlobalConcurrencyLimitMiddleware(t *testing.T) {
 		time.Sleep(400 * time.Millisecond)
 	})
 }
+
+// TestAcquireReleaseEdgeCases tests edge cases for Acquire and Release
+func TestAcquireReleaseEdgeCases(t *testing.T) {
+	t.Run("Acquire without wait queue uses simpler path", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(2, 0)
+		ctx := context.Background()
+
+		// Acquire without wait queue counting
+		err := limiter.Acquire(ctx)
+		if err != nil {
+			t.Errorf("Acquire() without wait queue error = %v", err)
+		}
+
+		if current := limiter.CurrentConcurrency(); current != 1 {
+			t.Errorf("CurrentConcurrency() = %v, want 1", current)
+		}
+
+		// Release without active count
+		limiter.Release()
+		if current := limiter.CurrentConcurrency(); current != 0 {
+			t.Errorf("CurrentConcurrency() after release = %v, want 0", current)
+		}
+	})
+
+	t.Run("Acquire with timeout without wait queue", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(1, 0)
+		ctx := context.Background()
+
+		// Take the only slot
+		err := limiter.Acquire(ctx)
+		if err != nil {
+			t.Errorf("first Acquire() error = %v", err)
+		}
+
+		// Try to acquire with timeout
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		err = limiter.Acquire(timeoutCtx)
+		if err == nil {
+			t.Error("expected timeout error, got nil")
+			limiter.Release()
+		}
+
+		limiter.Release()
+	})
+
+	t.Run("Release without active count when waitQueue is 0", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(2, 0)
+
+		// Release on empty semaphore should not panic
+		limiter.Release()
+		limiter.Release()
+		// Should not panic or deadlock
+	})
+
+	t.Run("Release double-release prevention", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(2, 100)
+		ctx := context.Background()
+
+		limiter.Acquire(ctx)
+		limiter.Release()
+		// Double release should be safe
+		limiter.Release()
+
+		// Verify stats
+		active, _, _, _ := limiter.Stats()
+		if active < 0 {
+			t.Errorf("active count should not be negative: %v", active)
+		}
+	})
+
+	t.Run("Acquire queue full", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(1, 1)
+		ctx := context.Background()
+
+		// Take the slot
+		limiter.Acquire(ctx)
+
+		// Fill the queue
+		timeoutCtx1, cancel1 := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel1()
+		go limiter.Acquire(timeoutCtx1)
+		time.Sleep(50 * time.Millisecond) // Give it time to enter queue
+
+		// This should be rejected immediately because queue is full
+		err := limiter.Acquire(ctx)
+		if err == nil {
+			t.Error("expected queue full error, got nil")
+		} else if err.Error() != "服务器繁忙，请求队列已满" {
+			t.Errorf("expected queue full message, got: %v", err.Error())
+		}
+
+		limiter.Release()
+		time.Sleep(100 * time.Millisecond) // Let queued goroutine finish
+	})
+
+	t.Run("Stats with waitQueue=0", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(5, 0)
+		active, waiting, maxConc, queueSize := limiter.Stats()
+
+		if maxConc != 5 {
+			t.Errorf("MaxConcurrent = %v, want 5", maxConc)
+		}
+		// NewConcurrencyLimiter overrides 0 with default 100
+		if queueSize != 100 {
+			t.Errorf("QueueSize = %v, want 100 (default override)", queueSize)
+		}
+		// active and waiting should be 0 initially
+		if active != 0 || waiting != 0 {
+			t.Errorf("active=%v waiting=%v, want both 0", active, waiting)
+		}
+	})
+}
+
+// TestServerCreateConcurrencyLimitMiddleware tests the server's CreateConcurrencyLimitMiddleware method
+func TestServerCreateConcurrencyLimitMiddleware(t *testing.T) {
+	// Test with nil concurrencyLimit (no limit set)
+	t.Run("nil concurrency limit", func(t *testing.T) {
+		server := &Server{
+			concurrencyLimit: nil,
+		}
+		middleware := server.CreateConcurrencyLimitMiddleware()
+
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		}))
+
+		req, _ := http.NewRequest("POST", "/screenshot", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("status = %v, want %v", rr.Code, http.StatusOK)
+		}
+	})
+
+	// Test with invalid type
+	t.Run("invalid concurrencyLimit type", func(t *testing.T) {
+		server := &Server{
+			concurrencyLimit: "invalid",
+		}
+		middleware := server.CreateConcurrencyLimitMiddleware()
+
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		}))
+
+		req, _ := http.NewRequest("POST", "/screenshot", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("status = %v, want %v", rr.Code, http.StatusOK)
+		}
+	})
+
+	// Test with valid limiter - special paths bypass
+	t.Run("valid limiter special paths bypass", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(2, 5)
+		server := &Server{
+			concurrencyLimit: limiter,
+		}
+		middleware := server.CreateConcurrencyLimitMiddleware()
+
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		}))
+
+		specialPaths := []string{"/health", "/stats", "/", "/screenshots/test.png"}
+		for _, path := range specialPaths {
+			req, _ := http.NewRequest("GET", path, nil)
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusOK {
+				t.Errorf("path %s: status = %v, want %v", path, rr.Code, http.StatusOK)
+			}
+		}
+	})
+
+	// Test with valid limiter - blocked by capacity
+	t.Run("valid limiter blocks when full", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(1, 1)
+		server := &Server{
+			concurrencyLimit: limiter,
+		}
+		middleware := server.CreateConcurrencyLimitMiddleware()
+
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		}))
+
+		// Take the slot
+		ctx := context.Background()
+		limiter.Acquire(ctx)
+
+		// Fill the queue with one waiting request
+		go func() {
+			timeoutCtx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			limiter.Acquire(timeoutCtx)
+		}()
+		time.Sleep(50 * time.Millisecond)
+
+		// This should be rejected (queue full)
+		req, _ := http.NewRequest("POST", "/screenshot", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusTooManyRequests {
+			t.Errorf("status = %v, want %v", rr.Code, http.StatusTooManyRequests)
+		}
+
+		// Clean up
+		limiter.Release()
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	// Test with valid limiter - timeout
+	t.Run("valid limiter timeout", func(t *testing.T) {
+		limiter := NewConcurrencyLimiter(1, 5)
+		server := &Server{
+			concurrencyLimit: limiter,
+		}
+		middleware := server.CreateConcurrencyLimitMiddleware()
+
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		}))
+
+		// Take the slot
+		ctx := context.Background()
+		limiter.Acquire(ctx)
+
+		// Release after a delay so the middleware request can succeed
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			limiter.Release()
+		}()
+
+		// This should succeed after the slot is released
+		req, _ := http.NewRequest("POST", "/screenshot", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("status = %v, want %v", rr.Code, http.StatusOK)
+		}
+	})
+}

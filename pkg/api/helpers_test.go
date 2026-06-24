@@ -1,9 +1,13 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 func TestUrlWithProtocol(t *testing.T) {
@@ -255,4 +259,98 @@ func TestSendJSONResponse(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSendJSONResponseErrorPath tests SendJSONResponse with a broken writer
+func TestSendJSONResponseErrorPath(t *testing.T) {
+	// Create a response writer that fails on write
+	bw := &brokenResponseWriter{
+		header: make(http.Header),
+	}
+	// This should not panic; the function handles write errors internally
+	SendJSONResponse(bw, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "test",
+	})
+}
+
+// brokenResponseWriter is a ResponseWriter that fails on Write
+type brokenResponseWriter struct {
+	header http.Header
+}
+
+func (bw *brokenResponseWriter) Header() http.Header {
+	return bw.header
+}
+
+func (bw *brokenResponseWriter) Write(data []byte) (int, error) {
+	return 0, fmt.Errorf("simulated write error")
+}
+
+func (bw *brokenResponseWriter) WriteHeader(statusCode int) {
+	// no-op
+}
+
+// TestMemoryWriter tests the MemoryWriter Write and Close methods
+func TestMemoryWriter(t *testing.T) {
+	t.Run("Write adds result", func(t *testing.T) {
+		mw := &MemoryWriter{}
+		result := &models.Result{
+			URL:        "https://example.com",
+			Title:      "Test Title",
+			Screenshot: "test.png",
+		}
+
+		err := mw.Write(result)
+		if err != nil {
+			t.Errorf("Write() error = %v, want nil", err)
+		}
+
+		if len(mw.Results) != 1 {
+			t.Errorf("Results length = %v, want 1", len(mw.Results))
+		}
+
+		if mw.Results[0].URL != "https://example.com" {
+			t.Errorf("Result URL = %v, want https://example.com", mw.Results[0].URL)
+		}
+	})
+
+	t.Run("Write multiple results", func(t *testing.T) {
+		mw := &MemoryWriter{}
+		for i := 0; i < 5; i++ {
+			err := mw.Write(&models.Result{URL: "https://example.com"})
+			if err != nil {
+				t.Errorf("Write() error = %v", err)
+			}
+		}
+
+		if len(mw.Results) != 5 {
+			t.Errorf("Results length = %v, want 5", len(mw.Results))
+		}
+	})
+
+	t.Run("Write concurrent", func(t *testing.T) {
+		mw := &MemoryWriter{}
+		var wg sync.WaitGroup
+		for i := 0; i < 100; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				mw.Write(&models.Result{URL: "https://example.com"})
+			}()
+		}
+		wg.Wait()
+
+		if len(mw.Results) != 100 {
+			t.Errorf("Results length = %v, want 100", len(mw.Results))
+		}
+	})
+
+	t.Run("Close returns nil", func(t *testing.T) {
+		mw := &MemoryWriter{}
+		err := mw.Close()
+		if err != nil {
+			t.Errorf("Close() error = %v, want nil", err)
+		}
+	})
 }

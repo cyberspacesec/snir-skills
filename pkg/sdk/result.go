@@ -56,7 +56,7 @@ func (r *ResultWrapper) HeaderMap() map[string][]string {
 	if r == nil {
 		return nil
 	}
-	return r.HeaderMap()
+	return r.Result.HeaderMap()
 }
 
 // CookieMap 返回 Cookie 的 map 形式 (name -> value)

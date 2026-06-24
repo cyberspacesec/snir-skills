@@ -131,21 +131,51 @@ func createRunnerOptions(req ScreenshotRequest, serverOpts ServerOptions) runner
 	opts.Chrome.Headless = true
 	opts.Chrome.IgnoreCertErrors = req.IgnoreCertErrors
 
-	// 浏览器指纹
+	if req.Device != "" {
+		if preset, err := runner.GetDevicePreset(req.Device); err == nil {
+			preset.ApplyToOptions(&opts)
+		} else {
+			log.Warn("未知设备预设，忽略 device 参数", "device", req.Device, "error", err)
+		}
+	}
+
+	// 浏览器指纹：只覆盖请求中显式提供的字段，避免空值清掉设备预设。
 	if req.Fingerprint.UserAgent != "" {
 		opts.Chrome.UserAgent = req.Fingerprint.UserAgent
 	}
-	opts.Chrome.AcceptLanguage = req.Fingerprint.AcceptLanguage
-	opts.Chrome.Platform = req.Fingerprint.Platform
-	opts.Chrome.Vendor = req.Fingerprint.Vendor
-	opts.Chrome.Plugins = req.Fingerprint.Plugins
-	opts.Chrome.WebGLVendor = req.Fingerprint.WebGLVendor
-	opts.Chrome.WebGLRenderer = req.Fingerprint.WebGLRenderer
-	opts.Chrome.CustomHeaders = req.Fingerprint.CustomHeaders
-	opts.Chrome.DisableWebRTC = req.Fingerprint.DisableWebRTC
-	opts.Chrome.SpoofScreenSize = req.Fingerprint.SpoofScreenSize
-	opts.Chrome.ScreenWidth = req.Fingerprint.ScreenWidth
-	opts.Chrome.ScreenHeight = req.Fingerprint.ScreenHeight
+	if req.Fingerprint.AcceptLanguage != "" {
+		opts.Chrome.AcceptLanguage = req.Fingerprint.AcceptLanguage
+	}
+	if req.Fingerprint.Platform != "" {
+		opts.Chrome.Platform = req.Fingerprint.Platform
+	}
+	if req.Fingerprint.Vendor != "" {
+		opts.Chrome.Vendor = req.Fingerprint.Vendor
+	}
+	if len(req.Fingerprint.Plugins) > 0 {
+		opts.Chrome.Plugins = req.Fingerprint.Plugins
+	}
+	if req.Fingerprint.WebGLVendor != "" {
+		opts.Chrome.WebGLVendor = req.Fingerprint.WebGLVendor
+	}
+	if req.Fingerprint.WebGLRenderer != "" {
+		opts.Chrome.WebGLRenderer = req.Fingerprint.WebGLRenderer
+	}
+	if len(req.Fingerprint.CustomHeaders) > 0 {
+		opts.Chrome.CustomHeaders = req.Fingerprint.CustomHeaders
+	}
+	if req.Fingerprint.DisableWebRTC {
+		opts.Chrome.DisableWebRTC = true
+	}
+	if req.Fingerprint.SpoofScreenSize {
+		opts.Chrome.SpoofScreenSize = true
+	}
+	if req.Fingerprint.ScreenWidth > 0 {
+		opts.Chrome.ScreenWidth = req.Fingerprint.ScreenWidth
+	}
+	if req.Fingerprint.ScreenHeight > 0 {
+		opts.Chrome.ScreenHeight = req.Fingerprint.ScreenHeight
+	}
 
 	// 设置超时和延迟
 	if req.Timeout > 0 {
@@ -160,7 +190,19 @@ func createRunnerOptions(req ScreenshotRequest, serverOpts ServerOptions) runner
 	// 设置截图选项
 	opts.Scan.ScreenshotPath = serverOpts.ScreenshotPath
 	opts.Scan.ScreenshotFormat = "png"
+	if req.ScreenshotFormat != "" {
+		opts.Scan.ScreenshotFormat = strings.ToLower(req.ScreenshotFormat)
+	}
 	opts.Scan.ScreenshotQuality = 90
+	if req.ScreenshotQuality > 0 {
+		opts.Scan.ScreenshotQuality = req.ScreenshotQuality
+	}
+	opts.Scan.ScreenshotSkipSave = req.SkipSave
+	opts.Scan.SaveHTML = req.SaveHTML
+	opts.Scan.SaveHeaders = req.SaveHeaders
+	opts.Scan.SaveConsole = req.SaveConsole
+	opts.Scan.SaveCookies = req.SaveCookies
+	opts.Scan.SaveNetwork = req.SaveNetwork
 
 	// 设置黑名单选项
 	opts.Scan.EnableBlacklist = serverOpts.EnableBlacklist

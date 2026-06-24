@@ -12,6 +12,8 @@ func TestCreateDir(t *testing.T) {
 		path          string
 		expectError   bool
 		expectDefault bool
+		noCleanup     bool   // 不清理目录（系统目录等）
+		expectAbsPath string // 期望返回的绝对路径（可选）
 	}{
 		{
 			name:          "空路径使用默认值",
@@ -25,10 +27,49 @@ func TestCreateDir(t *testing.T) {
 			expectError:   false,
 			expectDefault: false,
 		},
+		{
+			name:        "只读文件系统下创建目录失败",
+			path:        "/proc/cannot_create_dir_here",
+			expectError: true,
+			noCleanup:   true,
+		},
+		{
+			name:        "filepath.Abs错误-当前工作目录已删除",
+			path:        "relative_path",
+			expectError: true,
+			noCleanup:   true,
+		},
+		{
+			name:          "目录已存在时返回绝对路径",
+			path:          os.TempDir(),
+			expectError:   false,
+			expectDefault: false,
+			noCleanup:     true,
+			expectAbsPath: func() string { p, _ := filepath.Abs(os.TempDir()); return p }(),
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// 特殊处理：filepath.Abs错误测试需要先设置已删除的CWD
+			if tt.name == "filepath.Abs错误-当前工作目录已删除" {
+				tmpDir, err := os.MkdirTemp("", "islazy_abs_err_test")
+				if err != nil {
+					t.Fatalf("无法创建临时目录: %v", err)
+				}
+				// 切换到临时目录后删除它，使getwd失败
+				oldDir, _ := os.Getwd()
+				if err := os.Chdir(tmpDir); err != nil {
+					os.RemoveAll(tmpDir)
+					t.Fatalf("无法切换到临时目录: %v", err)
+				}
+				if err := os.RemoveAll(tmpDir); err != nil {
+					os.Chdir(oldDir)
+					t.Fatalf("无法删除临时目录: %v", err)
+				}
+				defer os.Chdir(oldDir)
+			}
+
 			// 运行测试
 			result, err := CreateDir(tt.path)
 
@@ -45,8 +86,13 @@ func TestCreateDir(t *testing.T) {
 				t.Errorf("期望默认路径但获得: %s", result)
 			}
 
-			// 清理测试目录
-			if result != "" && !tt.expectDefault {
+			// 验证已存在目录返回相同的绝对路径
+			if tt.expectAbsPath != "" && result != tt.expectAbsPath {
+				t.Errorf("期望路径 %s 但获得: %s", tt.expectAbsPath, result)
+			}
+
+			// 清理测试目录（跳过系统目录和错误情况）
+			if result != "" && !tt.expectDefault && !tt.noCleanup && !tt.expectError {
 				os.RemoveAll(result)
 			}
 		})

@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/cyberspacesec/snir-skills/pkg/models"
 )
 
 func TestNewClient(t *testing.T) {
@@ -116,6 +118,37 @@ func TestClient_ScreenshotBytes(t *testing.T) {
 		if imgBytes[0] != 0x89 || imgBytes[1] != 'P' || imgBytes[2] != 'N' || imgBytes[3] != 'G' {
 			t.Error("返回的数据不是 PNG 格式")
 		}
+	}
+}
+
+func TestScreenshotBytesFromResult_UsesInMemoryBytes(t *testing.T) {
+	want := []byte{0x89, 'P', 'N', 'G'}
+	got, err := screenshotBytesFromResult(&models.Result{
+		ScreenshotBytes: want,
+	})
+	if err != nil {
+		t.Fatalf("screenshotBytesFromResult() error = %v", err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("screenshotBytesFromResult() = %v, want %v", got, want)
+	}
+}
+
+func TestScreenshotBytesFromResult_FallsBackToFile(t *testing.T) {
+	path := t.TempDir() + "/shot.png"
+	want := []byte{0x89, 'P', 'N', 'G'}
+	if err := os.WriteFile(path, want, 0644); err != nil {
+		t.Fatalf("write screenshot file: %v", err)
+	}
+
+	got, err := screenshotBytesFromResult(&models.Result{
+		Screenshot: path,
+	})
+	if err != nil {
+		t.Fatalf("screenshotBytesFromResult() error = %v", err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("screenshotBytesFromResult() = %v, want %v", got, want)
 	}
 }
 

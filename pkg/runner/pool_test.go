@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -251,6 +252,43 @@ func TestBuildAllocOptions(t *testing.T) {
 
 	if len(allocOpts) < 3 {
 		t.Errorf("buildAllocOptions 返回选项太少: %d", len(allocOpts))
+	}
+}
+
+func TestProxyProviderForPool(t *testing.T) {
+	opts := &Options{}
+	if provider := proxyProviderForPool(opts); provider != nil {
+		t.Fatalf("没有轮换代理配置时不应创建 provider, got %s", provider.Name())
+	}
+
+	opts.Chrome.ProxyList = []string{"http://a:8080", "http://b:8080"}
+	opts.Chrome.ProxyStrategy = ProxyRoundRobin
+	provider := proxyProviderForPool(opts)
+	if provider == nil {
+		t.Fatal("ProxyList 应创建 provider")
+	}
+	if !strings.HasPrefix(provider.Name(), "proxy-list(") {
+		t.Fatalf("provider.Name() = %q, want proxy-list prefix", provider.Name())
+	}
+}
+
+func TestNewDriverPool_RemoteWSSRejectsProxy(t *testing.T) {
+	opts := &Options{}
+	opts.Chrome.WSS = "ws://127.0.0.1:9222/devtools/browser/test"
+	opts.Chrome.Proxy = "http://127.0.0.1:8080"
+
+	if _, err := NewDriverPool(opts, 1); err == nil {
+		t.Fatal("WSS 模式结合静态代理应返回错误")
+	}
+}
+
+func TestNewDriverPool_RemoteWSSRejectsProxyProvider(t *testing.T) {
+	opts := &Options{}
+	opts.Chrome.WSS = "ws://127.0.0.1:9222/devtools/browser/test"
+	opts.Chrome.ProxyList = []string{"http://127.0.0.1:8080"}
+
+	if _, err := NewDriverPool(opts, 1); err == nil {
+		t.Fatal("WSS 模式结合代理池应返回错误")
 	}
 }
 

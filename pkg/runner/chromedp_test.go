@@ -1,39 +1,48 @@
 package runner
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 )
 
 func makeTestOptions() Options {
 	return Options{
 		Chrome: struct {
-			Path             string
-			UserAgent        string
-			Proxy            string
-			Timeout          int
-			Delay            int
-			WindowX          int
-			WindowY          int
-			WSS              string
-			Headless         bool
-			IgnoreCertErrors bool
-			ProxyList        []string
-			ProxyFile        string
-			ProxyURL         string
-			ProxyStrategy    ProxyStrategy
-			AcceptLanguage   string
-			Platform         string
-			Vendor           string
-			Plugins          []string
-			WebGLVendor      string
-			WebGLRenderer    string
-			CustomHeaders    map[string]string
-			DisableWebRTC    bool
-			SpoofScreenSize  bool
-			ScreenWidth      int
-			ScreenHeight     int
+			Path              string
+			UserAgent         string
+			Proxy             string
+			Timeout           int
+			Delay             int
+			WindowX           int
+			WindowY           int
+			WSS               string
+			Headless          bool
+			IgnoreCertErrors  bool
+			ProxyList         []string
+			ProxyFile         string
+			ProxyURL          string
+			ProxyStrategy     ProxyStrategy
+			AcceptLanguage    string
+			Platform          string
+			Vendor            string
+			Plugins           []string
+			WebGLVendor       string
+			WebGLRenderer     string
+			CustomHeaders     map[string]string
+			DisableWebRTC     bool
+			SpoofScreenSize   bool
+			ScreenWidth       int
+			ScreenHeight      int
+			DeviceName        string
+			DeviceScaleFactor float64
+			IsMobile          bool
+			HasTouch          bool
 		}{
 			Headless: true,
 			WindowX:  1280,
@@ -190,6 +199,125 @@ func TestChromeDP_Witness(t *testing.T) {
 			t.Error("Witness() result.Title is empty")
 		}
 	})
+}
+
+func TestBuildFingerprintScript(t *testing.T) {
+	opts := makeTestOptions()
+
+	if script := buildFingerprintScript(&opts); script != "" {
+		t.Fatalf("empty fingerprint options should not generate script, got %q", script)
+	}
+
+	opts.Chrome.Platform = `Win"32`
+	opts.Chrome.Vendor = "Google Inc."
+	opts.Chrome.Plugins = []string{"Chrome PDF Viewer"}
+	opts.Chrome.WebGLVendor = "Intel Inc."
+	opts.Chrome.WebGLRenderer = "Intel Iris"
+	opts.Chrome.SpoofScreenSize = true
+	opts.Chrome.ScreenWidth = 1920
+	opts.Chrome.ScreenHeight = 1080
+	opts.Chrome.DisableWebRTC = true
+
+	script := buildFingerprintScript(&opts)
+	for _, want := range []string{
+		`"Win\"32"`,
+		"navigator, 'vendor'",
+		"Chrome PDF Viewer",
+		"37445",
+		"37446",
+		"RTCPeerConnection",
+		"width: 1920",
+		"height: 1080",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("fingerprint script missing %q:\n%s", want, script)
+		}
+	}
+}
+
+func TestBuildFingerprintScript_DisableWebRTCOnly(t *testing.T) {
+	opts := makeTestOptions()
+	opts.Chrome.DisableWebRTC = true
+
+	script := buildFingerprintScript(&opts)
+	if !strings.Contains(script, "RTCPeerConnection") {
+		t.Fatalf("DisableWebRTC alone should generate a WebRTC override script, got %q", script)
+	}
+}
+
+func TestBuildDeviceEmulationActions(t *testing.T) {
+	opts := makeTestOptions()
+	opts.Chrome.WindowX = 393
+	opts.Chrome.WindowY = 852
+	opts.Chrome.DeviceScaleFactor = 3
+	opts.Chrome.IsMobile = true
+	opts.Chrome.HasTouch = true
+
+	actions := buildDeviceEmulationActions(&opts)
+	if len(actions) != 2 {
+		t.Fatalf("buildDeviceEmulationActions() returned %d actions, want 2", len(actions))
+	}
+}
+
+func TestBuildDeviceEmulationActions_DesktopNoOverride(t *testing.T) {
+	opts := makeTestOptions()
+	opts.Chrome.WindowX = 1280
+	opts.Chrome.WindowY = 800
+
+	actions := buildDeviceEmulationActions(&opts)
+	if len(actions) != 0 {
+		t.Fatalf("desktop options without device emulation should not create actions, got %d", len(actions))
+	}
+}
+
+func TestChromeDP_Witness_MissingJavaScriptFile(t *testing.T) {
+	opts := makeTestOptions()
+	opts.Scan.JavaScriptFile = "/nonexistent/js/file.js"
+
+	driver := &ChromeDP{opts: &opts}
+	result, err := driver.Witness("https://example.com", &opts)
+	if err == nil {
+		t.Fatal("Witness should fail when JavaScriptFile is missing")
+	}
+	if result == nil || !result.Failed {
+		t.Fatalf("Witness should return a failed result, got %#v", result)
+	}
+	if !strings.Contains(result.FailedReason, "no such file") {
+		t.Fatalf("unexpected failed reason: %q", result.FailedReason)
+	}
+}
+
+func TestEncodeScreenshot(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	src.Set(0, 0, color.RGBA{R: 255, A: 255})
+	src.Set(1, 0, color.RGBA{G: 255, A: 255})
+	src.Set(0, 1, color.RGBA{B: 255, A: 255})
+	src.Set(1, 1, color.RGBA{R: 255, G: 255, B: 255, A: 128})
+
+	var input bytes.Buffer
+	if err := png.Encode(&input, src); err != nil {
+		t.Fatalf("encode source png: %v", err)
+	}
+
+	pngOut, err := encodeScreenshot(input.Bytes(), "png", 90)
+	if err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	if !bytes.HasPrefix(pngOut, []byte{0x89, 'P', 'N', 'G'}) {
+		t.Fatalf("png output has unexpected signature: %x", pngOut[:4])
+	}
+
+	jpegOut, err := encodeScreenshot(input.Bytes(), "jpeg", 80)
+	if err != nil {
+		t.Fatalf("encode jpeg: %v", err)
+	}
+	if !bytes.HasPrefix(jpegOut, []byte{0xff, 0xd8}) {
+		t.Fatalf("jpeg output has unexpected signature: %x", jpegOut[:2])
+	}
+
+	if _, err := encodeScreenshot(input.Bytes(), "gif", 90); err == nil {
+		t.Fatal("unsupported format should return error")
+	}
 }
 
 func CreateTestLogger() *slog.Logger {

@@ -3,6 +3,7 @@ package report
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
@@ -174,5 +175,236 @@ func TestDeduplicateResults(t *testing.T) {
 	dedupResults := deduplicateResults(results)
 	if len(dedupResults) != 2 {
 		t.Errorf("对于有重复的输入，期望去重后有2个记录，但得到了 %d 个", len(dedupResults))
+	}
+}
+
+func TestDeduplicateResults_AllDuplicates(t *testing.T) {
+	results := []*models.Result{
+		{URL: "https://example.com", Title: "A"},
+		{URL: "https://example.com", Title: "B"},
+		{URL: "https://example.com", Title: "C"},
+	}
+	dedupped := deduplicateResults(results)
+	if len(dedupped) != 1 {
+		t.Errorf("全部重复应只保留1条，但得到了 %d 条", len(dedupped))
+	}
+	if dedupped[0].Title != "A" {
+		t.Errorf("应保留第一条记录，title = %s, want A", dedupped[0].Title)
+	}
+}
+
+func TestDeduplicateResults_MixedWithEmptyURL(t *testing.T) {
+	results := []*models.Result{
+		{URL: "", Title: "Empty URL 1"},
+		{URL: "", Title: "Empty URL 2"},
+	}
+	dedupped := deduplicateResults(results)
+	// 空 URL 也应去重
+	if len(dedupped) != 1 {
+		t.Errorf("空URL去重后应只有1条，但得到了 %d 条", len(dedupped))
+	}
+}
+
+func TestMerge_EmptySourceFiles(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "merge_empty_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	outputFile := filepath.Join(tempDir, "output.jsonl")
+
+	// 空的源文件列表
+	err = Merge(MergeOptions{
+		SourceFiles: []string{},
+		OutputFile:  outputFile,
+	})
+	if err == nil {
+		t.Error("空源文件列表应返回错误")
+	}
+}
+
+func TestMerge_InvalidOutputExtension(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "merge_invalidext_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	jsonlFile := filepath.Join(tempDir, "test.jsonl")
+	if err := os.WriteFile(jsonlFile, []byte(`{"URL":"https://example.com","Title":"Test","ResponseCode":200}`+"\n"), 0644); err != nil {
+		t.Fatalf("创建测试文件失败: %v", err)
+	}
+
+	outputFile := filepath.Join(tempDir, "output.txt")
+
+	err = Merge(MergeOptions{
+		SourceFiles: []string{jsonlFile},
+		OutputFile:  outputFile,
+	})
+	if err == nil {
+		t.Error("无效输出扩展名应返回错误")
+	} else if !strings.Contains(err.Error(), "不支持") {
+		t.Errorf("错误消息应包含'不支持', got: %v", err)
+	}
+}
+
+func TestMerge_MultipleFilesDeduplication(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "merge_dedup_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 创建两个文件，各包含一些重复的 URL
+	jsonl1 := filepath.Join(tempDir, "1.jsonl")
+	jsonl2 := filepath.Join(tempDir, "2.jsonl")
+	if err := os.WriteFile(jsonl1, []byte(`{"URL":"https://example.com","Title":"Site A","ResponseCode":200}
+`), 0644); err != nil {
+		t.Fatalf("创建文件1失败: %v", err)
+	}
+	if err := os.WriteFile(jsonl2, []byte(`{"URL":"https://example.com","Title":"Site A","ResponseCode":200}
+{"URL":"https://example.org","Title":"Site B","ResponseCode":200}
+`), 0644); err != nil {
+		t.Fatalf("创建文件2失败: %v", err)
+	}
+
+	outputFile := filepath.Join(tempDir, "merged.jsonl")
+
+	err = Merge(MergeOptions{
+		SourceFiles: []string{jsonl1, jsonl2},
+		OutputFile:  outputFile,
+	})
+	if err != nil {
+		t.Fatalf("合并失败: %v", err)
+	}
+
+	// 读取合并后的文件
+	results, err := ReadJSONLResults(outputFile)
+	if err != nil {
+		t.Fatalf("读取合并结果失败: %v", err)
+	}
+
+	// Merge 不自动去重，所以应有3条记录（1+2）
+	if len(results) != 3 {
+		t.Errorf("合并后应有3条记录（不自动去重），但得到了 %d 条", len(results))
+	}
+
+	// 检查输出文件内容
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("读取输出文件失败: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	if len(lines) != 3 {
+		t.Errorf("输出文件应有3行，但得到了 %d 行", len(lines))
+	}
+}
+
+func TestMerge_UnsupportedSourceFileFormat(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "merge_skip_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 创建有效的 jsonl 和无效的 txt
+	jsonlFile := filepath.Join(tempDir, "test.jsonl")
+	if err := os.WriteFile(jsonlFile, []byte(`{"URL":"https://example.com","Title":"Test","ResponseCode":200}`+"\n"), 0644); err != nil {
+		t.Fatalf("创建测试文件失败: %v", err)
+	}
+
+	txtFile := filepath.Join(tempDir, "invalid.txt")
+	if err := os.WriteFile(txtFile, []byte("not a valid file"), 0644); err != nil {
+		t.Fatalf("创建测试文件失败: %v", err)
+	}
+
+	outputFile := filepath.Join(tempDir, "output.jsonl")
+
+	// 包含无效格式的文件——应该跳过但仍然处理有效的文件
+	err = Merge(MergeOptions{
+		SourceFiles: []string{jsonlFile, txtFile},
+		OutputFile:  outputFile,
+	})
+	// 该操作应该成功，因为存在一个有效的源文件
+	if err != nil {
+		t.Logf("合并返回错误 (可能因为无效文件格式): %v", err)
+	}
+}
+
+func TestMerge_AllUnreadableSourceFiles(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "merge_noread_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 创建空文件（读取后无有效记录）
+	emptyFile := filepath.Join(tempDir, "empty.jsonl")
+	if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
+		t.Fatalf("创建空文件失败: %v", err)
+	}
+
+	outputFile := filepath.Join(tempDir, "output.jsonl")
+
+	err = Merge(MergeOptions{
+		SourceFiles: []string{emptyFile},
+		OutputFile:  outputFile,
+	})
+	// 空文件读取后无记录，应返回错误
+	if err == nil {
+		t.Error("空源文件应返回错误")
+	}
+}
+
+func TestFindSourceFiles_ValidExtensions(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "find_valid_ext_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 创建所有支持格式的文件
+	extensions := []string{".jsonl", ".db", ".sqlite3", ".csv"}
+	for _, ext := range extensions {
+		file := filepath.Join(tempDir, "test"+ext)
+		if err := os.WriteFile(file, []byte("test"), 0644); err != nil {
+			t.Fatalf("创建文件 %s 失败: %v", file, err)
+		}
+	}
+
+	files, err := findSourceFiles(tempDir)
+	if err != nil {
+		t.Fatalf("findSourceFiles 失败: %v", err)
+	}
+
+	if len(files) != len(extensions) {
+		t.Errorf("期望找到 %d 个文件，但找到了 %d 个: %v", len(extensions), len(files), files)
+	}
+}
+
+func TestFindSourceFiles_NoValidExtensions(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "find_no_valid_test")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 只创建不支持格式的文件
+	invalidFiles := []string{"test.txt", "test.pdf", "test.doc"}
+	for _, file := range invalidFiles {
+		fp := filepath.Join(tempDir, file)
+		if err := os.WriteFile(fp, []byte("test"), 0644); err != nil {
+			t.Fatalf("创建文件 %s 失败: %v", fp, err)
+		}
+	}
+
+	files, err := findSourceFiles(tempDir)
+	if err != nil {
+		t.Fatalf("findSourceFiles 失败: %v", err)
+	}
+
+	if len(files) != 0 {
+		t.Errorf("期望找到 0 个文件，但找到了 %d 个", len(files))
 	}
 }

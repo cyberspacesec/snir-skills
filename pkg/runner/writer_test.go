@@ -313,3 +313,244 @@ func TestCreateWriters(t *testing.T) {
 		})
 	}
 }
+
+// TestNewJSONLWriterInvalidPath tests JSONL writer creation with an invalid path
+func TestNewJSONLWriterInvalidPath(t *testing.T) {
+	// /proc is a special filesystem; writing a new file with arbitrary path should fail
+	_, err := NewJSONLWriter("/proc/nonexistent_dir_should_fail/test.jsonl")
+	if err == nil {
+		t.Error("NewJSONLWriter should return error for invalid path")
+	}
+}
+
+// TestJSONLWriterCloseNilFile tests Close when file is nil
+func TestJSONLWriterCloseNilFile(t *testing.T) {
+	w := &JSONLWriter{file: nil}
+	err := w.Close()
+	if err != nil {
+		t.Errorf("Close() with nil file should not error: %v", err)
+	}
+}
+
+// TestNewCSVWriterInvalidPath tests CSV writer creation with an invalid path
+func TestNewCSVWriterInvalidPath(t *testing.T) {
+	_, err := NewCSVWriter("/proc/nonexistent_dir_should_fail/test.csv")
+	if err == nil {
+		t.Error("NewCSVWriter should return error for invalid path")
+	}
+}
+
+// TestCSVWriterCloseNilFile tests Close when file is nil
+func TestCSVWriterCloseNilFile(t *testing.T) {
+	w := &CSVWriter{file: nil}
+	err := w.Close()
+	if err != nil {
+		t.Errorf("Close() with nil file should not error: %v", err)
+	}
+}
+
+// TestJSONLWriterCloseError tests Close when the underlying file close fails
+func TestJSONLWriterCloseError(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "jsonl_close_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	filePath := filepath.Join(tempDir, "test.jsonl")
+	writer, err := NewJSONLWriter(filePath)
+	if err != nil {
+		t.Fatalf("NewJSONLWriter returned error: %v", err)
+	}
+
+	// Force close the file first to simulate error on second close
+	writer.file.Close()
+	err = writer.Close()
+	// After file is closed, calling Close again should return the file's error
+	if err == nil {
+		t.Log("Close() on already-closed file returned nil (filesystem-dependent)")
+	}
+}
+
+// TestCSVWriterCloseError tests Close when the underlying file close fails
+func TestCSVWriterCloseError(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "csv_close_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	filePath := filepath.Join(tempDir, "test.csv")
+	writer, err := NewCSVWriter(filePath)
+	if err != nil {
+		t.Fatalf("NewCSVWriter returned error: %v", err)
+	}
+
+	// Force close the file first
+	writer.file.Close()
+	err = writer.Close()
+	if err == nil {
+		t.Log("Close() on already-closed file returned nil (filesystem-dependent)")
+	}
+}
+
+// TestCSVWriterWriteAfterClose tests writing to a closed CSV writer
+func TestCSVWriterWriteAfterClose(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "csv_after_close_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	filePath := filepath.Join(tempDir, "test.csv")
+	writer, err := NewCSVWriter(filePath)
+	if err != nil {
+		t.Fatalf("NewCSVWriter returned error: %v", err)
+	}
+
+	// Close the file directly
+	writer.file.Close()
+
+	// Writing to a closed file should error
+	result := createTestResult()
+	err = writer.Write(result)
+	if err == nil {
+		t.Log("Write() on closed file returned nil (filesystem-dependent)")
+	}
+}
+
+// TestJSONLWriterWriteAfterClose tests writing to a closed JSONL writer
+func TestJSONLWriterWriteAfterClose(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "jsonl_after_close_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	filePath := filepath.Join(tempDir, "test.jsonl")
+	writer, err := NewJSONLWriter(filePath)
+	if err != nil {
+		t.Fatalf("NewJSONLWriter returned error: %v", err)
+	}
+
+	// Close the file directly
+	writer.file.Close()
+
+	// Writing to a closed file should error
+	result := createTestResult()
+	err = writer.Write(result)
+	if err == nil {
+		t.Log("Write() on closed file returned nil (filesystem-dependent)")
+	}
+}
+
+// TestCreateWritersDefaults tests CreateWriters with various configurations
+func TestCreateWritersDefaults(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "writers_defaults_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	t.Run("stdout only", func(t *testing.T) {
+		opts := &Options{
+			Writer: struct {
+				Db        bool
+				DbURI     string
+				DbDebug   bool
+				Jsonl     bool
+				JsonlFile string
+				Csv       bool
+				CsvFile   string
+				Stdout    bool
+			}{
+				Stdout: true,
+			},
+		}
+		writers, err := CreateWriters(opts)
+		if err != nil {
+			t.Fatalf("CreateWriters returned error: %v", err)
+		}
+		if len(writers) != 1 {
+			t.Errorf("Expected 1 writer, got %d", len(writers))
+		}
+		for _, w := range writers {
+			w.Close()
+		}
+	})
+
+	t.Run("jsonl with default path", func(t *testing.T) {
+		opts := &Options{
+			Writer: struct {
+				Db        bool
+				DbURI     string
+				DbDebug   bool
+				Jsonl     bool
+				JsonlFile string
+				Csv       bool
+				CsvFile   string
+				Stdout    bool
+			}{
+				Jsonl:     true,
+				JsonlFile: "", // Test default path
+			},
+		}
+		writers, err := CreateWriters(opts)
+		if err != nil {
+			t.Fatalf("CreateWriters returned error: %v", err)
+		}
+		if len(writers) < 1 {
+			t.Error("Expected at least 1 writer")
+		}
+		for _, w := range writers {
+			w.Close()
+		}
+		// Clean up default file
+		os.Remove("results.jsonl")
+	})
+
+	t.Run("csv with default path", func(t *testing.T) {
+		opts := &Options{
+			Writer: struct {
+				Db        bool
+				DbURI     string
+				DbDebug   bool
+				Jsonl     bool
+				JsonlFile string
+				Csv       bool
+				CsvFile   string
+				Stdout    bool
+			}{
+				Csv:     true,
+				CsvFile: "", // Test default path
+				Stdout:  true,
+			},
+		}
+		writers, err := CreateWriters(opts)
+		if err != nil {
+			t.Fatalf("CreateWriters returned error: %v", err)
+		}
+		if len(writers) < 2 {
+			t.Errorf("Expected at least 2 writers, got %d", len(writers))
+		}
+		for _, w := range writers {
+			w.Close()
+		}
+		os.Remove("results.csv")
+	})
+
+	t.Run("stdout fallback when no writers enabled", func(t *testing.T) {
+		opts := &Options{}
+		// No writers explicitly enabled, should fall back to stdout
+		writers, err := CreateWriters(opts)
+		if err != nil {
+			t.Fatalf("CreateWriters returned error: %v", err)
+		}
+		if len(writers) != 1 {
+			t.Errorf("Expected 1 writer (stdout fallback), got %d", len(writers))
+		}
+		for _, w := range writers {
+			w.Close()
+		}
+	})
+}

@@ -156,8 +156,9 @@ func (c *Client) ScreenshotBytes(url string, screenshotOpts *ScreenshotOptions) 
 func (c *Client) ScreenshotBytesWithContext(ctx context.Context, url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
 	runnerOpts := toRunnerOptions(c.opts)
 	runnerOpts = mergeWithScreenshotOptions(runnerOpts, screenshotOpts)
+	runnerOpts.Scan.ReturnScreenshotBytes = true
+	runnerOpts.Scan.ScreenshotSkipSave = true
 
-	// 截图保存到临时目录，然后读取字节
 	result, err := c.pool.ScreenshotWithContext(ctx, url, &runnerOpts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("截图失败: %v", err)
@@ -167,17 +168,28 @@ func (c *Client) ScreenshotBytesWithContext(ctx context.Context, url string, scr
 		return nil, result, fmt.Errorf("截图失败: %s", result.FailedReason)
 	}
 
-	if result.Screenshot == "" {
-		return nil, result, fmt.Errorf("截图文件路径为空")
-	}
-
-	// 读取截图文件字节
-	data, err := os.ReadFile(result.Screenshot)
+	data, err := screenshotBytesFromResult(result)
 	if err != nil {
-		return nil, result, fmt.Errorf("读取截图文件失败: %v", err)
+		return nil, result, err
 	}
 
 	return data, result, nil
+}
+
+func screenshotBytesFromResult(result *models.Result) ([]byte, error) {
+	if len(result.ScreenshotBytes) > 0 {
+		return result.ScreenshotBytes, nil
+	}
+
+	if result.Screenshot == "" {
+		return nil, fmt.Errorf("截图文件路径为空")
+	}
+
+	data, err := os.ReadFile(result.Screenshot)
+	if err != nil {
+		return nil, fmt.Errorf("读取截图文件失败: %v", err)
+	}
+	return data, nil
 }
 
 // ScreenshotHTML 截图并同时获取页面 HTML 源码

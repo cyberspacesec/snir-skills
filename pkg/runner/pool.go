@@ -25,6 +25,11 @@ type PoolStats struct {
 	Closed            bool      // 是否已关闭
 }
 
+type browserProcess struct {
+	allocCtx    context.Context
+	allocCancel context.CancelFunc
+}
+
 // DriverPool 管理一组可复用的 Chrome 浏览器实例
 // 复用 allocCtx（浏览器进程级别），每次截图创建新 tab（标签页级别）
 // 截图完成后关闭 tab 但保留浏览器进程，避免反复启动 Chrome
@@ -70,6 +75,7 @@ type DriverPool struct {
 
 	// 代理池
 	proxyProvider ProxyProvider
+	proxyBrowsers map[string]*browserProcess
 
 	// Cookie 持久化
 	cookieJar *CookieJar
@@ -82,19 +88,31 @@ func NewDriverPool(opts *Options, maxConcurrent int) (*DriverPool, error) {
 		maxConcurrent = 2
 	}
 
-	allocCtx, allocCancel, err := startBrowserProcess(opts)
-	if err != nil {
-		return nil, err
+	proxyProvider := proxyProviderForPool(opts)
+	if opts.Chrome.WSS != "" && (proxyProvider != nil || opts.Chrome.Proxy != "") {
+		return nil, fmt.Errorf("远程 Chrome WebSocket 模式不支持通过连接池设置代理；请在远程 Chrome 进程启动时配置代理")
+	}
+
+	var allocCtx context.Context
+	var allocCancel context.CancelFunc
+	var err error
+	if proxyProvider == nil {
+		allocCtx, allocCancel, err = startBrowserProcess(opts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pool := &DriverPool{
-		allocCtx:    allocCtx,
-		allocCancel: allocCancel,
-		opts:        opts,
-		sem:         make(chan struct{}, maxConcurrent),
-		createdAt:   time.Now(),
-		shutdownCh:  make(chan struct{}),
-		events:      newEventBus(),
+		allocCtx:      allocCtx,
+		allocCancel:   allocCancel,
+		opts:          opts,
+		sem:           make(chan struct{}, maxConcurrent),
+		createdAt:     time.Now(),
+		shutdownCh:    make(chan struct{}),
+		events:        newEventBus(),
+		proxyProvider: proxyProvider,
+		proxyBrowsers: make(map[string]*browserProcess),
 	}
 
 	// 记录初始活跃时间
@@ -145,9 +163,17 @@ func (p *DriverPool) handleIdleTimeout() {
 	}
 
 	log.Info("浏览器连接池空闲超时，关闭浏览器进程", "timeout", p.idleTimeout)
-	p.allocCancel()
+	if p.allocCancel != nil {
+		p.allocCancel()
+	}
 	p.allocCtx = nil
 	p.allocCancel = nil
+	for proxy, proc := range p.proxyBrowsers {
+		if proc.allocCancel != nil {
+			proc.allocCancel()
+		}
+		delete(p.proxyBrowsers, proxy)
+	}
 	p.mu.Unlock()
 }
 
@@ -206,14 +232,6 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 		p.resetIdleTimer()
 	}()
 
-	// 确保浏览器进程可用（可能在空闲超时后关闭了）
-	if err := p.ensureBrowserProcess(); err != nil {
-		p.failedScreenshots.Add(1)
-		duration := time.Since(startTime)
-		p.events.emitScreenshotFailed(target, duration, err)
-		return nil, fmt.Errorf("浏览器进程不可用: %v", err)
-	}
-
 	// 使用传入的 opts 或池默认的 opts
 	if opts == nil {
 		opts = p.opts
@@ -233,8 +251,16 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 		}
 	}
 
+	allocCtx, err := p.browserContextForOptions(opts)
+	if err != nil {
+		p.failedScreenshots.Add(1)
+		duration := time.Since(startTime)
+		p.events.emitScreenshotFailed(target, duration, err)
+		return nil, fmt.Errorf("浏览器进程不可用: %v", err)
+	}
+
 	// 在共享的浏览器进程中创建新 tab
-	tabCtx, tabCancel := chromedp.NewContext(p.allocCtx)
+	tabCtx, tabCancel := chromedp.NewContext(allocCtx)
 	defer tabCancel()
 
 	// 设置超时
@@ -352,6 +378,69 @@ func (p *DriverPool) ensureBrowserProcess() error {
 	return nil
 }
 
+func (p *DriverPool) browserContextForOptions(opts *Options) (context.Context, error) {
+	if opts.Chrome.WSS != "" {
+		if opts.Chrome.Proxy != "" {
+			return nil, fmt.Errorf("远程 Chrome WebSocket 模式不支持按请求设置代理")
+		}
+		if err := p.ensureBrowserProcess(); err != nil {
+			return nil, err
+		}
+		return p.allocCtx, nil
+	}
+
+	if opts.Chrome.Proxy != "" && (p.proxyProvider != nil || opts.Chrome.Proxy != p.opts.Chrome.Proxy) {
+		return p.ensureProxyBrowser(opts.Chrome.Proxy, opts)
+	}
+
+	if err := p.ensureBrowserProcess(); err != nil {
+		return nil, err
+	}
+	return p.allocCtx, nil
+}
+
+func (p *DriverPool) ensureProxyBrowser(proxy string, opts *Options) (context.Context, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed {
+		return nil, fmt.Errorf("连接池已关闭")
+	}
+	if proc, ok := p.proxyBrowsers[proxy]; ok && proc.allocCtx != nil && proc.allocCtx.Err() == nil {
+		return proc.allocCtx, nil
+	}
+
+	proxyOpts := *opts
+	proxyOpts.Chrome.Proxy = proxy
+	allocCtx, allocCancel, err := startBrowserProcess(&proxyOpts)
+	if err != nil {
+		return nil, fmt.Errorf("启动代理浏览器进程失败 (proxy=%s): %v", proxy, err)
+	}
+	p.proxyBrowsers[proxy] = &browserProcess{allocCtx: allocCtx, allocCancel: allocCancel}
+	p.reconnectCount.Add(1)
+	p.events.emitReconnect(p.reconnectCount.Load())
+
+	log.Info("代理浏览器进程已启动", "proxy", proxy, "provider", providerName(p.proxyProvider))
+	return allocCtx, nil
+}
+
+func proxyProviderForPool(opts *Options) ProxyProvider {
+	if opts == nil {
+		return nil
+	}
+	if opts.Chrome.ProxyURL == "" && opts.Chrome.ProxyFile == "" && len(opts.Chrome.ProxyList) == 0 {
+		return nil
+	}
+	return CreateProxyProvider(opts)
+}
+
+func providerName(provider ProxyProvider) string {
+	if provider == nil {
+		return ""
+	}
+	return provider.Name()
+}
+
 // On 注册池事件监听器
 // 事件类型: screenshot_start, screenshot_complete, screenshot_failed, reconnect, idle_close, pool_closed
 // 回调是异步执行的，不会阻塞主流程
@@ -432,6 +521,12 @@ func (p *DriverPool) CloseWithTimeout(timeout time.Duration) {
 	p.closed = true
 	if p.allocCancel != nil {
 		p.allocCancel()
+	}
+	for proxy, proc := range p.proxyBrowsers {
+		if proc.allocCancel != nil {
+			proc.allocCancel()
+		}
+		delete(p.proxyBrowsers, proxy)
 	}
 	log.Info("浏览器连接池已关闭")
 	p.events.emitPoolClosed()

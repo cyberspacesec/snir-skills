@@ -71,14 +71,23 @@ type BrowserFingerprint struct {
 
 // ScreenshotRequest 表示截图请求结构
 type ScreenshotRequest struct {
-	URL              string `json:"url"`
-	HTTPS            bool   `json:"https,omitempty"`
-	HTTP             bool   `json:"http,omitempty"`
-	UserAgent        string `json:"user_agent,omitempty"`
-	Proxy            string `json:"proxy,omitempty"`
-	Timeout          int    `json:"timeout,omitempty"`
-	Delay            int    `json:"delay,omitempty"`
-	IgnoreCertErrors bool   `json:"ignore_cert_errors,omitempty"`
+	URL               string `json:"url"`
+	HTTPS             bool   `json:"https,omitempty"`
+	HTTP              bool   `json:"http,omitempty"`
+	UserAgent         string `json:"user_agent,omitempty"`
+	Proxy             string `json:"proxy,omitempty"`
+	Device            string `json:"device,omitempty"`
+	Timeout           int    `json:"timeout,omitempty"`
+	Delay             int    `json:"delay,omitempty"`
+	IgnoreCertErrors  bool   `json:"ignore_cert_errors,omitempty"`
+	ScreenshotFormat  string `json:"screenshot_format,omitempty"`
+	ScreenshotQuality int    `json:"screenshot_quality,omitempty"`
+	SkipSave          bool   `json:"skip_save,omitempty"`
+	SaveHTML          bool   `json:"save_html,omitempty"`
+	SaveHeaders       bool   `json:"save_headers,omitempty"`
+	SaveConsole       bool   `json:"save_console,omitempty"`
+	SaveCookies       bool   `json:"save_cookies,omitempty"`
+	SaveNetwork       bool   `json:"save_network,omitempty"`
 
 	// 高级浏览器控制
 	JavaScript      string             `json:"javascript,omitempty"`        // 注入的JS代码
@@ -102,15 +111,24 @@ type ScreenshotRequest struct {
 
 // BatchScreenshotRequest 表示批量截图请求结构
 type BatchScreenshotRequest struct {
-	URLs             []string `json:"urls"`
-	HTTPS            bool     `json:"https,omitempty"`
-	HTTP             bool     `json:"http,omitempty"`
-	UserAgent        string   `json:"user_agent,omitempty"`
-	Proxy            string   `json:"proxy,omitempty"`
-	Timeout          int      `json:"timeout,omitempty"`
-	Delay            int      `json:"delay,omitempty"`
-	Threads          int      `json:"threads,omitempty"`
-	IgnoreCertErrors bool     `json:"ignore_cert_errors,omitempty"`
+	URLs              []string `json:"urls"`
+	HTTPS             bool     `json:"https,omitempty"`
+	HTTP              bool     `json:"http,omitempty"`
+	UserAgent         string   `json:"user_agent,omitempty"`
+	Proxy             string   `json:"proxy,omitempty"`
+	Device            string   `json:"device,omitempty"`
+	Timeout           int      `json:"timeout,omitempty"`
+	Delay             int      `json:"delay,omitempty"`
+	Threads           int      `json:"threads,omitempty"`
+	IgnoreCertErrors  bool     `json:"ignore_cert_errors,omitempty"`
+	ScreenshotFormat  string   `json:"screenshot_format,omitempty"`
+	ScreenshotQuality int      `json:"screenshot_quality,omitempty"`
+	SkipSave          bool     `json:"skip_save,omitempty"`
+	SaveHTML          bool     `json:"save_html,omitempty"`
+	SaveHeaders       bool     `json:"save_headers,omitempty"`
+	SaveConsole       bool     `json:"save_console,omitempty"`
+	SaveCookies       bool     `json:"save_cookies,omitempty"`
+	SaveNetwork       bool     `json:"save_network,omitempty"`
 
 	// 高级浏览器控制
 	JavaScript      string             `json:"javascript,omitempty"`        // 注入的JS代码

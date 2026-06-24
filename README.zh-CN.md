@@ -55,6 +55,9 @@ snir scan example.com
 # 从文件批量截图
 snir scan file -f urls.txt
 
+# 对裸 host/IP 展开常见 Web 端口
+snir scan file -f hosts.txt --ports 80,443,8080,8443
+
 # 网段扫描
 snir scan cidr 192.168.1.0/24
 
@@ -104,15 +107,18 @@ snir provider --port 9223 --idle-timeout 5m
 
 ## 功能特点
 
-- **截图** — 全页/元素级（CSS 选择器 / XPath），支持 PNG/JPEG 及质量控制
-- **信息收集** — HTML 源码、HTTP 头、Cookie、控制台日志、网络请求
+- **截图** — 全页/元素级（CSS 选择器 / XPath），支持 PNG/JPEG、质量控制、落盘或内存字节返回
+- **信息收集** — HTML 源码、HTTP 头、Cookie、控制台日志、网络请求、TLS/最终 URL/状态码元数据
 - **浏览器交互** — JavaScript 执行、表单填写、点击/滚动/输入操作
-- **浏览器指纹** — 自定义 User-Agent、WebGL、平台、语言、WebRTC 禁用
+- **设备与指纹** — CDP 设备预设、移动端/touch/DPR 模拟、自定义 User-Agent、WebGL、平台、语言、WebRTC 禁用
 - **Chrome 复用** — 连接池、单例池、远程连接、自动发现
-- **代理轮换** — 代理列表、代理文件（热加载）、代理 API、轮换策略
+- **代理轮换** — 代理列表、代理文件（热加载）、代理 API、轮换策略、本地 Chrome 按代理隔离进程
 - **Cookie 管理** — 持久化 JSON Cookie Jar、Netscape 格式导入/导出、内联 Cookie
+- **库能力** — Go SDK、HTTP API、pHash、技术栈识别、流式/回调式批量截图
 - **输出** — JSONL、CSV、SQLite 数据库、控制台
 - **跨平台** — 43 个平台组合（Linux/Windows/macOS/FreeBSD/OpenBSD/NetBSD × amd64/arm64/386/arm/mips/ppc64le/riscv64/s390x）
+
+用于网络空间测绘系统时，snir 更适合作为 Web 资产采集、截图、指纹与页面证据子模块。完整能力边界和缺口见 [网络空间测绘底层库支撑性评估](docs/cyberspace-mapping-assessment.md)。
 
 ---
 
@@ -196,6 +202,7 @@ snir scan file -f urls.txt --write-jsonl --db --db-path results.db
 |------|------|
 | [SKILLS 索引](docs/superpowers/SKILLS.md) | AI Agent 集成 — 安装、命令、全部 70 个 CLI 标志 |
 | [完整能力文档](docs/skills.md) | CLI + Go SDK + HTTP API + Provider 完整参考 |
+| [测绘底层库评估](docs/cyberspace-mapping-assessment.md) | 作为网络空间测绘系统底层库时的支撑边界、缺口和补齐优先级 |
 | [快速示例](docs/quick_examples.md) | 常见场景的复制粘贴示例 |
 | [使用示例](docs/usage_examples.md) | 带解释的详细示例 |
 

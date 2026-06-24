@@ -345,3 +345,148 @@ func TestProcessBatchConcurrent(t *testing.T) {
 		t.Errorf("期望处理%d个请求，但实际处理了%d个", len(requests), processedCount)
 	}
 }
+
+// TestHandleBatchScreenshotServerMethod tests the actual server method HandleBatchScreenshot
+func TestHandleBatchScreenshotServerMethod(t *testing.T) {
+	tests := []struct {
+		name           string
+		requestBody    string
+		expectedStatus int
+		expectSuccess  bool
+		maxBatchSize   int
+	}{
+		{
+			name:           "invalid JSON body",
+			requestBody:    "not json",
+			expectedStatus: http.StatusBadRequest,
+			expectSuccess:  false,
+			maxBatchSize:   10,
+		},
+		{
+			name:           "empty URL list",
+			requestBody:    `{"urls":[]}`,
+			expectedStatus: http.StatusBadRequest,
+			expectSuccess:  false,
+			maxBatchSize:   10,
+		},
+		{
+			name:           "exceeds max batch size",
+			requestBody:    `{"urls":["https://a.com","https://b.com","https://c.com"]}`,
+			expectedStatus: http.StatusBadRequest,
+			expectSuccess:  false,
+			maxBatchSize:   2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &Server{
+				Options: ServerOptions{
+					ScreenshotPath: "/tmp/test-screenshots",
+					MaxBatchSize:   tt.maxBatchSize,
+				},
+			}
+
+			req, err := http.NewRequest("POST", "/batch", bytes.NewBufferString(tt.requestBody))
+			if err != nil {
+				t.Fatalf("failed to create request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(server.HandleBatchScreenshot)
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("status code = %v, want %v", rr.Code, tt.expectedStatus)
+			}
+
+			var response APIResponse
+			if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+				t.Errorf("failed to parse response: %v", err)
+			}
+			if response.Success != tt.expectSuccess {
+				t.Errorf("Success = %v, want %v", response.Success, tt.expectSuccess)
+			}
+		})
+	}
+}
+
+// TestProcessBatchConcurrentEdgeCases tests edge cases for ProcessBatchConcurrent
+func TestProcessBatchConcurrentEdgeCases(t *testing.T) {
+	t.Run("empty requests list", func(t *testing.T) {
+		requests := []ScreenshotRequest{}
+		resultsChan := make(chan BatchResult, 1)
+
+		// This should not panic or deadlock
+		ProcessBatchConcurrent(requests, 2, func(req ScreenshotRequest) BatchResult {
+			return BatchResult{URL: req.URL}
+		}, resultsChan)
+	})
+
+	t.Run("single request", func(t *testing.T) {
+		requests := []ScreenshotRequest{
+			{URL: "https://example.com"},
+		}
+		resultsChan := make(chan BatchResult, len(requests))
+
+		ProcessBatchConcurrent(requests, 1, func(req ScreenshotRequest) BatchResult {
+			return BatchResult{URL: req.URL, Error: ""}
+		}, resultsChan)
+
+		result := <-resultsChan
+		if result.URL != "https://example.com" {
+			t.Errorf("URL = %v, want https://example.com", result.URL)
+		}
+	})
+
+	t.Run("high concurrency", func(t *testing.T) {
+		requests := make([]ScreenshotRequest, 50)
+		for i := range requests {
+			requests[i] = ScreenshotRequest{URL: "https://example.com"}
+		}
+		resultsChan := make(chan BatchResult, len(requests))
+
+		var processed int32
+		ProcessBatchConcurrent(requests, 10, func(req ScreenshotRequest) BatchResult {
+			atomic.AddInt32(&processed, 1)
+			return BatchResult{URL: req.URL}
+		}, resultsChan)
+
+		// Collect all results
+		count := 0
+		for range requests {
+			<-resultsChan
+			count++
+		}
+
+		if count != 50 {
+			t.Errorf("collected %v results, want 50", count)
+		}
+		if int(processed) != 50 {
+			t.Errorf("processed %v requests, want 50", processed)
+		}
+	})
+
+	t.Run("processor returns errors", func(t *testing.T) {
+		requests := []ScreenshotRequest{
+			{URL: "https://fail1.com"},
+			{URL: "https://fail2.com"},
+		}
+		resultsChan := make(chan BatchResult, len(requests))
+
+		ProcessBatchConcurrent(requests, 2, func(req ScreenshotRequest) BatchResult {
+			return BatchResult{
+				URL:   req.URL,
+				Error: "simulated failure",
+			}
+		}, resultsChan)
+
+		for range requests {
+			result := <-resultsChan
+			if result.Error != "simulated failure" {
+				t.Errorf("Error = %v, want 'simulated failure'", result.Error)
+			}
+		}
+	})
+}
