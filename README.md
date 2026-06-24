@@ -31,6 +31,8 @@ tar xzf snir.tar.gz snir && chmod +x snir && sudo mv snir /usr/local/bin/
 snir version
 ```
 
+📖 **Anthropic Skills entry:** [`SKILL.md`](SKILL.md)
+
 📖 **Full SKILLS documentation:** [`docs/superpowers/SKILLS.md`](docs/superpowers/SKILLS.md)
 
 Per-command docs with progressive disclosure (quick start → common options → advanced → full reference):

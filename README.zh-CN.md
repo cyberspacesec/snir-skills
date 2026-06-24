@@ -33,6 +33,8 @@ tar xzf snir.tar.gz snir && chmod +x snir && sudo mv snir /usr/local/bin/
 snir version
 ```
 
+📖 **Anthropic Skills 入口：** [`SKILL.md`](SKILL.md)
+
 📖 **完整 SKILLS 文档：** [`docs/superpowers/SKILLS.md`](docs/superpowers/SKILLS.md)
 
 每个命令的渐进式文档（快速上手 → 常用选项 → 高级选项 → 完整参数参考）：
