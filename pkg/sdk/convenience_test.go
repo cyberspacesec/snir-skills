@@ -1,8 +1,12 @@
 package sdk
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -524,6 +528,219 @@ func TestResultWrapper_TLSInfo_WithData(t *testing.T) {
 	}
 	if tls.Version != "TLS 1.3" {
 		t.Errorf("TLS Version = %s, want TLS 1.3", tls.Version)
+	}
+}
+
+func TestResultWrapper_EvidenceSummary(t *testing.T) {
+	r := &models.Result{
+		HTML:            "<html></html>",
+		Screenshot:      "/tmp/test.png",
+		ScreenshotBytes: []byte("png"),
+		Headers:         []models.Header{{Name: "Content-Type", Value: "text/html"}},
+		Cookies:         []models.Cookie{{Name: "session", Value: "abc"}},
+		Console: []models.ConsoleLog{
+			{Level: "info", Message: "ready"},
+			{Level: "error", Message: "boom"},
+		},
+		Network: []models.NetworkLog{
+			{URL: "https://example.com", StatusCode: 200},
+			{URL: "https://example.com/missing", StatusCode: 404},
+		},
+		Technologies: []models.Technology{{Name: "React"}},
+		TLS:          models.TLS{Version: "TLS 1.3"},
+	}
+
+	w := WrapResult(r)
+	if !w.HasEvidence() {
+		t.Fatal("HasEvidence() 应该为 true")
+	}
+
+	summary := w.EvidenceSummary()
+	if !summary.HasScreenshot || !summary.HasScreenshotBytes || !summary.HasHTML || !summary.HasTLS {
+		t.Fatalf("EvidenceSummary() flags = %+v", summary)
+	}
+	if summary.HeaderCount != 1 || summary.CookieCount != 1 ||
+		summary.ConsoleCount != 2 || summary.ConsoleErrorCount != 1 ||
+		summary.NetworkCount != 2 || summary.NetworkErrorCount != 1 ||
+		summary.TechnologyCount != 1 {
+		t.Fatalf("EvidenceSummary() counts = %+v", summary)
+	}
+}
+
+func TestResultWrapper_EvidenceSummary_Empty(t *testing.T) {
+	w := WrapResult(&models.Result{})
+	if w.HasEvidence() {
+		t.Fatal("空结果 HasEvidence() 应该为 false")
+	}
+	if summary := w.EvidenceSummary(); summary != (EvidenceSummary{}) {
+		t.Fatalf("空结果 EvidenceSummary() = %+v", summary)
+	}
+}
+
+func TestResultWrapper_EvidenceSummary_NilWrapper(t *testing.T) {
+	var w *ResultWrapper
+	if w.HasEvidence() {
+		t.Fatal("nil wrapper HasEvidence() 应该为 false")
+	}
+	if summary := w.EvidenceSummary(); summary != (EvidenceSummary{}) {
+		t.Fatalf("nil wrapper EvidenceSummary() = %+v", summary)
+	}
+}
+
+func TestResultWrapper_SaveJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result.json")
+	w := WrapResult(&models.Result{
+		URL:             "https://example.com",
+		Title:           "Example",
+		HTML:            "<html></html>",
+		ScreenshotBytes: []byte("png-bytes"),
+	})
+
+	if err := w.SaveJSON(path); err != nil {
+		t.Fatalf("SaveJSON() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("导出的 JSON 无法解析: %v", err)
+	}
+	if decoded["title"] != "Example" {
+		t.Fatalf("title = %v, want Example", decoded["title"])
+	}
+	jsonText := string(data)
+	if strings.Contains(jsonText, "ScreenshotBytes") ||
+		strings.Contains(jsonText, "screenshot_bytes") ||
+		strings.Contains(jsonText, "png-bytes") {
+		t.Fatalf("SaveJSON() 不应导出内存截图字节: %s", jsonText)
+	}
+}
+
+func TestResultWrapper_SaveJSON_ErrorBranches(t *testing.T) {
+	var nilWrapper *ResultWrapper
+	if err := nilWrapper.SaveJSON(filepath.Join(t.TempDir(), "result.json")); err == nil {
+		t.Fatal("nil wrapper SaveJSON() 应该返回错误")
+	}
+
+	w := WrapResult(&models.Result{})
+	if err := w.SaveJSON(""); err == nil {
+		t.Fatal("空路径 SaveJSON() 应该返回错误")
+	}
+}
+
+func TestResultWrapper_SaveHTML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "page.html")
+	w := WrapResult(&models.Result{HTML: "<html><body>ok</body></html>"})
+
+	if err := w.SaveHTML(path); err != nil {
+		t.Fatalf("SaveHTML() error = %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(data) != "<html><body>ok</body></html>" {
+		t.Fatalf("SaveHTML() data = %q", data)
+	}
+}
+
+func TestResultWrapper_SaveHTML_ErrorBranches(t *testing.T) {
+	var nilWrapper *ResultWrapper
+	if err := nilWrapper.SaveHTML(filepath.Join(t.TempDir(), "page.html")); err == nil {
+		t.Fatal("nil wrapper SaveHTML() 应该返回错误")
+	}
+
+	w := WrapResult(&models.Result{})
+	if err := w.SaveHTML(""); err == nil {
+		t.Fatal("空路径 SaveHTML() 应该返回错误")
+	}
+	if err := w.SaveHTML(filepath.Join(t.TempDir(), "page.html")); err == nil {
+		t.Fatal("缺少 HTML SaveHTML() 应该返回错误")
+	}
+}
+
+func TestResultWrapper_ReadAndWriteScreenshot_InMemoryBytes(t *testing.T) {
+	w := WrapResult(&models.Result{ScreenshotBytes: []byte("png")})
+
+	data, err := w.ReadScreenshot()
+	if err != nil {
+		t.Fatalf("ReadScreenshot() error = %v", err)
+	}
+	if string(data) != "png" {
+		t.Fatalf("ReadScreenshot() = %q, want png", data)
+	}
+
+	var buf bytes.Buffer
+	if err := w.WriteScreenshot(&buf); err != nil {
+		t.Fatalf("WriteScreenshot() error = %v", err)
+	}
+	if buf.String() != "png" {
+		t.Fatalf("WriteScreenshot() data = %q, want png", buf.String())
+	}
+
+	path := filepath.Join(t.TempDir(), "shot.png")
+	if err := w.SaveScreenshot(path); err != nil {
+		t.Fatalf("SaveScreenshot() error = %v", err)
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != "png" {
+		t.Fatalf("SaveScreenshot() data = %q, want png", saved)
+	}
+}
+
+func TestResultWrapper_ReadScreenshot_FallsBackToFile(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source.png")
+	if err := os.WriteFile(source, []byte("file-png"), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	w := WrapResult(&models.Result{Screenshot: source})
+	data, err := w.ReadScreenshot()
+	if err != nil {
+		t.Fatalf("ReadScreenshot() error = %v", err)
+	}
+	if string(data) != "file-png" {
+		t.Fatalf("ReadScreenshot() = %q, want file-png", data)
+	}
+
+	dest := filepath.Join(dir, "dest.png")
+	if err := w.SaveScreenshot(dest); err != nil {
+		t.Fatalf("SaveScreenshot() error = %v", err)
+	}
+	saved, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != "file-png" {
+		t.Fatalf("SaveScreenshot() data = %q, want file-png", saved)
+	}
+}
+
+func TestResultWrapper_ScreenshotExport_ErrorBranches(t *testing.T) {
+	var nilWrapper *ResultWrapper
+	if _, err := nilWrapper.ReadScreenshot(); err == nil {
+		t.Fatal("nil wrapper ReadScreenshot() 应该返回错误")
+	}
+	if err := nilWrapper.SaveScreenshot(filepath.Join(t.TempDir(), "shot.png")); err == nil {
+		t.Fatal("nil wrapper SaveScreenshot() 应该返回错误")
+	}
+
+	w := WrapResult(&models.Result{})
+	if _, err := w.ReadScreenshot(); err == nil {
+		t.Fatal("缺少截图 ReadScreenshot() 应该返回错误")
+	}
+	if err := w.WriteScreenshot(nil); err == nil {
+		t.Fatal("nil writer WriteScreenshot() 应该返回错误")
+	}
+	if err := w.SaveScreenshot(""); err == nil {
+		t.Fatal("空路径 SaveScreenshot() 应该返回错误")
 	}
 }
 

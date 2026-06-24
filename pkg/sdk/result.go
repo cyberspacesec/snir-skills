@@ -1,6 +1,28 @@
 package sdk
 
-import "github.com/cyberspacesec/snir-skills/pkg/models"
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/cyberspacesec/snir-skills/pkg/models"
+)
+
+// EvidenceSummary summarizes evidence captured with a screenshot result.
+type EvidenceSummary struct {
+	HasScreenshot      bool `json:"has_screenshot"`
+	HasScreenshotBytes bool `json:"has_screenshot_bytes"`
+	HasHTML            bool `json:"has_html"`
+	HeaderCount        int  `json:"header_count"`
+	CookieCount        int  `json:"cookie_count"`
+	ConsoleCount       int  `json:"console_count"`
+	ConsoleErrorCount  int  `json:"console_error_count"`
+	NetworkCount       int  `json:"network_count"`
+	NetworkErrorCount  int  `json:"network_error_count"`
+	TechnologyCount    int  `json:"technology_count"`
+	HasTLS             bool `json:"has_tls"`
+}
 
 // ResultWrapper 包装 models.Result 提供便捷访问方法
 type ResultWrapper struct {
@@ -33,6 +55,143 @@ func (r *ResultWrapper) HasScreenshot() bool {
 // HasHTML 是否包含 HTML 源码
 func (r *ResultWrapper) HasHTML() bool {
 	return r != nil && r.HTML != ""
+}
+
+// HasEvidence reports whether the result contains any captured evidence.
+func (r *ResultWrapper) HasEvidence() bool {
+	summary := r.EvidenceSummary()
+	return summary.HasScreenshot ||
+		summary.HasScreenshotBytes ||
+		summary.HasHTML ||
+		summary.HeaderCount > 0 ||
+		summary.CookieCount > 0 ||
+		summary.ConsoleCount > 0 ||
+		summary.NetworkCount > 0 ||
+		summary.TechnologyCount > 0 ||
+		summary.HasTLS
+}
+
+// EvidenceSummary returns counts and availability flags for captured evidence.
+func (r *ResultWrapper) EvidenceSummary() EvidenceSummary {
+	if r == nil || r.Result == nil {
+		return EvidenceSummary{}
+	}
+
+	summary := EvidenceSummary{
+		HasScreenshot:      r.Screenshot != "",
+		HasScreenshotBytes: len(r.ScreenshotBytes) > 0,
+		HasHTML:            r.HTML != "",
+		HeaderCount:        len(r.Headers),
+		CookieCount:        len(r.Cookies),
+		ConsoleCount:       len(r.Console),
+		NetworkCount:       len(r.Network),
+		TechnologyCount:    len(r.Technologies),
+		HasTLS:             hasTLSInfo(r.TLS),
+	}
+
+	for _, c := range r.Console {
+		if c.Level == "error" {
+			summary.ConsoleErrorCount++
+		}
+	}
+	for _, n := range r.Network {
+		if n.StatusCode >= 400 {
+			summary.NetworkErrorCount++
+		}
+	}
+
+	return summary
+}
+
+// SaveJSON writes the result metadata and evidence as pretty JSON.
+func (r *ResultWrapper) SaveJSON(path string) error {
+	if r == nil || r.Result == nil {
+		return fmt.Errorf("截图结果为空")
+	}
+	if path == "" {
+		return fmt.Errorf("JSON 输出路径为空")
+	}
+
+	data, err := json.MarshalIndent(r.Result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化截图结果失败: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("写入 JSON 结果失败: %v", err)
+	}
+	return nil
+}
+
+// SaveHTML writes captured HTML to a file.
+func (r *ResultWrapper) SaveHTML(path string) error {
+	if r == nil || r.Result == nil {
+		return fmt.Errorf("截图结果为空")
+	}
+	if path == "" {
+		return fmt.Errorf("HTML 输出路径为空")
+	}
+	if r.HTML == "" {
+		return fmt.Errorf("截图结果不包含 HTML")
+	}
+	if err := os.WriteFile(path, []byte(r.HTML), 0644); err != nil {
+		return fmt.Errorf("写入 HTML 失败: %v", err)
+	}
+	return nil
+}
+
+// ReadScreenshot returns screenshot bytes from memory or the screenshot file.
+func (r *ResultWrapper) ReadScreenshot() ([]byte, error) {
+	if r == nil || r.Result == nil {
+		return nil, fmt.Errorf("截图结果为空")
+	}
+	if len(r.ScreenshotBytes) > 0 {
+		return r.ScreenshotBytes, nil
+	}
+	if r.Screenshot == "" {
+		return nil, fmt.Errorf("截图结果不包含截图")
+	}
+
+	data, err := os.ReadFile(r.Screenshot)
+	if err != nil {
+		return nil, fmt.Errorf("读取截图文件失败: %v", err)
+	}
+	return data, nil
+}
+
+// WriteScreenshot writes screenshot bytes to the provided writer.
+func (r *ResultWrapper) WriteScreenshot(w io.Writer) error {
+	if w == nil {
+		return fmt.Errorf("截图输出 writer 为空")
+	}
+
+	data, err := r.ReadScreenshot()
+	if err != nil {
+		return err
+	}
+	n, err := w.Write(data)
+	if err != nil {
+		return fmt.Errorf("写入截图失败: %v", err)
+	}
+	if n != len(data) {
+		return fmt.Errorf("写入截图失败: %v", io.ErrShortWrite)
+	}
+	return nil
+}
+
+// SaveScreenshot writes screenshot bytes to a file.
+func (r *ResultWrapper) SaveScreenshot(path string) error {
+	if path == "" {
+		return fmt.Errorf("截图输出路径为空")
+	}
+
+	data, err := r.ReadScreenshot()
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("写入截图失败: %v", err)
+	}
+	return nil
 }
 
 // TitleOrDefault 返回页面标题，空则返回默认值
@@ -130,4 +289,15 @@ func (r *ResultWrapper) TLSInfo() *models.TLS {
 		return nil
 	}
 	return &r.TLS
+}
+
+func hasTLSInfo(tls models.TLS) bool {
+	return tls.Version != "" ||
+		tls.CipherSuite != "" ||
+		tls.Issuer != "" ||
+		tls.Subject != "" ||
+		!tls.NotBefore.IsZero() ||
+		!tls.NotAfter.IsZero() ||
+		tls.SANs != "" ||
+		tls.FingerprintSHA1 != ""
 }

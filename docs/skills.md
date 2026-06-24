@@ -532,6 +532,14 @@ w.ConsoleErrors()              // 控制台错误日志
 w.NetworkErrors()              // 失败的网络请求
 w.TechnologyNames()            // 检测到的技术名称
 w.TLSInfo()                    // TLS 信息
+
+// 证据摘要和导出
+w.HasEvidence()
+w.EvidenceSummary()
+w.SaveJSON("evidence/result.json")
+w.SaveHTML("evidence/page.html")
+w.SaveScreenshot("evidence/screenshot.png")
+w.WriteScreenshot(writer)
 ```
 
 ### 2.17 自定义截图选项
