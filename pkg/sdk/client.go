@@ -276,6 +276,25 @@ func (c *Client) ScreenshotHeadersBytes(url string, screenshotOpts *ScreenshotOp
 	return c.ScreenshotBytes(url, opts)
 }
 
+// ScreenshotCookies 截图并收集浏览器 Cookie。
+func (c *Client) ScreenshotCookies(url string, screenshotOpts *ScreenshotOptions) ([]models.Cookie, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveCookies = true
+
+	result, err := c.Screenshot(url, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Cookies, result, nil
+}
+
+// ScreenshotCookiesBytes 截图、收集浏览器 Cookie，并返回图片字节。
+func (c *Client) ScreenshotCookiesBytes(url string, screenshotOpts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	opts := c.ensureScreenshotOptions(screenshotOpts)
+	opts.SaveCookies = true
+	return c.ScreenshotBytes(url, opts)
+}
+
 // ScreenshotConsole 截图并收集浏览器控制台日志。
 func (c *Client) ScreenshotConsole(url string, screenshotOpts *ScreenshotOptions) ([]models.ConsoleLog, *models.Result, error) {
 	opts := c.ensureScreenshotOptions(screenshotOpts)

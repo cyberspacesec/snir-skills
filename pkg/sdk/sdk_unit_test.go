@@ -724,6 +724,7 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 	t.Run("evidence output timing helpers", func(t *testing.T) {
 		pool := &fakeDriverPool{result: &models.Result{
 			Headers:         []models.Header{{Name: "Content-Type", Value: "text/html"}},
+			Cookies:         []models.Cookie{{Name: "session", Value: "abc123", Domain: "example.com", Path: "/"}},
 			Console:         []models.ConsoleLog{{Level: "error", Message: "boom"}},
 			Network:         []models.NetworkLog{{URL: "https://example.com/api", StatusCode: 200}},
 			ScreenshotBytes: []byte("jpeg"),
@@ -741,7 +742,27 @@ func TestScenarioConvenienceMethods_Unit(t *testing.T) {
 			t.Fatal("ScreenshotHeaders() did not enable headers")
 		}
 
-		data, _, err := client.ScreenshotConsoleBytes("https://example.com", nil)
+		cookies, result, err := client.ScreenshotCookies("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotCookies() error = %v", err)
+		}
+		if len(cookies) != 1 || cookies[0].Name != "session" || result == nil {
+			t.Fatalf("cookies/result = %+v/%+v", cookies, result)
+		}
+		if !pool.lastOptions.Scan.SaveCookies {
+			t.Fatal("ScreenshotCookies() did not enable cookies")
+		}
+
+		data, _, err := client.ScreenshotCookiesBytes("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("ScreenshotCookiesBytes() error = %v", err)
+		}
+		if string(data) != "jpeg" || !pool.lastOptions.Scan.SaveCookies ||
+			!pool.lastOptions.Scan.ReturnScreenshotBytes || !pool.lastOptions.Scan.ScreenshotSkipSave {
+			t.Fatalf("cookies bytes/options = %q/%+v", data, pool.lastOptions.Scan)
+		}
+
+		data, _, err = client.ScreenshotConsoleBytes("https://example.com", nil)
 		if err != nil {
 			t.Fatalf("ScreenshotConsoleBytes() error = %v", err)
 		}
@@ -2736,6 +2757,7 @@ func TestSharedWrappers_Unit(t *testing.T) {
 			return &models.Result{
 				URL:             target,
 				Headers:         []models.Header{{Name: "Server", Value: "snir"}},
+				Cookies:         []models.Cookie{{Name: "shared", Value: "1", Domain: "example.com", Path: "/"}},
 				Console:         []models.ConsoleLog{{Level: "warn", Message: "careful"}},
 				Network:         []models.NetworkLog{{URL: target + "/asset.js", StatusCode: 304}},
 				ScreenshotBytes: []byte("jpeg"),
@@ -2753,7 +2775,27 @@ func TestSharedWrappers_Unit(t *testing.T) {
 			t.Fatal("SharedScreenshotHeaders() did not enable headers")
 		}
 
-		data, _, err := SharedScreenshotConsoleBytes("https://example.com", nil)
+		cookies, result, err := SharedScreenshotCookies("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotCookies() error = %v", err)
+		}
+		if len(cookies) != 1 || cookies[0].Name != "shared" || result == nil {
+			t.Fatalf("cookies/result = %+v/%+v", cookies, result)
+		}
+		if !got.Scan.SaveCookies {
+			t.Fatalf("cookies options = %+v", got.Scan)
+		}
+
+		data, _, err := SharedScreenshotCookiesBytes("https://example.com", nil)
+		if err != nil {
+			t.Fatalf("SharedScreenshotCookiesBytes() error = %v", err)
+		}
+		if string(data) != "jpeg" || !got.Scan.SaveCookies ||
+			!got.Scan.ReturnScreenshotBytes || !got.Scan.ScreenshotSkipSave {
+			t.Fatalf("cookies byte options = %q/%+v", data, got.Scan)
+		}
+
+		data, _, err = SharedScreenshotConsoleBytes("https://example.com", nil)
 		if err != nil {
 			t.Fatalf("SharedScreenshotConsoleBytes() error = %v", err)
 		}

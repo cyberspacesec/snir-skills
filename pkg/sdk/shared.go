@@ -132,6 +132,25 @@ func SharedScreenshotHeadersBytes(url string, opts *ScreenshotOptions) ([]byte, 
 	return SharedScreenshotBytes(url, screenshotOpts)
 }
 
+// SharedScreenshotCookies 使用共享池截图并收集浏览器 Cookie。
+func SharedScreenshotCookies(url string, opts *ScreenshotOptions) ([]models.Cookie, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveCookies = true
+
+	result, err := SharedScreenshot(url, screenshotOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result.Cookies, result, nil
+}
+
+// SharedScreenshotCookiesBytes 使用共享池截图、收集浏览器 Cookie，并返回图片字节。
+func SharedScreenshotCookiesBytes(url string, opts *ScreenshotOptions) ([]byte, *models.Result, error) {
+	screenshotOpts := ensureSharedScreenshotOptions(opts)
+	screenshotOpts.SaveCookies = true
+	return SharedScreenshotBytes(url, screenshotOpts)
+}
+
 // SharedScreenshotConsole 使用共享池截图并收集浏览器控制台日志。
 func SharedScreenshotConsole(url string, opts *ScreenshotOptions) ([]models.ConsoleLog, *models.Result, error) {
 	screenshotOpts := ensureSharedScreenshotOptions(opts)
