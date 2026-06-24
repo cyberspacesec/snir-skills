@@ -317,12 +317,14 @@ func TestToRunnerOptions(t *testing.T) {
 
 func TestMergeWithScreenshotOptions(t *testing.T) {
 	opts := DefaultClientOptions()
+	opts.ScreenshotPath = "screenshots/client-default"
 	base := toRunnerOptions(opts)
 
 	so := &ScreenshotOptions{
 		Timeout:         60 * time.Second,
 		Selector:        "#main",
 		CaptureFullPage: true,
+		ScreenshotPath:  "screenshots/request-a",
 		SkipSave:        true,
 	}
 
@@ -333,6 +335,9 @@ func TestMergeWithScreenshotOptions(t *testing.T) {
 	}
 	if merged.Scan.Selector != "#main" {
 		t.Errorf("Selector 合并后 = %s, want #main", merged.Scan.Selector)
+	}
+	if merged.Scan.ScreenshotPath != "screenshots/request-a" {
+		t.Errorf("ScreenshotPath 合并后 = %s, want screenshots/request-a", merged.Scan.ScreenshotPath)
 	}
 	if !merged.Scan.CaptureFullPage {
 		t.Error("CaptureFullPage 合并后应为 true")

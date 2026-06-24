@@ -26,6 +26,7 @@ func TestNewScreenshotOptions(t *testing.T) {
 		WithElement("#main"),
 		WithXPath("//main"),
 		WithFormat("jpeg", 80),
+		WithScreenshotPath("screenshots/task-a"),
 		WithPorts(80, 443, 8443),
 		WithHTTPOnly(),
 		WithSkipSave(),
@@ -75,6 +76,9 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 	if opts.ScreenshotFormat != "jpeg" || opts.ScreenshotQuality != 80 {
 		t.Fatalf("format = %s/%d", opts.ScreenshotFormat, opts.ScreenshotQuality)
+	}
+	if opts.ScreenshotPath != "screenshots/task-a" {
+		t.Fatalf("screenshot path = %q", opts.ScreenshotPath)
 	}
 	if len(opts.Ports) != 3 || opts.Ports[2] != 8443 {
 		t.Fatalf("ports = %v", opts.Ports)

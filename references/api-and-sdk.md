@@ -50,6 +50,7 @@ result, err := client.Capture(
     sdk.WithDeviceEmulation(390, 844, 3, true, true),
     sdk.WithProxyList(runner.ProxyRoundRobin, "http://proxy-a:8080", "http://proxy-b:8080"),
     sdk.WithCookieHeader("session=abc; tenant=demo"),
+    sdk.WithScreenshotPath("screenshots/task-a"),
     sdk.WithIgnoreCertErrors(),
 )
 ```
@@ -77,7 +78,7 @@ Common SDK entrypoints:
 - `WithProxyList`, `WithProxyFile`, `WithProxyURL`, and `WithProxyStrategy` for per-request proxy rotation.
 - `WithCookieHeader`, `WithCookieStrings`, `WithCookieImport`, `WithCookieExport`, and `WithCookieWriteBack` for authenticated and stateful captures.
 - `WithBlacklist`, `WithDefaultBlacklist`, `WithBlacklistFile`, and `WithNoBlacklist` for per-request URL blacklist guards before SDK pool execution.
-- `NewScreenshotOptions`, `WithFullPage`, `WithEvidence`, `WithDevice`, `WithViewport`, `WithPorts`, `WithHTTPOnly`, `WithHTTPSOnly`, `WithHTTPAndHTTPS`, `WithJSAfter`, `WithCustomHeaders`, and related `With...` helpers for reusable scenario presets.
+- `NewScreenshotOptions`, `WithFullPage`, `WithEvidence`, `WithDevice`, `WithViewport`, `WithScreenshotPath`, `WithFormat`, `WithPorts`, `WithHTTPOnly`, `WithHTTPSOnly`, `WithHTTPAndHTTPS`, `WithJSAfter`, `WithCustomHeaders`, and related `With...` helpers for reusable scenario presets.
 
 ## CDP Provider
 

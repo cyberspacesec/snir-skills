@@ -597,6 +597,8 @@ result, err := client.Capture(
     sdk.WithViewport(390, 844),
     sdk.WithDeviceEmulation(390, 844, 3, true, true),
     sdk.WithIgnoreCertErrors(),
+    sdk.WithScreenshotPath("screenshots/mobile"),
+    sdk.WithFormat("jpeg", 85),
     sdk.WithCustomHeaders(map[string]string{
         "X-Agent": "snir",
     }),
@@ -662,6 +664,13 @@ result, err = client.Capture(
     sdk.WithCookieImport("cookies.txt"),
     sdk.WithCookieExport("out-cookies.txt"),
     sdk.WithCookies(),
+)
+
+// 单次截图覆盖输出目录和图片格式
+result, err = client.Capture(
+    "https://example.com",
+    sdk.WithScreenshotPath("screenshots/task-a"),
+    sdk.WithFormat("jpeg", 85),
 )
 
 // 单次截图覆盖 URL 黑名单

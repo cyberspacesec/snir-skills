@@ -152,6 +152,7 @@ type ScreenshotOptions struct {
 	Selector          string // CSS 选择器
 	XPath             string // XPath
 	CaptureFullPage   bool   // 全页截图
+	ScreenshotPath    string // 截图保存路径
 	ScreenshotFormat  string // 截图格式 png/jpeg
 	ScreenshotQuality int    // JPEG 质量
 	Ports             []int  // 扫描端口列表
@@ -431,6 +432,9 @@ func mergeWithScreenshotOptions(base runner.Options, so *ScreenshotOptions) runn
 	}
 	if so.CaptureFullPage {
 		base.Scan.CaptureFullPage = true
+	}
+	if so.ScreenshotPath != "" {
+		base.Scan.ScreenshotPath = so.ScreenshotPath
 	}
 	if so.ScreenshotFormat != "" {
 		base.Scan.ScreenshotFormat = so.ScreenshotFormat

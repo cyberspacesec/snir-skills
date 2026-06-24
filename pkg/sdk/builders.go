@@ -237,6 +237,13 @@ func WithFormat(format string, quality int) ScreenshotOption {
 	}
 }
 
+// WithScreenshotPath saves this screenshot under path instead of the client default.
+func WithScreenshotPath(path string) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		opts.ScreenshotPath = path
+	}
+}
+
 // WithPorts sets the scan ports for target expansion workflows.
 func WithPorts(ports ...int) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
