@@ -108,15 +108,7 @@ func (p *Provider) Start() error {
 	if err != nil {
 		return fmt.Errorf("启动 Chrome 实例失败: %v", err)
 	}
-	p.pool = pool
-
-	// 设置空闲超时
-	if p.opts.IdleTimeout > 0 {
-		p.pool.SetIdleTimeout(p.opts.IdleTimeout)
-	}
-
-	// 注册事件监听
-	p.pool.On(func(event runner.PoolEvent) {
+	pool.On(func(event runner.PoolEvent) {
 		switch event.Type {
 		case runner.EventReconnect:
 			log.Info("Provider: 浏览器进程已重连", "reconnect_count", event.ReconnectCount)
@@ -127,6 +119,11 @@ func (p *Provider) Start() error {
 		}
 	})
 
+	// 设置空闲超时
+	if p.opts.IdleTimeout > 0 {
+		pool.SetIdleTimeout(p.opts.IdleTimeout)
+	}
+
 	// 创建 HTTP 服务
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handleIndex)
@@ -135,13 +132,17 @@ func (p *Provider) Start() error {
 	mux.HandleFunc("/stats", p.handleStats)
 	mux.HandleFunc("/screenshot", p.handleScreenshot)
 
-	p.server = &http.Server{
+	server := &http.Server{
 		Addr:    net.JoinHostPort(p.opts.Host, strconv.Itoa(p.opts.Port)),
 		Handler: mux,
 	}
 
+	p.mu.Lock()
+	p.pool = pool
+	p.server = server
 	p.ready = true
 	p.startedAt = time.Now()
+	p.mu.Unlock()
 
 	log.Info("CDP Provider 已启动",
 		"host", p.opts.Host,
@@ -150,7 +151,7 @@ func (p *Provider) Start() error {
 		"ws_url", fmt.Sprintf("ws://%s", net.JoinHostPort(p.opts.Host, strconv.Itoa(p.opts.ChromeDebugPort))),
 	)
 
-	return p.server.ListenAndServe()
+	return server.ListenAndServe()
 }
 
 // StartWithContext 启动 Provider，支持 context 取消
@@ -163,10 +164,9 @@ func (p *Provider) StartWithContext(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("启动 Chrome 实例失败: %v", err)
 	}
-	p.pool = pool
 
 	if p.opts.IdleTimeout > 0 {
-		p.pool.SetIdleTimeout(p.opts.IdleTimeout)
+		pool.SetIdleTimeout(p.opts.IdleTimeout)
 	}
 
 	// 创建 HTTP 服务
@@ -177,17 +177,21 @@ func (p *Provider) StartWithContext(ctx context.Context) error {
 	mux.HandleFunc("/stats", p.handleStats)
 	mux.HandleFunc("/screenshot", p.handleScreenshot)
 
-	p.server = &http.Server{
+	server := &http.Server{
 		Addr:    net.JoinHostPort(p.opts.Host, strconv.Itoa(p.opts.Port)),
 		Handler: mux,
 	}
 
+	p.mu.Lock()
+	p.pool = pool
+	p.server = server
 	p.ready = true
 	p.startedAt = time.Now()
+	p.mu.Unlock()
 
 	// 在 goroutine 中启动服务
 	go func() {
-		if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("Provider HTTP 服务异常退出", "error", err)
 		}
 	}()
@@ -206,22 +210,23 @@ func (p *Provider) StartWithContext(ctx context.Context) error {
 // Shutdown 优雅关闭 Provider
 func (p *Provider) Shutdown() error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	p.ready = false
+	server := p.server
+	pool := p.pool
+	p.mu.Unlock()
 
 	// 关闭 HTTP 服务
-	if p.server != nil {
+	if server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := p.server.Shutdown(ctx); err != nil {
+		if err := server.Shutdown(ctx); err != nil {
 			log.Warn("Provider HTTP 服务关闭异常", "error", err)
 		}
 	}
 
 	// 关闭连接池
-	if p.pool != nil {
-		p.pool.Close()
+	if pool != nil {
+		pool.Close()
 	}
 
 	log.Info("CDP Provider 已关闭")
@@ -271,13 +276,23 @@ func (p *Provider) handleWebSocketURL(w http.ResponseWriter, r *http.Request) {
 func (p *Provider) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	stats := p.pool.Stats()
+	p.mu.RLock()
+	pool := p.pool
+	ready := p.ready
+	startedAt := p.startedAt
+	p.mu.RUnlock()
+	if pool == nil {
+		http.Error(w, `{"error": "provider not initialized"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	stats := pool.Stats()
 
 	response := map[string]interface{}{
 		"status": "ok",
-		"ready":  p.ready,
+		"ready":  ready,
 		"closed": stats.Closed,
-		"uptime": time.Since(p.startedAt).String(),
+		"uptime": time.Since(startedAt).String(),
 	}
 
 	if stats.Closed {
@@ -292,7 +307,16 @@ func (p *Provider) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (p *Provider) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	stats := p.pool.Stats()
+	p.mu.RLock()
+	pool := p.pool
+	startedAt := p.startedAt
+	p.mu.RUnlock()
+	if pool == nil {
+		http.Error(w, `{"error": "provider not initialized"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	stats := pool.Stats()
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"active_screenshots": stats.ActiveCount,
@@ -303,7 +327,7 @@ func (p *Provider) handleStats(w http.ResponseWriter, r *http.Request) {
 		"last_active":        stats.LastActive,
 		"created_at":         stats.CreatedAt,
 		"closed":             stats.Closed,
-		"uptime":             time.Since(p.startedAt).String(),
+		"uptime":             time.Since(startedAt).String(),
 	})
 }
 
@@ -335,8 +359,16 @@ func (p *Provider) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p.mu.RLock()
+	pool := p.pool
+	p.mu.RUnlock()
+	if pool == nil {
+		http.Error(w, `{"error": "provider not initialized"}`, http.StatusServiceUnavailable)
+		return
+	}
+
 	opts := p.toRunnerOptions()
-	result, err := p.pool.Screenshot(url, &opts)
+	result, err := pool.Screenshot(url, &opts)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error": "%v"}`, err), http.StatusInternalServerError)
 		return

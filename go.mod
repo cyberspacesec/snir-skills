@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/log v0.4.0
 	github.com/chromedp/cdproto v0.0.0-20250222051814-50c6cb17f10a
 	github.com/chromedp/chromedp v0.13.0
+	github.com/corona10/goimagehash v1.1.0
 	github.com/fatih/color v1.18.0
 	github.com/gorilla/mux v1.8.1
 	github.com/spf13/cobra v1.9.1
@@ -23,7 +24,6 @@ require (
 	github.com/charmbracelet/lipgloss v0.12.1 // indirect
 	github.com/charmbracelet/x/ansi v0.1.4 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
-	github.com/corona10/goimagehash v1.1.0 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250211171154-1ae217ad3535 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect

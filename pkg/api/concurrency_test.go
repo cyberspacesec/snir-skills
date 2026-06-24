@@ -601,7 +601,8 @@ func TestServerCreateConcurrencyLimitMiddleware(t *testing.T) {
 
 		// Fill the queue with one waiting request
 		go func() {
-			timeoutCtx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			timeoutCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
 			limiter.Acquire(timeoutCtx)
 		}()
 		time.Sleep(50 * time.Millisecond)
