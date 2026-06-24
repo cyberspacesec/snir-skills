@@ -33,6 +33,14 @@ snir version
 
 📖 **Anthropic Skills entry:** [`SKILL.md`](SKILL.md)
 
+Canonical skill bundle resources:
+
+| Resource | Purpose |
+|----------|---------|
+| [`references/`](references/) | On-demand task references loaded by agents only when needed |
+| [`scripts/install-snir.sh`](scripts/install-snir.sh) | Portable release installer helper |
+| [`evals/evals.json`](evals/evals.json) | Skill evaluation prompts and expectations |
+
 📖 **Full SKILLS documentation:** [`docs/superpowers/SKILLS.md`](docs/superpowers/SKILLS.md)
 
 Per-command docs with progressive disclosure (quick start → common options → advanced → full reference):

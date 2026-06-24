@@ -1,0 +1,54 @@
+# snir API, SDK, and Provider Integration
+
+Use this reference when embedding snir in another system instead of running one-off CLI commands.
+
+## HTTP API
+
+Start a local API server:
+
+```bash
+snir api --host 127.0.0.1 --port 8080 --api-key secret
+```
+
+Capture one screenshot:
+
+```bash
+curl -X POST http://127.0.0.1:8080/screenshot \
+  -H "X-API-Key: secret" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com","capture_full_page":true,"save_html":true,"save_headers":true}'
+```
+
+Use the API for non-Go callers, service integration, or request/response workflows.
+
+## Go SDK
+
+```go
+client, err := sdk.NewClient(sdk.DefaultClientOptions())
+if err != nil {
+    return err
+}
+defer client.Close()
+
+result, err := client.Screenshot("https://example.com", nil)
+if err != nil {
+    return err
+}
+fmt.Println(result.Endpoint, result.Title, result.StatusCode)
+```
+
+Use the SDK when snir is part of a Go application and the caller needs typed options and results.
+
+## CDP Provider
+
+```bash
+snir provider --port 9223 --idle-timeout 5m
+```
+
+Use the provider to share Chrome across processes or avoid starting a new browser per worker. Other snir commands can connect with `--wss`.
+
+## Full References
+
+- `docs/superpowers/api.md` for API flags and endpoint schemas.
+- `docs/superpowers/provider.md` for CDP provider setup.
+- `docs/skills.md` for SDK examples and broader integration notes.

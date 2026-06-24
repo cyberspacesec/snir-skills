@@ -9,7 +9,14 @@ Use `snir` as a Chrome DevTools Protocol based web screenshot and intelligence c
 
 ## Start Here
 
-Prefer the prebuilt binary when available:
+Prefer the bundled install helper when available:
+
+```bash
+./scripts/install-snir.sh
+snir version
+```
+
+Or install the latest prebuilt binary manually:
 
 ```bash
 LATEST=$(curl -s https://api.github.com/repos/cyberspacesec/snir-skills/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
@@ -65,6 +72,12 @@ snir api --host 127.0.0.1 --port 8080 --api-key secret
 
 Open these files only when the task needs the extra detail:
 
+- `references/README.md` - skill bundle structure and when to open each resource.
+- `references/scan-workflows.md` - task-oriented CLI scan patterns.
+- `references/api-and-sdk.md` - HTTP API, Go SDK, and CDP provider integration notes.
+- `references/outputs-and-evidence.md` - result fields, persistence formats, and evidence collection.
+- `scripts/install-snir.sh` - portable install helper for Linux, macOS, FreeBSD, OpenBSD, and NetBSD.
+- `evals/evals.json` - realistic skill evaluation prompts and expectations.
 - `docs/superpowers/SKILLS.md` - full skill index, installation paths, command map, and flag overview.
 - `docs/superpowers/scan.md` - CLI screenshot, batch scan, ports, devices, proxies, evidence, and output options.
 - `docs/superpowers/api.md` - HTTP API server, auth, endpoints, request and response schema.

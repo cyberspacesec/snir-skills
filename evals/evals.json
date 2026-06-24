@@ -1,0 +1,41 @@
+{
+  "skill_name": "snir-web-intelligence",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a file named hosts.txt with bare hostnames and IPs. Use snir to capture screenshots on common web ports, save structured evidence to SQLite, and keep a JSONL stream for later processing.",
+      "expected_output": "The answer proposes or runs a snir scan file command using --ports, --db, --db-path, --write-jsonl, and evidence flags such as --save-html, --save-headers, and --save-network. It explains that --ports expands web URL candidates rather than performing TCP/UDP discovery.",
+      "files": [],
+      "expectations": [
+        "Uses snir scan file -f hosts.txt",
+        "Includes --ports for common web ports",
+        "Includes SQLite and JSONL output options",
+        "Distinguishes web URL expansion from port discovery"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Set up snir as a local screenshot API that only listens on localhost, requires an API key, and captures full-page screenshots with HTML and headers.",
+      "expected_output": "The answer starts snir api with --host 127.0.0.1, --port, and --api-key, then shows a POST /screenshot request with capture_full_page, save_html, and save_headers options.",
+      "files": [],
+      "expectations": [
+        "Uses snir api with localhost binding",
+        "Uses an explicit API key",
+        "Shows a POST /screenshot request",
+        "Includes full-page, HTML, and header capture options"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I need a mobile screenshot of a login page through a proxy, with cookies and console logs saved for debugging.",
+      "expected_output": "The answer uses snir scan with a device preset, proxy option, and evidence flags for cookies and console logs. It keeps the command scoped to the provided target.",
+      "files": [],
+      "expectations": [
+        "Uses snir scan for the provided target",
+        "Includes --device with a mobile preset",
+        "Includes --proxy",
+        "Includes --save-cookies and --save-console"
+      ]
+    }
+  ]
+}

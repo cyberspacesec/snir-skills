@@ -35,6 +35,14 @@ snir version
 
 📖 **Anthropic Skills 入口：** [`SKILL.md`](SKILL.md)
 
+标准 skill bundle 资源：
+
+| 资源 | 用途 |
+|------|------|
+| [`references/`](references/) | Agent 按需加载的任务参考 |
+| [`scripts/install-snir.sh`](scripts/install-snir.sh) | 可复用的跨平台 release 安装脚本 |
+| [`evals/evals.json`](evals/evals.json) | Skill 评测提示词和预期行为 |
+
 📖 **完整 SKILLS 文档：** [`docs/superpowers/SKILLS.md`](docs/superpowers/SKILLS.md)
 
 每个命令的渐进式文档（快速上手 → 常用选项 → 高级选项 → 完整参数参考）：
