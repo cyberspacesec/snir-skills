@@ -1,0 +1,15 @@
+{
+  "name": "snir-docs",
+  "version": "1.0.0",
+  "description": "snir 文档站 — 基于 VitePress 渲染",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.5.0"
+  }
+}
