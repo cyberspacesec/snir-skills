@@ -24,18 +24,18 @@ type Fingerprint struct {
 	Meta     map[string]string // Meta tag name -> content pattern (regex)
 	Script   []string          // Script src patterns (regex)
 	Version  string            // Version extraction regex (applied to matched content)
-	Priority int              // Higher = more confident
+	Priority int               // Higher = more confident
 }
 
 // Detector performs technology detection
 type Detector struct {
-	fingerprints []Fingerprint
-	htmlRegexes  map[int][]*regexp.Regexp // index -> compiled HTML regexes
-	scriptRegexes map[int][]*regexp.Regexp // index -> compiled script regexes
-	headerRegexes map[int]map[string]*regexp.Regexp // index -> header name -> compiled regex
-	cookieRegexes map[int]map[string]*regexp.Regexp // index -> cookie name -> compiled regex
-	metaRegexes   map[int]map[string]*regexp.Regexp // index -> meta name -> compiled regex
-	versionRegexes map[int]*regexp.Regexp // index -> compiled version regex
+	fingerprints   []Fingerprint
+	htmlRegexes    map[int][]*regexp.Regexp          // index -> compiled HTML regexes
+	scriptRegexes  map[int][]*regexp.Regexp          // index -> compiled script regexes
+	headerRegexes  map[int]map[string]*regexp.Regexp // index -> header name -> compiled regex
+	cookieRegexes  map[int]map[string]*regexp.Regexp // index -> cookie name -> compiled regex
+	metaRegexes    map[int]map[string]*regexp.Regexp // index -> meta name -> compiled regex
+	versionRegexes map[int]*regexp.Regexp            // index -> compiled version regex
 }
 
 // NewDetector creates a technology detector with built-in fingerprints

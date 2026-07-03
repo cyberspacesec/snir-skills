@@ -287,9 +287,9 @@ func TestFormatLogMessage(t *testing.T) {
 
 	// 测试所有日志级别的标签
 	tests := []struct {
-		name       string
-		level      charm.Level
-		wantLabel  string
+		name      string
+		level     charm.Level
+		wantLabel string
 	}{
 		{name: "Debug级别标签", level: DebugLevel, wantLabel: "DEBG"},
 		{name: "Info级别标签", level: InfoLevel, wantLabel: "INFO"},
@@ -349,8 +349,8 @@ func TestSlogToCharmHandle(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name   string
-		level  slog.Level
+		name  string
+		level slog.Level
 	}{
 		{name: "处理Debug级别记录", level: slog.LevelDebug},
 		{name: "处理Info级别记录", level: slog.LevelInfo},
@@ -368,7 +368,7 @@ func TestSlogToCharmHandle(t *testing.T) {
 			}
 
 			record := slog.Record{
-				Level:  tt.level,
+				Level:   tt.level,
 				Message: "slog消息",
 			}
 

@@ -836,16 +836,16 @@ func TestProvider_ToRunnerOptions_Defaults(t *testing.T) {
 
 func TestNewProvider_CustomOptions(t *testing.T) {
 	opts := ProviderOptions{
-		Host:            "127.0.0.1",
-		Port:            9999,
-		Headless:        false,
-		MaxConcurrent:   5,
-		ChromeDebugPort: 9224,
-		WindowWidth:     1920,
-		WindowHeight:    1080,
-		IdleTimeout:     5 * time.Minute,
-		ChromePath:      "/usr/bin/google-chrome",
-		Proxy:           "http://proxy:8080",
+		Host:             "127.0.0.1",
+		Port:             9999,
+		Headless:         false,
+		MaxConcurrent:    5,
+		ChromeDebugPort:  9224,
+		WindowWidth:      1920,
+		WindowHeight:     1080,
+		IdleTimeout:      5 * time.Minute,
+		ChromePath:       "/usr/bin/google-chrome",
+		Proxy:            "http://proxy:8080",
 		IgnoreCertErrors: true,
 		UserAgent:        "TestAgent/1.0",
 	}

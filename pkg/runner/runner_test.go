@@ -248,7 +248,7 @@ func TestRunnerWriteEmptyWriters(t *testing.T) {
 	}
 
 	result := &models.Result{
-		URL:  "https://example.com",
+		URL:   "https://example.com",
 		Title: "Test",
 	}
 
@@ -276,7 +276,7 @@ func TestRunnerWriteWithError(t *testing.T) {
 	}
 
 	result := &models.Result{
-		URL:  "https://example.com",
+		URL:   "https://example.com",
 		Title: "Test",
 	}
 
@@ -360,9 +360,9 @@ func TestParseSameSite(t *testing.T) {
 // TestIsRetriableError tests the isRetriableError function
 func TestIsRetriableError(t *testing.T) {
 	tests := []struct {
-		name       string
-		err        error
-		retriable  bool
+		name      string
+		err       error
+		retriable bool
 	}{
 		{"nil error", nil, false},
 		{"ERR_NAME_NOT_RESOLVED", errors.New("net::ERR_NAME_NOT_RESOLVED"), false},
@@ -512,8 +512,8 @@ func TestNewRunnerMissingJavaScriptFile(t *testing.T) {
 func TestRunnerRunWithThreadsZero(t *testing.T) {
 	driver := &MockDriver{
 		ReturnResult: &models.Result{
-			URL:    "https://example.com",
-			Title:  "Test",
+			URL:   "https://example.com",
+			Title: "Test",
 		},
 	}
 	writer := &MockWriter{}
@@ -563,8 +563,8 @@ func TestNewRunnerBlacklistEnabled(t *testing.T) {
 func TestRunnerRunWithBlacklistedURL(t *testing.T) {
 	driver := &MockDriver{
 		ReturnResult: &models.Result{
-			URL:    "https://example.com",
-			Title:  "Test",
+			URL:   "https://example.com",
+			Title: "Test",
 		},
 	}
 	writer := &MockWriter{}
@@ -601,8 +601,8 @@ func TestRunnerRunWithBlacklistedURL(t *testing.T) {
 func TestRunnerRunWithInvalidURL(t *testing.T) {
 	driver := &MockDriver{
 		ReturnResult: &models.Result{
-			URL:    "https://example.com",
-			Title:  "Test",
+			URL:   "https://example.com",
+			Title: "Test",
 		},
 	}
 	writer := &MockWriter{}
@@ -666,8 +666,8 @@ func TestNewRunnerWithJavaScriptFile(t *testing.T) {
 func TestRunnerRunContextCancellation(t *testing.T) {
 	driver := &MockDriver{
 		ReturnResult: &models.Result{
-			URL:    "https://example.com",
-			Title:  "Test",
+			URL:   "https://example.com",
+			Title: "Test",
 		},
 	}
 	writer := &MockWriter{}
@@ -745,8 +745,8 @@ func TestRunnerRunDriverError(t *testing.T) {
 func TestRunnerRunWriterError(t *testing.T) {
 	driver := &MockDriver{
 		ReturnResult: &models.Result{
-			URL:    "https://example.com",
-			Title:  "Test",
+			URL:   "https://example.com",
+			Title: "Test",
 		},
 	}
 	writer := &MockWriter{

@@ -144,13 +144,13 @@ func TestProcessScreenshotEdgeCases(t *testing.T) {
 		// Without pool and without Chrome, ProcessScreenshot should fail
 		server := &Server{
 			Options: ServerOptions{
-				ScreenshotPath: "/tmp/test",
+				ScreenshotPath:        "/tmp/test",
 				MaxConcurrentRequests: 1,
 			},
 		}
 
 		req := ScreenshotRequest{
-			URL: "https://example.com",
+			URL:   "https://example.com",
 			HTTPS: true,
 		}
 		opts := createRunnerOptions(req, server.Options)
@@ -174,7 +174,7 @@ func TestProcessScreenshotEdgeCases(t *testing.T) {
 		}
 
 		req := ScreenshotRequest{
-			URL: "https://example.com",
+			URL:   "https://example.com",
 			HTTPS: true,
 		}
 		opts := createRunnerOptions(req, server.Options)
