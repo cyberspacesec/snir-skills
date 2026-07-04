@@ -33,6 +33,24 @@ flowchart LR
     style Out fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+同一 host 多端口探测，某端口无 Web 服务时的回退时序：
+
+```mermaid
+sequenceDiagram
+  participant CLI as scan
+  participant CH as Chrome
+  participant R as Result
+  CLI->>CH: http://example.com:8080
+  CH-->>CLI: 连接拒绝/超时
+  CLI->>R: 记 Failed（端口无 Web）
+  CLI->>CH: https://example.com:8443
+  CH-->>CLI: 200 OK
+  CLI->>CH: 截图+证据
+  CH-->>CLI: 成功
+  CLI->>R: 记完整 Result
+  Note over CLI: 不因 8080 失败而跳过 8443
+```
+
 `ExpandTargets` 对裸 host/IP：
 
 1. 取协议（`--http` → `http://`，`--https` → `https://`）

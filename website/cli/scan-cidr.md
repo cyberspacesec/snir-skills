@@ -45,6 +45,23 @@ flowchart LR
     style Pool fill:#e6f4ea,stroke:#3aa676
 ```
 
+CIDR 从展开到并发采集的时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant EX as ExpandTargets
+  participant POOL as 并发池
+  participant CH as Chrome
+  U->>EX: scan cidr 192.168.1.0/24
+  EX->>EX: 枚举可用 IP（254 个）
+  EX->>EX: 按 --http/--https/--ports 生成候选 URL
+  EX-->>POOL: URL 列表
+  POOL->>CH: --threads 并发导航+截图
+  CH-->>POOL: 各 IP 的 Result（含超时/拒绝）
+  POOL-->>U: results.jsonl + screenshots/
+```
+
 - 默认 `http://ip` 与 `https://ip`
 - `--ports 8080` 额外生成 `http://ip:8080`、`https://ip:8080`
 

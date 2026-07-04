@@ -29,6 +29,31 @@ flowchart LR
     style Skip fill:#fde8e8,stroke:#d23a3a
 ```
 
+URL 过黑名单关卡的实际判定时序：
+
+```mermaid
+sequenceDiagram
+  participant SCAN as scan
+  participant GATE as 黑名单关卡
+  participant DNS as DNS 解析
+  participant CH as Chrome
+  SCAN->>GATE: 目标 URL
+  GATE->>GATE: 域名规则匹配
+  alt 域名命中
+  GATE-->>SCAN: 拒绝
+  else 域名未命中
+  GATE->>DNS: 解析主机
+  DNS-->>GATE: IP
+  GATE->>GATE: 比对 IP/CIDR 规则
+  alt IP 命中（内网/元数据/DB端口）
+  GATE-->>SCAN: 拒绝
+  else 通过
+  GATE-->>SCAN: 放行
+  SCAN->>CH: 采集
+  end
+  end
+```
+
 ## 默认黑名单（节选）
 
 默认屏蔽危险地址，防 SSRF 与内网探测：

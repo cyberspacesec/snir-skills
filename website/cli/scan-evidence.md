@@ -81,6 +81,27 @@ flowchart LR
     style B fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+证据在各采集阶段如何进入 Result：
+
+```mermaid
+sequenceDiagram
+  participant SCAN as scan
+  participant CH as Chrome
+  participant RES as Result
+  SCAN->>CH: 导航 + WaitForLoad
+  CH-->>SCAN: 页面就绪
+  SCAN->>CH: --save-html: outerHTML
+  CH-->>RES: HTML 字节
+  SCAN->>CH: --save-headers: 响应头
+  CH-->>RES: Headers map
+  SCAN->>CH: --save-console/network: 监听事件
+  CH-->>RES: Console/Network 日志
+  SCAN->>CH: --save-cookies: 读取 cookie
+  CH-->>RES: Cookies
+  SCAN->>RES: 自动: TLS/技术栈/pHash
+  Note over RES: 一条 Result 含全部证据
+```
+
 | 场景 | 建议证据 |
 |------|---------|
 | 资产盘点 | html + headers |

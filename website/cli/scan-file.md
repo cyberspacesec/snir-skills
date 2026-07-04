@@ -69,6 +69,27 @@ flowchart TD
     style Isolate fill:#e6f4ea,stroke:#3aa676
 ```
 
+批量扫描中"并发下发 + 单点失败隔离"的时序：
+
+```mermaid
+sequenceDiagram
+  participant F as urls.txt
+  participant EX as 目标展开
+  participant POOL as 并发池
+  participant T1 as 任务1 Driver
+  participant T2 as 任务2 Driver
+  participant W as Writer
+  F->>EX: 逐行解析
+  EX-->>POOL: 候选 URL[]
+  POOL->>T1: URL_A
+  POOL->>T2: URL_B
+  T1-->>POOL: Result_A（成功）
+  T2-->>POOL: Result_B（失败）
+  POOL->>W: 写 Result_A
+  POOL->>W: 写 Result_B（Failed=true，不中断）
+  Note over POOL: 继续后续 URL 直到列表耗尽
+```
+
 ## 并发
 
 `--threads`（默认 2）控制并发数。批量建议 5-20，视机器与目标限流而定。见 [并发与池](../advanced/concurrency)。

@@ -22,6 +22,27 @@ flowchart LR
     style Out fill:#e6f4ea,stroke:#3aa676
 ```
 
+单个目标在扫描流水线内的执行时序：
+
+```mermaid
+sequenceDiagram
+  participant CLI as scan 命令
+  participant EX as 目标展开
+  participant BL as 黑名单
+  participant POOL as 并发池
+  participant DR as Driver/Chrome
+  participant W as Writer
+  CLI->>EX: url/file/cidr
+  EX-->>CLI: 候选 URL 列表
+  CLI->>BL: 逐目标过黑名单
+  BL-->>CLI: 通过的 URL
+  CLI->>POOL: --threads 并发下发
+  POOL->>DR: 导航+截图+证据
+  DR-->>POOL: Result
+  POOL->>W: 写 jsonl/csv/db/screenshots
+  POOL-->>CLI: 完成（单点失败不中断）
+```
+
 ## 子命令
 
 | 子命令 | 用法 | 说明 |

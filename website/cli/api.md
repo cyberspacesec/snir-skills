@@ -88,6 +88,27 @@ flowchart LR
     style Exec fill:#e6f4ea,stroke:#3aa676
 ```
 
+一次 API 请求从接入到返回的时序：
+
+```mermaid
+sequenceDiagram
+  participant C as 调用方
+  participant API as snir api
+  participant Q as 队列
+  participant DR as Driver
+  C->>API: POST /screenshot + X-API-Key
+  API->>API: 鉴权 + 取并发计数
+  alt 并发已满
+  API->>Q: 入队等待槽位
+  Q-->>API: 槽位释放
+  else 队列也满
+  API-->>C: 503 拒绝
+  end
+  API->>DR: 执行截图+证据
+  DR-->>API: Result
+  API-->>C: 200 + JSON/图片字节
+```
+
 ## 下一步
 
 - [API 鉴权](./api-auth)

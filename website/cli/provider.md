@@ -45,6 +45,21 @@ flowchart TD
   W3[worker 3] -->|借连接| P
 ```
 
+Provider 的 Chrome 进程在空闲超时下的状态流转：
+
+```mermaid
+stateDiagram-v2
+  [*] --> 启动Chrome
+  启动Chrome --> 就绪: 监听 :9222
+  就绪 --> 服务中: worker 接入
+  服务中 --> 就绪: 全部 worker 断开
+  就绪 --> 空闲计时: 无连接
+  空闲计时 --> 就绪: 新连接接入（重置）
+  空闲计时 --> 关闭Chrome: 超过 --idle-timeout
+  服务中 --> 关闭Chrome: 进程退出
+  关闭Chrome --> [*]
+```
+
 各 worker 用 `--wss` 连接 Provider 暴露的 Chrome：
 
 ```bash

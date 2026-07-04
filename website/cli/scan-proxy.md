@@ -82,6 +82,22 @@ flowchart TD
     style S fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+`--proxy-url` 动态代理池的取号时序：
+
+```mermaid
+sequenceDiagram
+  participant SCAN as scan
+  participant API as proxy-url 服务
+  participant CH as Chrome
+  participant POOL as 商业代理池
+  SCAN->>API: GET（每次取新代理）
+  API->>POOL: 申请一个出口
+  POOL-->>API: 1.2.3.4:8888
+  API-->>SCAN: 返回代理地址
+  SCAN->>CH: 用该代理采集
+  CH-->>SCAN: Result（出口 IP 随每次变化）
+```
+
 | 场景 | 选 |
 |------|-----|
 | 单一出口 | `--proxy` |
