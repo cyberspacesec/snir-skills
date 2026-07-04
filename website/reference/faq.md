@@ -51,7 +51,9 @@ snir scan example.com --chrome-path /usr/bin/chromium
 
 ### `--ports` 是端口扫描吗？
 
-不是。`--ports` 把裸 host/IP 展开成 Web 候选 URL（如 `host:8080` → `http://host:8080`、`https://host:8080`），是 Web 端点展开，不是 TCP/UDP 探测。
+::: warning 不是端口扫描
+`--ports` 把裸 host/IP 展开成 Web 候选 URL（如 `host:8080` → `http://host:8080`、`https://host:8080`），是 **Web 端点展开**，不是 TCP/UDP 探测。snir 不做端口发现。
+:::
 
 ### 如何只截某个元素？
 
@@ -86,17 +88,24 @@ snir scan file -f urls.txt --proxy-list http://p1:8080 --proxy-list http://p2:80
 
 ### 如何登录后再截图？
 
-用 Cookie 导入或表单交互。见 [Cookie 管理](../advanced/cookie) 与 [表单与交互](../advanced/forms)。
+::: tip 两条路
+- **Cookie 导入**：已有会话 Cookie，直接导入复用，见 [Cookie 管理](../advanced/cookie)
+- **表单交互**：让 snir 自动填表单登录，见 [表单与交互](../advanced/forms)
+:::
 
 ## 输出
 
 ### JSONL、CSV、SQLite 选哪个？
 
-- **JSONL**：流式追加，适合管线与下游脚本
-- **CSV**：表格化，适合 Excel
-- **SQLite**：结构化查询，建索引，适合长期存储与分析
+| 格式 | 特点 | 适合 |
+|------|------|------|
+| **JSONL** | 流式追加，每行一条 | 管线、jq、下游脚本 |
+| **CSV** | 扁平表格 | Excel、BI |
+| **SQLite** | 结构化、建索引、可关联查询 | 长期存储与分析 |
 
-可同时启用多个 Writer。
+::: tip 可同时启用
+`--write-jsonl --write-csv --db` 一起开，`Result` 会广播给所有 Writer，无需多次扫描。
+:::
 
 ### 截图保存在哪？
 

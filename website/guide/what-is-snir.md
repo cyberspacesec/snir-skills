@@ -67,33 +67,84 @@ mindmap
 
 ## 设计哲学
 
+::: tip 四个设计原则
+snir 的所有功能都围绕这四条哲学展开，理解它们就能预判 snir 在边界场景的行为。
+:::
+
 ### 1. AI 优先
 
-snir 把 AI 代理当作一等公民。仓库本身就是一个 Anthropic 兼容的 **Skill Bundle**：`SKILL.md` 是入口，`references/` 是渐进式任务文档，`evals/` 是评估提示。代理按需加载，先短后长。
+snir 把 AI 代理当作一等公民。仓库本身就是一个 Anthropic 兼容的 **Skill Bundle**：
+
+- `SKILL.md` — 入口，告诉代理"能做什么、怎么开始"
+- `references/` — 渐进式任务文档，先短后长，按需加载
+- `evals/` — 评估提示，验证代理是否用对了
+
+::: info 典型的 AI 调用链
+代理读 `SKILL.md` → 自发现集成入口 → 调 `snir scan` 或 SDK → 拿到结构化 `Result` → 继续推理。全程不需要代理事先懂 Go。
+:::
 
 ### 2. 证据可采信
 
-截图不只是图片，而是"证据"。snir 同时捕获 HTML、HTTP 头、Cookie、控制台日志、网络请求、TLS 信息、最终 URL 与状态码，并用 `schema_version` 标记结果版本，便于下游分析与归档。
+截图不只是图片，而是"证据"。snir 在一次截图里同时固化多种可采信的痕迹：
+
+| 证据 | 字段 | 价值 |
+|------|------|------|
+| HTML 源码 | `html` | 还原当时 DOM |
+| HTTP 头 | `headers` | 服务端指纹 |
+| Cookie | `cookies` | 会话状态 |
+| 控制台 | `console` | 前端报错 |
+| 网络请求 | `network` | 请求/响应链 |
+| TLS | `tls` | 证书与加密 |
+| 最终 URL | `final_url` | 跳转后落点 |
+| 状态码 | `response_code` | 可达性 |
+
+每条 `Result` 带 `schema_version`，便于下游分析与归档。
 
 ### 3. 多集成模式
 
-不同调用方有不同形态：
+不同调用方有不同形态，对应不同集成入口：
 
-- **Shell 代理** → `snir scan ...`
-- **非 Go 系统 / 微服务** → `snir api`（HTTP）
-- **Go 应用** → `pkg/sdk`（类型化）
-- **多进程 worker** → `snir provider`（共享 Chrome）
+```mermaid
+flowchart LR
+    subgraph 调用方
+      AI[AI 代理] 
+      SH[Shell/脚本]
+      SVC[非 Go 微服务]
+      GO[Go 应用]
+      MP[多进程 worker]
+    end
+    AI --> SB[Skill Bundle<br/>SKILL.md]
+    SH --> CLI["snir scan"]
+    SVC --> API["snir api<br/>HTTP"]
+    GO --> SDK["pkg/sdk"]
+    MP --> PROV["snir provider<br/>共享 CDP"]
+    SB --> CLI
+    CLI & API & SDK & PROV --> Core[snir 核心引擎]
+    Core --> R[统一 Result]
+
+    style Core fill:#3aa676,stroke:#2a7a56,color:#fff
+    style R fill:#e6f4ea,stroke:#3aa676
+```
 
 ### 4. 资源复用
 
-浏览器是昂贵的资源。snir 提供 **DriverPool** 与共享池单例，让多任务复用同一批 Chrome 实例；并提供 **CDP Provider** 模式，让多进程共享同一个远程 Chrome。
+浏览器是昂贵的资源。snir 在两个层面复用 Chrome：
+
+- **进程内**：`DriverPool` 与共享池单例，让多任务复用同一批 Chrome 实例
+- **跨进程**：`CDP Provider` 模式，让多进程 worker 共享同一个远程 Chrome 端点
+
+::: warning 浏览器开销
+每起一个 Chrome 进程约占 ~150MB 内存。批量场景务必用 `Shared*` 函数或 `snir provider`，避免每任务起停一次浏览器。
+:::
 
 ## 项目仓库
 
-- 🎮 GitHub: [cyberspacesec/snir-skills](https://github.com/cyberspacesec/snir-skills)
-- 📄 License: MIT
-- 🏗️ 语言: Go 1.23+
-- 🖥️ 依赖: Chrome / Chromium（或远程 CDP 端点）
+::: info 仓库速览
+- 🎮 **GitHub**：[cyberspacesec/snir-skills](https://github.com/cyberspacesec/snir-skills)
+- 📄 **License**：MIT
+- 🏗️ **语言**：Go 1.23+
+- 🖥️ **运行依赖**：Chrome / Chromium（或远程 CDP 端点）
+:::
 
 ## 下一步
 

@@ -94,6 +94,19 @@ snir scan example.com \
 | `--save-network` | 网络请求日志 |
 | `--write-jsonl` | 写入 `results.jsonl` |
 
+::: details 结果会是什么样？
+每行一个完整 `Result` JSON，含截图路径、状态码、标题、HTML、headers、cookies、console、network 等全部字段：
+
+```json
+{"url":"http://example.com","final_url":"...","response_code":200,
+ "title":"Example Domain","screenshot":"screenshots/...png",
+ "html":"<!doctype html>...","headers":[...],"cookies":[...],
+ "console":[...],"network":[...],"schema_version":"snir-skills.result.v1"}
+```
+
+用 `jq` 查看：`jq -c '{url,title,code:.response_code}' results.jsonl`
+:::
+
 ## 批量扫描
 
 从文件批量：
@@ -101,6 +114,10 @@ snir scan example.com \
 ```bash
 snir scan file -f urls.txt --threads 10 --write-jsonl --db
 ```
+
+::: tip 推荐组合
+批量场景标配 `--threads 10 --write-jsonl --db`：并发跑、流式落 JSONL、同时入库 SQLite 便于查询。`--threads` 建议从 5-10 起步，视目标限流调整。
+:::
 
 展开裸 host/IP 的常见 Web 端口：
 
@@ -120,6 +137,12 @@ snir scan cidr 192.168.1.0/24
 snir api --host 127.0.0.1 --port 8080 --api-key secret
 ```
 
+::: warning 生产环境安全
+- 监听内网 `--host 127.0.0.1`，除非确需公网
+- `--api-key` 用强随机值，不要提交到代码库
+- 公网暴露务必前置 HTTPS 反代
+:::
+
 调用：
 
 ```bash
@@ -130,10 +153,12 @@ curl -X POST http://127.0.0.1:8080/screenshot \
 
 ## 常用输出
 
+::: info 产物速查
 - 📁 `screenshots/` — 截图文件
 - 📄 `results.jsonl` — 流式结构化结果
 - 📊 `results.csv` — 表格化结果（`--write-csv`）
 - 🗄️ `go-web-screenshot.db` — SQLite（`--db`）
+:::
 
 ## 下一步
 

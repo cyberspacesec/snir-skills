@@ -20,11 +20,12 @@ flowchart TD
 
 ## 自发现入口
 
-代理克隆仓库后，第一步读 `SKILL.md`：
-
+::: info 代理的第一步
+代理克隆仓库后，先读 `SKILL.md`：
 - frontmatter 的 `description` 告诉代理"何时用此技能"
 - 简短指令告诉代理"怎么装、怎么跑"
 - 渐进文档指引告诉代理"需要细节时打开哪个 reference"
+:::
 
 ## 选择集成模式
 
@@ -39,7 +40,9 @@ flowchart TD
 
 ### 任务 1：给一批 URL 截图并存证据
 
-代理判断：一次性批量 → CLI。
+::: tip 代理判断：一次性批量 → CLI
+无需常驻服务，直接跑命令最快。代理读 `results.jsonl` 或查 SQLite，把摘要返回上游。
+:::
 
 ```bash
 snir scan file -f urls.txt --threads 10 \
@@ -47,21 +50,21 @@ snir scan file -f urls.txt --threads 10 \
   --write-jsonl --db
 ```
 
-代理读 `results.jsonl` 或查 SQLite，把摘要返回上游。
-
 ### 任务 2：作为常驻工具供其他系统调用
 
-代理判断：微服务 → HTTP API。
+::: tip 代理判断：微服务 → HTTP API
+需要被其他系统/语言反复调用，启动常驻 HTTP 服务，用 `curl` 或 HTTP 工具调 `/screenshot`、`/batch`。
+:::
 
 ```bash
 snir api --host 127.0.0.1 --port 8080 --api-key $KEY
 ```
 
-代理用 `curl` 或 HTTP 工具调用 `/screenshot`、`/batch`。
-
 ### 任务 3：多 worker 并发采集
 
-代理判断：资源复用 → Provider。
+::: tip 代理判断：资源复用 → Provider
+多进程各自拉 Chrome 太贵，启动一个共享 Chrome 端点，各 worker 用 `--wss` 接入。
+:::
 
 ```bash
 snir provider              # 主进程启动共享 Chrome
@@ -80,7 +83,9 @@ snir scan ... --wss ws://host:9222/devtools/browser/<id>
 
 ## 安全约束
 
-代理须在授权范围内操作。默认黑名单屏蔽内网与云元数据地址，防 SSRF。代理不应绕过黑名单扫描未授权资产。见 [安全注意](../advanced/security)。
+::: danger 授权范围与 SSRF 防护
+代理须在**授权范围内**操作。默认黑名单屏蔽内网与云元数据地址，防 SSRF。**代理不应绕过黑名单扫描未授权资产。** 见 [安全注意](../advanced/security)。
+:::
 
 ## evals 验证
 

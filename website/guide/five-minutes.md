@@ -104,11 +104,19 @@ func main() {
 }
 ```
 
+::: tip SDK 的优势
+`SharedCapture` 自动复用共享浏览器池，无需手动管理 Chrome 生命周期。`With*` 选项式 API 类型安全，IDE 有补全。见 [SDK 总览](../sdk/overview)。
+:::
+
 ## 恭喜 🎉
 
-你已掌握 snir 核心用法。继续深入：
+::: tip 你已掌握 snir 核心用法 🎉
+从单页截图 → 全量证据 → 批量展开 → 设备/代理 → API/SDK，五分钟解锁了 snir 的主干能力。
+:::
 
-- [进阶主题](../advanced/proxy)：指纹、Cookie、JS、表单
-- [CLI 全标志](../reference/cli-flags)
+继续深入：
+
+- 🚀 [进阶主题](../advanced/proxy)：指纹、Cookie、JS、表单
+- 🧾 [CLI 全标志](../reference/cli-flags)
 - [Go SDK](../sdk/overview)
 - [报告生成](../advanced/reports)

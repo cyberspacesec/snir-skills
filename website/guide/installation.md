@@ -85,19 +85,22 @@ docker run --rm snir version
 
 ## 安装 Chrome
 
-### Linux
+**Linux (Debian/Ubuntu)**：
 
 ```bash
-# Debian/Ubuntu
 sudo apt install chromium-browser
 # 或安装 Google Chrome
 ```
 
-### macOS
+**macOS**：
 
 ```bash
 brew install --cask chromium
 ```
+
+::: info 没有 Chrome？
+可连接**远程 CDP** 免本地浏览器：`snir scan example.com --wss ws://host:9222/...`，详见下方 [远程 Chrome 替代](#远程-chrome-替代)。
+:::
 
 ## 验证
 
@@ -107,18 +110,32 @@ snir version
 
 输出 Logo 与版本信息即成功。
 
+::: details 预期输出
+```text
+   _____ _    _____
+  / ___(_)  / ___/___  ___
+ / /__  / / / /__/ __ \/ _/
+ \___/_/_/  \___/_/ /_/\_/
+
+snir vX.Y.Z
+https://github.com/cyberspacesec/snir-skills
+```
+:::
+
 ## 平台注意
 
 | 平台 | 注意 |
 |------|------|
-| Linux | 主力平台，Chrome 通常用 chromium 包 |
-| macOS | 需安装 Chrome/Chromium 到 Applications |
-| BSD | 二进制可用；Chrome 需自行解决 |
-| Windows | 可从源码构建，需指定 `--chrome-path` |
+| 🐧 Linux | 主力平台，Chrome 通常用 chromium 包 |
+| 🍎 macOS | 需安装 Chrome/Chromium 到 Applications |
+| 🐡 BSD | 二进制可用；Chrome 需自行解决 |
+| 🪟 Windows | 可从源码构建，需指定 `--chrome-path` |
 
 ## 远程 Chrome 替代
 
-无本地 Chrome 时，连接远程 CDP，免本地浏览器：
+::: tip 无本地 Chrome 的最佳选择
+连接远程 CDP，免本地浏览器，可被多 worker 复用：
+:::
 
 ```bash
 snir scan example.com --wss ws://host:9222/devtools/browser/<id>
