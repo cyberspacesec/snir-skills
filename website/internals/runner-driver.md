@@ -33,6 +33,26 @@ graph TD
 
 接口抽象让未来可扩展其他浏览器后端（如 Firefox/Playwright），而 `Runner` 逻辑不变——符合依赖倒置原则。
 
+一次采集在 Runner 与 Driver 间的调用时序：
+
+```mermaid
+sequenceDiagram
+  participant R as Runner
+  participant D as Driver 接口
+  participant CD as ChromeDP
+  participant CDP as CDP/Chrome
+  R->>D: Configure(视口/UA/代理/Cookie)
+  D->>CD: 转译为 chromedp 选项
+  CD->>CDP: Apply
+  R->>D: Navigate(url) + WaitForLoad
+  D->>CDP: Page.navigate
+  CDP-->>CD: 加载完成
+  R->>D: Screenshot + 证据
+  D->>CDP: 各 capture 命令
+  CDP-->>CD: 字节/数据
+  CD-->>R: Result
+```
+
 ## 抽象层次
 
 ```

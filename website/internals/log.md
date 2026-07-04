@@ -49,6 +49,23 @@ flowchart TD
   L --> F[Fatal 退出]
 ```
 
+snir 自身与依赖库的日志如何汇聚到同一输出：
+
+```mermaid
+sequenceDiagram
+  participant SNIR as snir 代码
+  participant DEP as 依赖库(chromedp 等)
+  participant LOG as pkg/log
+  participant CHARM as charmbracelet/log
+  participant T as 终端
+  SNIR->>LOG: log.Info/Warn/Error
+  LOG->>CHARM: 格式化+着色
+  DEP->>LOG: slog.Info（经 GetLogger）
+  LOG->>LOG: slogToCharm 适配
+  LOG->>CHARM: 同一风格
+  CHARM->>T: 统一彩色输出
+```
+
 ## slog 适配
 
 ::: info 一个门面收编两类库

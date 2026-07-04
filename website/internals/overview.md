@@ -29,6 +29,25 @@ graph TD
   MODELS --> LOG
 ```
 
+一次 SDK 调用穿越各层的典型时序：
+
+```mermaid
+sequenceDiagram
+  participant APP as 应用
+  participant SDK as pkg/sdk
+  participant SCAN as pkg/scan
+  participant RUNNER as pkg/runner
+  participant MODELS as pkg/models
+  participant DB as pkg/database
+  APP->>SDK: SharedCapture(url, opts)
+  SDK->>RUNNER: 借 Driver 执行采集
+  RUNNER-->>SDK: Result
+  SDK->>MODELS: 组装结构
+  SDK->>DB: --db 持久化
+  SDK-->>APP: *Result
+  Note over SCAN,RUNNER: 批量场景下 scan 编排多任务下发 runner
+```
+
 ## 模块速查
 
 | 模块 | 源码 | 职责 | 详解 |

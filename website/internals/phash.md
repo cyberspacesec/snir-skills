@@ -33,6 +33,24 @@ flowchart LR
   BIN --> HASH[64bit 哈希]
 ```
 
+用 pHash 比对"今日 vs 昨日"截图是否改版的时序：
+
+```mermaid
+sequenceDiagram
+  participant SCAN as snir scan
+  participant PH as pkg/phash
+  participant DB as pkg/database
+  participant U as 监控/告警
+  SCAN->>PH: ComputePerceptionHash(today.png)
+  PH-->>SCAN: HashA
+  SCAN->>DB: 取上次 HashB
+  DB-->>SCAN: HashB
+  SCAN->>PH: CompareHashes(A, B)
+  PH-->>SCAN: distance=18
+  SCAN->>SCAN: distance>10 → 判定改版
+  SCAN-->>U: 标记变更 + 触发告警
+```
+
 ## 相似度计算
 
 [`CompareHashes`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/phash/phash.go#L52) 用汉明距离（不同位数）衡量差异：

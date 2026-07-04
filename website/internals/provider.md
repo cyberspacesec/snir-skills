@@ -63,6 +63,24 @@ flowchart TB
     style Chrome fill:#e6f4ea,stroke:#3aa676
 ```
 
+worker 进程接入 Provider 共享 Chrome 的时序：
+
+```mermaid
+sequenceDiagram
+  participant W1 as worker A
+  participant W2 as worker B
+  participant PROV as snir provider:9223
+  participant CH as 共享 Chrome
+  W1->>PROV: --wss ws://host:9223
+  PROV->>CH: 复用同一 CDP 端点
+  W2->>PROV: --wss ws://host:9223
+  PROV->>CH: 同一端点
+  W1->>CH: 导航+截图（任务1）
+  W2->>CH: 导航+截图（任务2）
+  CH-->>W1: Result1
+  CH-->>W2: Result2
+```
+
 ::: tip 💡 何时用 Provider
 单进程批量用 `DriverPool`（SDK `Shared*` 自动管理）；多进程/多机 worker 共用一个 Chrome 实例时启动 `snir provider`，各 worker 以 `--wss` 接入，省去每进程各起一份 Chrome 的开销。
 :::

@@ -46,6 +46,25 @@ flowchart TD
 
 [`parsePatterns`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/blacklist.go#L129) 把字符串规则编译为正则/IP 段，支持主机名通配与 CIDR。
 
+规则从配置到可判定结构的加载编译时序：
+
+```mermaid
+sequenceDiagram
+  participant O as Options
+  participant B as URLBlacklist
+  participant P as parsePatterns
+  participant R as 规则集(正则+IP段)
+  O->>B: NewURLBlacklist(opts)
+  O->>B: 内置默认规则
+  O->>B: --blacklist 规则
+  O->>B: --blacklist-file 文件
+  B->>B: loadPatternsFromFile
+  B->>P: 合并全部字符串规则
+  P->>P: 编译正则 / 解析 CIDR
+  P-->>R: 就绪
+  Note over R: 之后 IsBlacklisted 直接查 R
+```
+
 ## 配置
 
 - `Options.BlacklistEnabled`：总开关

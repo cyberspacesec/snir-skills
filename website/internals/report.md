@@ -63,6 +63,25 @@ flowchart TD
   H --> SV[可选: Server 本地预览]
 ```
 
+本地预览 Server 从启动到浏览器查看的时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant CMD as snir report html
+  participant SV as Server(NewServer)
+  participant BR as 浏览器
+  CMD->>SV: NewServer(options)
+  SV->>SV: 监听 host:port，托管产物目录
+  SV-->>U: http://127.0.0.1:8080
+  U->>BR: 打开预览 URL
+  BR->>SV: GET /report.html
+  SV-->>BR: 自包含 HTML
+  BR->>SV: GET screenshots/*.png
+  SV-->>BR: 图片字节
+  BR-->>U: 渲染报告
+```
+
 ## 状态着色
 
 [`getStatusClass`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/report/html.go#L509) 按状态码分色：2xx 绿、3xx 蓝、4xx 黄、5xx 红，报告一目了然。
