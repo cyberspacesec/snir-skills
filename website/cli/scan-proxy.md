@@ -55,6 +55,10 @@ http://user:pass@proxy:3128
 
 `--proxy-file` 支持热加载，文件变更自动生效。
 
+::: info sequential 策略 = 自动故障转移
+代理不稳定时选 `--proxy-strategy sequential`——当前代理失败会**自动切到下一个**，配合 `--max-retries` 重试最大化成功率。`round-robin`/`random` 则不论成败轮换。
+:::
+
 ## 动态代理 API
 
 `--proxy-url` 指向一个返回代理地址的 HTTP 服务，每次请求获取新代理，适合商业动态代理池。

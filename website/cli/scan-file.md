@@ -73,9 +73,16 @@ flowchart TD
 
 `--threads`（默认 2）控制并发数。批量建议 5-20，视机器与目标限流而定。见 [并发与池](../advanced/concurrency)。
 
+::: warning 并发不是越大越好
+盲目调高 `--threads` 会导致：本地内存/CPU 打满、目标站点触发限流或封禁、Chrome 进程数爆炸（每并发一个 tab）。
+建议从 `--threads 5` 起，观察资源占用与成功率再逐步上调。
+:::
+
 ## 失败隔离
 
-单个目标失败不中断整体，记录在 `Result.Failed`/`FailedReason`。`--max-retries` 控制单目标重试。
+::: tip 单目标失败不连累全局
+批量扫描中某个 URL 超时/报错**不会中断整个批次**，会被记录到 `Result.Failed` / `FailedReason` 继续下一个。配合 `--max-retries` 控制单目标重试次数。
+:::
 
 ## 下一步
 

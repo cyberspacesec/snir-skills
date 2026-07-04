@@ -16,6 +16,10 @@ snir 一次截图可同时采集多种证据，存入 `Result` 对应字段。
 
 此外，`final_url`、`response_code`、`title`、`tls`、`technologies`、`perception_hash` 默认采集。
 
+::: tip 一键全量证据
+懒得逐个开？`--save-html --save-headers --save-cookies --save-console --save-network` 全开即可，或 SDK 用 `WithEvidence()` 一次启用前五项。
+:::
+
 ## 示例
 
 ```bash

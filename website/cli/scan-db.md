@@ -54,10 +54,16 @@ flowchart LR
 
 ## 索引字段
 
-入库时以下字段建索引：`html`、`title`、`perception_hash`、`perception_hash_group_id`，便于快速查询。
+::: tip 入库即建索引，查询不卡
+入库时以下字段自动建索引：`html`、`title`、`perception_hash`、`perception_hash_group_id`。
+
+- 🔍 按标题/哈希模糊查找无需全表扫描
+- 🧮 哈希聚类查询（找相似页面组）秒级返回
+:::
 
 ## 查询示例
 
+::: details 常用 SQL 速查
 ```sql
 -- 失败的目标
 SELECT url, failed_reason FROM screenshots WHERE failed = 1;
@@ -73,6 +79,7 @@ FROM screenshots GROUP BY perception_hash_group_id HAVING count(*) > 1;
 SELECT s.host, t.name FROM technologies t
 JOIN screenshots s ON t.result_id = s.id;
 ```
+:::
 
 ## 适合场景
 

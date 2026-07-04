@@ -60,36 +60,23 @@ snir scan --list-devices
 
 `scan` 的持久化标志对所有子命令生效，涵盖：截图、证据、Chrome、代理、Cookie、设备、JS、输出、数据库、黑名单、端口。完整表见 [CLI 标志全表](../reference/cli-flags)。
 
+::: info 持久化标志 = 在 `scan` 或子命令上都可挂
+`--save-html` 这类标志既可写 `snir scan --save-html file -f urls.txt`，也可写 `snir scan file --save-html -f urls.txt`——cobra 的持久化标志贯穿整棵子命令树。
+:::
+
 ## 示例
 
-```bash
-# 基本单页
-snir scan example.com
-
-# 增加超时和延迟
-snir scan example.com --timeout 60 --delay 3
-
-# 批量
-snir scan file -f urls.txt --threads 10 --write-jsonl --db
-
-# 端口展开
-snir scan file -f hosts.txt --ports 80,443,8080,8443
-
-# 网段
-snir scan cidr 192.168.1.0/24
-
-# 完整证据
-snir scan example.com --full-page --save-html --save-headers --save-cookies --save-console --save-network
-
-# 高分辨率
-snir scan example.com --resolution-x 1920 --resolution-y 1080
-
-# 移动端
-snir scan example.com --device iphone-15
-
-# 代理
-snir scan example.com --proxy http://127.0.0.1:8080
-```
+::: tip 常用配方速查
+| 配方 | 命令 |
+|------|------|
+| 单页快照 | `snir scan example.com` |
+| 批量归档 | `snir scan file -f urls.txt --threads 10 --write-jsonl --db` |
+| 全量证据 | `snir scan example.com --full-page --save-html --save-headers --save-cookies --save-console --save-network` |
+| 移动端视角 | `snir scan example.com --device iphone-15` |
+| 网段普查 | `snir scan cidr 192.168.1.0/24` |
+| 走代理 | `snir scan example.com --proxy http://127.0.0.1:8080` |
+| 高清桌面 | `snir scan example.com --resolution-x 1920 --resolution-y 1080` |
+:::
 
 ## 下一步
 

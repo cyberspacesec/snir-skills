@@ -53,12 +53,20 @@ snir scan example.com --skip-screenshot --save-html --save-headers
 
 ## 格式选择
 
-- **PNG**：无损，适合需要清晰文字/UI 细节
-- **JPEG**：有损体积小，适合批量存档
+::: tip PNG vs JPEG，按用途选
+| 格式 | 体积 | 清晰度 | 适合 |
+|------|------|--------|------|
+| **PNG**（默认） | 大 | 无损 | 需看清文字/UI 细节、要 OCR、要证据留档 |
+| **JPEG** | 小 | 有损 | 批量存档、缩略图网格、对体积敏感 |
+
+JPEG 用 `--screenshot-quality`（1-100）控制压缩率，80 是体积/质量的甜点。
+:::
 
 ## 文件命名
 
-截图文件名经 `SanitizeFilename` 清理非法字符（`\ / : * ? " < > | %`），保证跨平台安全。
+::: info 文件名自动清理，跨平台安全
+截图文件名经 `SanitizeFilename` 清理非法字符（`\ / : * ? " < > | %`），把 URL 里这些字符替换掉——保证同一张图在 Windows/Linux/macOS 都能落盘，不会因文件名非法报错。
+:::
 
 ## 下一步
 

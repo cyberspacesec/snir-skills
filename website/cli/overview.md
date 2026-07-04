@@ -12,6 +12,10 @@ snir [command] [flags]
 
 无子命令时显示帮助（含 Logo）。
 
+::: tip 任何时候都能 `--help`
+每个命令层级都支持 `--help`，且帮助信息**从 cobra 命令树自动生成**——新加的子命令无需手写文档即自动出现在帮助中。
+:::
+
 ## 子命令
 
 | 命令 | 说明 | 文档 |
@@ -59,10 +63,14 @@ snir --list-devices # （scan）列出设备预设
 
 ## 快速验证
 
+::: details 30 秒上手
 ```bash
-snir version
-snir scan example.com
+snir version              # 确认安装
+snir scan example.com     # 扫一张试试
+snir scan example.com --full-page --save-html --save-headers   # 带证据
 ```
+跑通这三条，snir 就装好了。
+:::
 
 ## 下一步
 

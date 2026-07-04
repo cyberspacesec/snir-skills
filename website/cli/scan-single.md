@@ -36,8 +36,9 @@ snir scan single example.com --selector "#main"
 
 ## URL 归一化
 
-- 无协议时自动补 `http://`/`https://`（依 `--http`/`--https`）
-- `EnrichEndpoint` 解析 host/port/endpoint/scheme
+::: info 无需手动补协议
+直接传 `example.com` 即可——snir 的 `EnrichEndpoint` 会自动补全 `http://`/`https://`（依 `--http`/`--https` 默认两者都试），并解析出 host/port/scheme。
+:::
 
 ```mermaid
 flowchart LR
@@ -52,13 +53,21 @@ flowchart LR
 
 ## 输出
 
-- 截图：`./screenshots/`（`--screenshot-path` 可改）
-- 结果：JSONL/CSV/SQLite（按启用项）
-- 控制台：默认输出（`--write-stdout=false` 关闭）
+::: details 输出位置一览
+| 产物 | 默认位置 | 调整标志 |
+|------|---------|---------|
+| 截图 | `./screenshots/` | `--screenshot-path` |
+| JSONL | `./results.jsonl` | `--write-jsonl` 启用 |
+| CSV | `./results.csv` | `--write-csv` 启用 |
+| SQLite | `./snir.db` | `--db` 启用 |
+| 控制台 | 总是输出 | `--write-stdout=false` 关闭 |
+:::
 
 ## 错误处理
 
-常见错误（超时、`net::ERR_*`、节点未找到）会被美化，给出可操作建议。见 [错误码](../reference/error-codes)。
+::: tip 错误信息已美化
+常见错误（超时、`net::ERR_*`、`element not found`）会被翻译成可读的中文建议而非裸堆栈。见 [错误码](../reference/error-codes)。
+:::
 
 ## 下一步
 

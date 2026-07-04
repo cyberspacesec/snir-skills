@@ -71,9 +71,14 @@ snir scan file -f hosts.txt --enable-blacklist=false
 
 ## 安全建议
 
-- 生产环境**务必**保留默认黑名单
-- 仅在授权内网扫描时才考虑 `--enable-blacklist=false`
-- 详见 [安全注意](../advanced/security)
+::: danger SSRF 防护底线，切勿随意关闭
+- ✅ 生产环境**务必保留默认黑名单**（`--default-blacklist=true`，这也是默认值）
+- ✅ 对用户输入的目标**先过黑名单**再采集，防 SSRF 打内网/云元数据
+- ⚠️ 仅在**授权内网扫描**时才考虑 `--enable-blacklist=false`
+- ❌ 切勿为图省事在生产对外服务上禁用——云元数据 `169.254.169.254` 可泄露临时凭证
+:::
+
+详见 [安全注意](../advanced/security)。
 
 ## 下一步
 

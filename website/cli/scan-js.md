@@ -37,15 +37,27 @@ flowchart LR
 
 ## 典型用例
 
-- 滚动到底部触发懒加载：`--js "window.scrollTo(0, document.body.scrollHeight)"`
-- 关闭 cookie 弹窗：`--js "document.querySelector('.consent')?.remove()"`
-- 修改 DOM 后再截图
-- 提取页面数据
+::: tip 实战配方
+| 目的 | 代码 |
+|------|------|
+| 滚动到底触发懒加载 | `--js "window.scrollTo(0, document.body.scrollHeight)"` |
+| 关闭 Cookie 同意弹窗 | `--js "document.querySelector('.consent')?.remove()"` |
+| 改 DOM 后再截图 | `--js-file modify.js` |
+| 提取页面数据 | `--js "document.title"`（结果入 console） |
+
+弹窗遮挡是截图失败的常见原因，`--js` 提前移除是低成本解法。
+:::
 
 ## 与交互动作的区别
 
-- `--js`：自由 JS，灵活但需自己处理异步
-- `WithActions`（SDK）：结构化动作（点击/输入/滚动/等待），见 [JS 与交互](../sdk/builder-js)
+::: warning 自由 JS vs 结构化动作
+| 方式 | 灵活度 | 异步处理 | 适合 |
+|------|--------|---------|------|
+| `--js`（CLI） | 高，任意代码 | 需自己处理 | 一次性脚本注入 |
+| `WithActions`（SDK） | 结构化动作 | 框架托管等待 | 复杂交互流程（点击→输入→等待→截图） |
+
+简单注入用 `--js`，多步交互用 SDK 的 `WithActions`，见 [JS 与交互](../sdk/builder-js)。
+:::
 
 ## 下一步
 

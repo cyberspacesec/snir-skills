@@ -51,13 +51,21 @@ flowchart LR
 
 ## 与证据采集的区别
 
-- `--save-cookies`：把浏览器 Cookie 作为**证据**存入 `Result.cookies`
-- `--cookie-*`：**注入/持久化** Cookie 用于会话保持
+::: warning 别混淆：注入 Cookie ≠ 采集 Cookie
+| 标志 | 作用 | 方向 |
+|------|------|------|
+| `--cookie` / `--cookie-file` / `--cookie-import` | **注入** Cookie 维持会话 | 外部 → 浏览器 |
+| `--save-cookies` | 把浏览器 Cookie 作为**证据**存入 `Result.cookies` | 浏览器 → 结果 |
+
+两者可同用：先 `--cookie-import` 带登录态，再 `--save-cookies` 把实际 Cookie 采下来。
+:::
 
 ## 适用场景
 
-- 登录后页面截图：先用 curl 登录导出 Netscape，再 `--cookie-import`
-- 跨任务会话复用：`--cookie-file` + `--cookie-write-back`
+::: tip 两个经典会话配方
+- 🔐 **登录后截图**：先用 `curl` 登录导出 Netscape，再 `snir scan --cookie-import cookies.txt`
+- 🔁 **跨任务复用会话**：`--cookie-file cookies.json --cookie-write-back`，每次截图后写回，下次自动带
+:::
 
 详见 [Cookie 管理（进阶）](../advanced/cookie)。
 

@@ -63,14 +63,21 @@ jq -c '{url, title, code: .response_code}' results.jsonl
 
 ## CSV 注意
 
-CSV 是扁平表格，嵌套字段（headers/network/cookies）会被序列化为字符串或省略。需要完整证据请用 JSONL 或 SQLite。
+::: warning CSV 会丢嵌套结构
+CSV 是扁平表格，`headers`/`network`/`cookies`/`console` 这类嵌套证据会被**序列化为字符串或省略**。
+
+- ✅ 只要 URL/标题/状态码等标量字段 → 用 CSV，Excel 友好
+- ❌ 需要完整证据 → 用 JSONL（流式）或 SQLite（结构化可查询）
+:::
 
 ## 与数据库区别
 
-- `--write-jsonl`/`--write-csv`：文件输出
-- `--db`：SQLite 结构化存储（见 [数据库选项](./scan-db)）
+::: info 文件 vs 数据库，可同时启用
+- `--write-jsonl` / `--write-csv`：**文件**输出，适合一次性产物、管线处理
+- `--db`：**SQLite 结构化**存储，适合跨次累积、SQL 查询、关联分析
 
-可同时启用，`Result` 分发给所有 Writer。
+两者不互斥，可同时启用——`Result` 会被分发给所有 Writer，写多份各取所需。
+:::
 
 ## 下一步
 
