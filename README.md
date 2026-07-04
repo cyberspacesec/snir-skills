@@ -1,4 +1,4 @@
-# snir - AI-Native Web Screenshot & Intelligence Collector
+# snir — AI-Native Web Screenshot & Intelligence Collector
 
 <p align="center">
   <strong>Give AI agents and automation systems a browser-backed way to capture screenshots, page evidence, and web intelligence.</strong>
@@ -9,9 +9,87 @@
   <img src="https://img.shields.io/github/go-mod/go-version/cyberspacesec/snir-skills?style=flat-square" alt="Go Version">
   <img src="https://img.shields.io/github/license/cyberspacesec/snir-skills?style=flat-square" alt="License">
   <img src="https://img.shields.io/github/actions/workflow/status/cyberspacesec/snir-skills/ci.yml?branch=main&style=flat-square" alt="CI">
+  <a href="https://cyberspacesec.github.io/snir-skills/"><img src="https://img.shields.io/badge/docs-VitePress-3aa676?style=flat-square" alt="Docs"></a>
+</p>
+
+<p align="center">
+  📖 <strong>Full docs site:</strong> <a href="https://cyberspacesec.github.io/snir-skills/">cyberspacesec.github.io/snir-skills</a> — guides, CLI, SDK, HTTP API, internals, and advanced topics (130+ pages)
+</p>
+
+<p align="center">
+  <b>English</b> &nbsp;|&nbsp; <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 `snir` is a Chrome DevTools Protocol based screenshot and web-intelligence subsystem. It can be used directly by humans, but the project is now designed AI-first: an agent can discover the skill entrypoint, install the binary, choose the right integration mode, run screenshots or batch collection, and persist structured evidence without needing prior Go knowledge.
+
+---
+
+## Architecture at a Glance
+
+```mermaid
+flowchart TB
+    subgraph Clients["Clients & Callers"]
+        H[Human operator]
+        A[AI Agent / Skill Bundle]
+        G[Go application]
+        E[External service / framework]
+    end
+
+    subgraph Interfaces["snir Integration Surfaces"]
+        CLI["snir CLI<br/>(cobra)"]
+        API["HTTP API<br/>/screenshot /batch /health /stats"]
+        SDK["Go SDK<br/>pkg/sdk"]
+        PROV["CDP Provider<br/>shared Chrome"]
+    end
+
+    subgraph Core["Core Engine — pkg/runner"]
+        POOL["DriverPool<br/>connection reuse"]
+        DRV["ChromeDP Driver<br/>CDP sessions"]
+        BL["Blacklist guard"]
+        CK["CookieJar<br/>Netscape + JSON"]
+        PX["Proxy rotation"]
+        DEV["Device / fingerprint"]
+    end
+
+    subgraph Browser["Browser Layer"]
+        CHROME["Chrome / Chromium<br/>headless or remote"]
+    end
+
+    subgraph Outputs["Outputs & Evidence"]
+        SS["Screenshots<br/>PNG / JPEG"]
+        JSONL["JSONL / CSV"]
+        DB["SQLite"]
+        RPT["HTML reports"]
+        BUNDLE["Evidence bundles"]
+    end
+
+    H --> CLI
+    A --> SKILLREF["SKILL.md + references/"]
+    SKILLREF --> CLI
+    A --> API
+    E --> API
+    G --> SDK
+    SDK --> PROV
+    CLI --> POOL
+    API --> POOL
+    SDK --> POOL
+    PROV --> POOL
+
+    POOL --> DRV
+    DRV --> BL
+    DRV --> CK
+    DRV --> PX
+    DRV --> DEV
+    DRV --> CHROME
+
+    CHROME --> SS
+    CHROME --> JSONL
+    CHROME --> DB
+    CHROME --> RPT
+    CHROME --> BUNDLE
+```
+
+Every integration surface — CLI, HTTP API, Go SDK, and the shared CDP Provider — converges on the same `pkg/runner` engine and its `DriverPool`, so behavior, evidence, and pool semantics are identical regardless of how you call snir.
 
 ---
 
@@ -248,6 +326,42 @@ Use the provider when multiple agents, services, or workers should share Chrome 
 
 ---
 
+## Request Lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Caller as Caller<br/>(CLI / API / SDK)
+    participant Pool as DriverPool
+    participant Driver as ChromeDP Driver
+    participant Chrome as Chrome / Chromium
+    participant Out as Outputs
+
+    Caller->>Pool: screenshot(url, opts)
+    Pool->>Pool: blacklist guard
+    alt URL blacklisted
+        Pool-->>Caller: failed result (reason)
+    else allowed
+        Pool->>Pool: acquire / launch driver
+        alt no idle driver
+            Pool->>Chrome: launch or reconnect
+        end
+        Pool->>Driver: run capture
+        Driver->>Chrome: navigate + wait
+        Driver->>Chrome: optional JS / actions / form
+        Driver->>Chrome: screenshot (viewport / full / element / xpath)
+        Driver->>Chrome: collect HTML / headers / cookies / console / network
+        Chrome-->>Driver: page data + screenshot bytes
+        Driver-->>Pool: models.Result
+        Pool->>Pool: cookie write-back / export
+        Pool->>Out: write JSONL / CSV / SQLite / report
+        Pool-->>Caller: Result
+        Pool->>Pool: return driver to pool (or idle-close)
+    end
+```
+
+---
+
 ## Installation
 
 ### Pre-built Binaries
@@ -327,6 +441,34 @@ snir scan file -f urls.txt --write-jsonl --db --db-path results.db
 
 ---
 
+## Output & Evidence Pipeline
+
+```mermaid
+flowchart LR
+    CAP["Capture result"]:::cap
+    MEM["In-memory bytes"]:::out
+    FILE["Screenshot file"]:::out
+    MODEL["models.Result<br/>(title / status / headers / cookies / console / network / TLS / tech / phash)"]:::cap
+
+    CAP --> MEM
+    CAP --> FILE
+    CAP --> MODEL
+
+    MODEL --> JSONL["JSONL"]:::out
+    MODEL --> CSV["CSV"]:::out
+    MODEL --> DB["SQLite"]:::out
+    MODEL --> RPT["HTML report"]:::out
+    MODEL --> BUNDLE["Evidence bundle<br/>(self-contained dir)"]:::out
+    MODEL --> API["HTTP API response"]:::out
+
+    classDef cap fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px,color:#1b5e20
+    classDef out fill:#e3f2fd,stroke:#1565c0,stroke-width:1px,color:#0d47a1
+```
+
+Every capture produces a structured `models.Result`. From there, snir can persist to JSONL, CSV, SQLite, a self-contained evidence-bundle directory, a rich HTML report, or return it directly as an HTTP API response — all driven by the same underlying capture.
+
+---
+
 ## Documentation
 
 | Document | Description |
@@ -340,15 +482,10 @@ snir scan file -f urls.txt --write-jsonl --db --db-path results.db
 | [Full Capabilities](docs/skills.md) | CLI, Go SDK, HTTP API, and Provider reference |
 | [Quick Examples](docs/quick_examples.md) | Copy-paste usage examples |
 | [Usage Examples](docs/usage_examples.md) | Detailed scenario walkthroughs |
+| [Docs Website](https://cyberspacesec.github.io/snir-skills/) | VitePress site with 130+ pages of guides, reference, and internals |
 
 ---
 
 ## License
 
 [MIT](LICENSE)
-
----
-
-## 简体中文
-
-[点击查看中文文档](README.zh-CN.md)

@@ -112,3 +112,8 @@ secrets.yml
 templates-custom/
 tmp/
 vendor/
+
+# VitePress 文档站
+website/node_modules/
+website/.vitepress/dist/
+website/.vitepress/cache/

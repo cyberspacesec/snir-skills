@@ -255,6 +255,11 @@ func WithPorts(ports ...int) ScreenshotOption {
 	}
 }
 
+// WithCommonWebPorts uses common web service ports for target expansion workflows.
+func WithCommonWebPorts() ScreenshotOption {
+	return WithPorts(80, 443, 8080, 8443)
+}
+
 // WithTargetProtocols sets which schemes are generated for bare host/IP targets.
 func WithTargetProtocols(httpEnabled, httpsEnabled bool) ScreenshotOption {
 	return func(opts *ScreenshotOptions) {
@@ -268,14 +273,38 @@ func WithHTTPOnly() ScreenshotOption {
 	return WithTargetProtocols(true, false)
 }
 
+// WithHTTPPorts expands bare host/IP targets over HTTP on the provided ports.
+func WithHTTPPorts(ports ...int) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		WithHTTPOnly()(opts)
+		WithPorts(ports...)(opts)
+	}
+}
+
 // WithHTTPSOnly expands bare host/IP targets as HTTPS only.
 func WithHTTPSOnly() ScreenshotOption {
 	return WithTargetProtocols(false, true)
 }
 
+// WithHTTPSPorts expands bare host/IP targets over HTTPS on the provided ports.
+func WithHTTPSPorts(ports ...int) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		WithHTTPSOnly()(opts)
+		WithPorts(ports...)(opts)
+	}
+}
+
 // WithHTTPAndHTTPS expands bare host/IP targets as both HTTPS and HTTP.
 func WithHTTPAndHTTPS() ScreenshotOption {
 	return WithTargetProtocols(true, true)
+}
+
+// WithHTTPAndHTTPSPorts expands bare host/IP targets over HTTPS and HTTP on the provided ports.
+func WithHTTPAndHTTPSPorts(ports ...int) ScreenshotOption {
+	return func(opts *ScreenshotOptions) {
+		WithHTTPAndHTTPS()(opts)
+		WithPorts(ports...)(opts)
+	}
 }
 
 // WithSkipSave keeps screenshot output in memory when the selected API supports it.

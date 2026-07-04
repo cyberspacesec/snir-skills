@@ -1,0 +1,62 @@
+/* 导航栏：永不溢出隐藏
+   - 宽屏：所有菜单项平铺显示
+   - 窄屏：允许换行，而不是隐藏到下拉菜单背后
+   - 极窄屏：水平滚动兜底，绝不裁剪
+*/
+
+/* 1. 取消 VitePress 默认对 nav 的 overflow:hidden / white-space:nowrap 限制 */
+.VPNav .VPNavBar {
+  .content {
+    /* 让导航容器可以完整展示所有菜单项 */
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  /* 导航菜单项容器：允许换行 + 必要时横向滚动 */
+  .VPNavBarMenu {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    /* 兜底：如果实在放不下，给一个横向滚动而不是隐藏 */
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    scrollbar-width: thin;
+    /* 隐藏滚动条外观但保留滚动能力 */
+    &::-webkit-scrollbar {
+      height: 3px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--vp-c-brand-1);
+      border-radius: 3px;
+    }
+  }
+
+  .VPNavBarMenuLink {
+    white-space: nowrap;
+  }
+}
+
+/* 2. 移动端：flyout 菜单也要完整可见，允许纵向滚动 */
+.VPNav .VPNavBar .VPFlyout {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* 3. 防止 logo + 标题区域挤占菜单空间 */
+@media (max-width: 960px) {
+  .VPNav .VPNavBar .content {
+    /* 在中等屏幕下也尽量平铺，超出再走 VitePress 自带的 hamburger */
+    flex-wrap: wrap;
+  }
+}
+
+/* 4. mermaid 图表容器：保证图表完整可见，可横向滚动 */
+.mermaid {
+  overflow-x: auto;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

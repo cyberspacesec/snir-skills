@@ -1765,6 +1765,15 @@ func TestExpandTargets_Unit(t *testing.T) {
 	if !slices.Equal(explicit, []string{"https://example.com:9443/path"}) {
 		t.Fatalf("ExpandTargets() explicit = %#v", explicit)
 	}
+
+	profile := ExpandTarget("example.com", NewScreenshotOptions(WithHTTPAndHTTPSPorts(80)))
+	profileWant := []string{
+		"https://example.com:80",
+		"http://example.com:80",
+	}
+	if !slices.Equal(profile, profileWant) {
+		t.Fatalf("ExpandTarget() profile = %#v, want %#v", profile, profileWant)
+	}
 }
 
 func TestClientExpandTargetsUsesClientAndRequestOptions(t *testing.T) {
@@ -1810,8 +1819,7 @@ func TestBatchScreenshotTargetsBytes_Unit(t *testing.T) {
 	client := &Client{pool: pool, opts: DefaultClientOptions()}
 
 	results := client.BatchScreenshotTargetsBytes([]string{"example.com/path", "https://already.test/login"}, NewScreenshotOptions(
-		WithHTTPOnly(),
-		WithPorts(80, 8080),
+		WithHTTPPorts(80, 8080),
 	))
 	wantURLs := []string{
 		"http://example.com:80/path",

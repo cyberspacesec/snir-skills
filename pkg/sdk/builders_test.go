@@ -158,6 +158,37 @@ func TestNewScreenshotOptions(t *testing.T) {
 	}
 }
 
+func TestTargetExpansionProfileOptions(t *testing.T) {
+	opts := NewScreenshotOptions(WithHTTPPorts(80, 8080))
+	if opts.HTTP == nil || !*opts.HTTP || opts.HTTPS == nil || *opts.HTTPS {
+		t.Fatalf("WithHTTPPorts protocols = http:%v https:%v", opts.HTTP, opts.HTTPS)
+	}
+	if len(opts.Ports) != 2 || opts.Ports[0] != 80 || opts.Ports[1] != 8080 {
+		t.Fatalf("WithHTTPPorts ports = %v", opts.Ports)
+	}
+
+	opts = NewScreenshotOptions(WithHTTPSPorts(443, 8443))
+	if opts.HTTP == nil || *opts.HTTP || opts.HTTPS == nil || !*opts.HTTPS {
+		t.Fatalf("WithHTTPSPorts protocols = http:%v https:%v", opts.HTTP, opts.HTTPS)
+	}
+	if len(opts.Ports) != 2 || opts.Ports[0] != 443 || opts.Ports[1] != 8443 {
+		t.Fatalf("WithHTTPSPorts ports = %v", opts.Ports)
+	}
+
+	opts = NewScreenshotOptions(WithHTTPAndHTTPSPorts(80, 443))
+	if opts.HTTP == nil || !*opts.HTTP || opts.HTTPS == nil || !*opts.HTTPS {
+		t.Fatalf("WithHTTPAndHTTPSPorts protocols = http:%v https:%v", opts.HTTP, opts.HTTPS)
+	}
+	if len(opts.Ports) != 2 || opts.Ports[0] != 80 || opts.Ports[1] != 443 {
+		t.Fatalf("WithHTTPAndHTTPSPorts ports = %v", opts.Ports)
+	}
+
+	opts = NewScreenshotOptions(WithCommonWebPorts())
+	if len(opts.Ports) != 4 || opts.Ports[0] != 80 || opts.Ports[3] != 8443 {
+		t.Fatalf("WithCommonWebPorts ports = %v", opts.Ports)
+	}
+}
+
 func TestInteractionAndFormBuilders(t *testing.T) {
 	actions := []runner.InteractionAction{
 		ActionClick("#login"),

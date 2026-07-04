@@ -31,21 +31,16 @@ export default withMermaid(
     logo: '/logo.svg',
 
     nav: [
-      { text: '🏠 首页', link: '/' },
-      { text: '📖 指南', link: '/guide/what-is-snir' },
-      { text: '🖥️ CLI', link: '/cli/overview' },
-      { text: '🧩 SDK', link: '/sdk/overview' },
-      { text: '🌐 HTTP API', link: '/api/overview' },
-      { text: '🔬 内部模块', link: '/internals/overview' },
-      { text: '🚀 进阶', link: '/advanced/proxy' },
-      {
-        text: '📦 更多',
-        items: [
-          { text: '📚 参考手册', link: '/reference/result-schema' },
-          { text: '🤝 社区与贡献', link: '/community/contributing' },
-          { text: '🎮 GitHub', link: 'https://github.com/cyberspacesec/snir-skills' }
-        ]
-      }
+      { text: '首页', link: '/' },
+      { text: '指南', link: '/guide/what-is-snir' },
+      { text: 'CLI', link: '/cli/overview' },
+      { text: 'SDK', link: '/sdk/overview' },
+      { text: 'HTTP API', link: '/api/overview' },
+      { text: '内部模块', link: '/internals/overview' },
+      { text: '进阶', link: '/advanced/proxy' },
+      { text: '参考', link: '/reference/result-schema' },
+      { text: '社区', link: '/community/contributing' },
+      { text: 'GitHub', link: 'https://github.com/cyberspacesec/snir-skills' }
     ],
 
     search: {
