@@ -39,6 +39,20 @@ flowchart LR
   O --> D[Emulation.setDeviceMetricsOverride]
 ```
 
+设备预设从查找到应用的判定状态：
+
+```mermaid
+stateDiagram-v2
+  [*] --> 输入设备名
+  输入设备名 --> 查找: GetDevicePreset
+  查找 --> 命中: Name/DisplayName 匹配（大小写不敏感）
+  查找 --> 未命中: 无此预设
+  未命中 --> 列举: ListDevicePresets 提示可用项
+  命中 --> 应用: ApplyToOptions
+  应用 --> CDP: Emulation.setDeviceMetricsOverride
+  CDP --> [*]
+```
+
 ## 匹配
 
 [`GetDevicePreset`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/device_presets.go#L178) 大小写不敏感，且支持按 `Name` 或 `DisplayName` 匹配，故 `iPhone-15-Pro` 与 `Pixel 8 Pro` 都能命中。

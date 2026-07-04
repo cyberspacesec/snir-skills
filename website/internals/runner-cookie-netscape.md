@@ -49,6 +49,26 @@ flowchart LR
   EXP --> CT2[cookies.txt 复用给 curl]
 ```
 
+Cookie 在 Netscape 格式与 snir 间的往返时序：
+
+```mermaid
+sequenceDiagram
+  participant EXT as 浏览器/curl
+  participant CT as cookies.txt
+  participant LOAD as LoadNetscapeCookieFileToJar
+  participant JAR as CookieJar
+  participant SNIR as snir 采集
+  participant EXP as ExportResultCookiesToNetscape
+  EXT->>CT: 导出 Netscape 格式
+  CT->>LOAD: 读取文件
+  LOAD->>JAR: 注入 Cookie
+  JAR->>SNIR: 带登录态采集
+  SNIR-->>JAR: 更新后的 Cookie
+  JAR->>EXP: 导出
+  EXP->>CT: 写回 cookies.txt
+  CT->>EXT: curl 复用同一会话
+```
+
 ## LoadNetscapeCookieFileToJar
 
 [`LoadNetscapeCookieFileToJar`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/cookie_netscape.go#L107)：一步加载文件到 `CookieJar`，`persistent` 决定是否写回，`source` 标记来源便于审计。

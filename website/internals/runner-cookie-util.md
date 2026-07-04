@@ -27,6 +27,23 @@ flowchart LR
   H2 --> INJ[注入请求]
 ```
 
+从 Cookie 字符串解析到注入浏览器请求的时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 调用方
+  participant PC as ParseCookieHeader
+  participant CC as []CustomCookie
+  participant CTH as CustomCookiesToHeaderString
+  participant CH as Chrome
+  U->>PC: "Cookie: a=1; b=2"
+  PC-->>CC: []CustomCookie
+  U->>CTH: cookies[]
+  CTH-->>U: "a=1; b=2"
+  U->>CH: 导航时注入 Cookie 头
+  CH-->>U: 带会话的页面
+```
+
 ## 区别
 
 | 函数 | 输入 | 特点 |

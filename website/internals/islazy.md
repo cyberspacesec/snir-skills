@@ -41,6 +41,29 @@ flowchart LR
     style Save fill:#e6f4ea,stroke:#3aa676
 ```
 
+`pkg/islazy` 的工具函数按职责分类：
+
+```mermaid
+mindmap
+  root((islazy))
+    文件名与路径
+      SanitizeFilename
+      输出目录创建
+      路径拼接
+    URL 与协议
+      补全协议
+      主机提取
+      CIDR 展开
+    字符串与类型
+      去重与集合
+      截断与省略
+      安全转换
+    时间与并发
+      超时包装
+      重试
+      并发收口
+```
+
 ## 使用点
 
 - `pkg/runner`：证据输出目录

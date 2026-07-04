@@ -40,6 +40,21 @@ flowchart LR
   GL --> T[彩色终端文本]
 ```
 
+`snir version` 从调用到终端输出的渲染时序：
+
+```mermaid
+sequenceDiagram
+  participant CMD as snir version
+  participant ASC as pkg/ascii
+  participant GL as glamour
+  participant T as 终端
+  CMD->>ASC: Logo() + VersionInfo()
+  ASC->>ASC: 拼接 ASCII Logo + 版本号 + 构建信息
+  ASC->>GL: Markdown(长帮助时)
+  GL-->>ASC: 渲染后彩色文本
+  ASC-->>T: 输出
+```
+
 ## 下一步
 
 - [pkg/log](./log)

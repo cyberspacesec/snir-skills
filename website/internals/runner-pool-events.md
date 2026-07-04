@@ -39,6 +39,25 @@ flowchart LR
   EB --> H3[Handler 3: 告警]
 ```
 
+一次 `Acquire` 借出 Driver 触发的事件链时序：
+
+```mermaid
+sequenceDiagram
+  participant T as 任务
+  participant POOL as DriverPool
+  participant EB as eventBus
+  participant H as 订阅者
+  T->>POOL: Acquire()
+  POOL->>EB: publish(Acquire, DriverID)
+  EB->>H: 通知（异步）
+  H-->>H: 日志/指标/告警处理
+  POOL-->>T: Driver
+  T->>T: 执行采集
+  T->>POOL: Release()
+  POOL->>EB: publish(Release, DriverID)
+  EB->>H: 通知（异步）
+```
+
 ## PoolEvent 字段
 
 | 字段 | 说明 |

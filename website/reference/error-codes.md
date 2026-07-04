@@ -81,6 +81,31 @@ flowchart TD
   T -- 否 --> D[开 --debug-log 看详细日志]
 ```
 
+常见错误按来源归类，便于快速定位：
+
+```mermaid
+mindmap
+  root((错误分类))
+    Chrome 环境
+      未找到 Chrome
+      chrome-path 指定
+      远程 --wss
+    网络
+      不可达/DNS
+      代理失败
+      TLS 证书
+    采集
+      超时
+      导航失败
+      元素未找到
+    证据
+      截图失败
+      HTML/Headers 落盘
+    限流与配额
+      并发上限
+      队列满
+```
+
 ## 调试日志
 
 加 `-D` 启用调试日志，输出详细 CDP 交互过程：

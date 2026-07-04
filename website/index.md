@@ -45,3 +45,35 @@ features:
     title: AI 优先
     details: 作为 Anthropic 兼容 Skill Bundle 提供，代理可自发现入口、安装二进制、选择集成模式。
 ---
+
+## snir 能力全景
+
+```mermaid
+mindmap
+  root((snir))
+    采集
+      截图 视口/全页/元素
+      证据 HTML/Headers/Cookie
+      Console/Network 日志
+      TLS 与最终 URL
+    集成
+      CLI 命令行
+      HTTP API
+      Go SDK
+      CDP Provider
+    智能
+      感知哈希聚类
+      技术栈识别
+      富 HTML 报告
+    控制
+      设备模拟
+      指纹伪装
+      代理轮换
+      JS 注入与表单
+    持久化
+      JSONL / CSV
+      SQLite
+      自包含报告
+```
+
+> 🤖 AI 代理可直接读取仓库根的 `SKILL.md` 自发现入口；人类从 [快速开始](./guide/quick-start) 入手。
