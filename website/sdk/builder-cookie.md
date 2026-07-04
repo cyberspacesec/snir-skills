@@ -68,6 +68,31 @@ flowchart LR
 
 详见 [Cookie 管理（进阶）](../advanced/cookie)。
 
+## Cookie 生命周期状态
+
+一张 Cookie 从外部来源进入浏览器、被使用、再到写回/导出，经历以下状态：
+
+```mermaid
+stateDiagram-v2
+    [*] --> 导入: WithCookieImport / WithCookieHeader
+    [*] --> 注入: WithInjectedCookies
+    [*] --> 持久: WithCookieFile
+    导入 --> 解析: Netscape/Header 解析
+    注入 --> 解析: CustomCookie 结构
+    持久 --> 加载: 读取 JSON 文件
+    解析 --> 浏览器: 注入到 CookieJar
+    加载 --> 浏览器: 注入到 CookieJar
+    浏览器 --> 使用: 导航携带 Cookie
+    使用 --> 截图: 维持登录态访问
+    截图 --> 写回: WithCookieWriteBack
+    截图 --> 导出: WithCookieExport
+    写回 --> 持久: 更新 cookie-file
+    导出 --> [*]: 生成 Netscape 文件
+    使用 --> 浏览器: 后续请求继续携带
+```
+
+注：**注入**（外部→浏览器）与**采集**（浏览器→Result，`WithCookies()`）方向相反，可同用。
+
 ## 下一步
 
 - [构建器总览](./builders)

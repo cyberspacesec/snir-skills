@@ -79,6 +79,26 @@ flowchart LR
     style Chrome fill:#e6f4ea,stroke:#3aa676
 ```
 
+`--device` 预设展开为 CDP `Emulation` 调用的时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant CLI as snir scan
+  participant AP as ApplyToOptions
+  participant OPT as Options.Chrome
+  participant CH as Chrome(CDP)
+  U->>CLI: scan --device iphone-15
+  CLI->>AP: 查找预设
+  AP->>AP: 取出视口/UA/像素比/移动端/触摸
+  AP->>OPT: 写入五项浏览器配置
+  CLI->>CH: 启动浏览器
+  CH->>CH: setDeviceMetricsOverride(宽高+像素比)
+  CH->>CH: setUserAgentOverride(UA)
+  CH->>CH: setTouchEmulationEnabled(触摸)
+  CH-->>U: 按设备视角截图 + Result
+```
+
 ## 自定义视口
 
 不用预设时，可手动设：

@@ -32,6 +32,30 @@ flowchart LR
   L -- 否 --> W --> A
 ```
 
+JSBefore / 导航 / JSAfter / 截图四个阶段的执行时序：
+
+```mermaid
+sequenceDiagram
+  participant CLI as snir scan
+  participant CH as Chrome
+  participant DOM as 页面
+  CLI->>CH: 启动浏览器
+  opt --run-js-before
+  CLI->>CH: page.addScriptToEvaluateOnNewDocument
+  CH-->>CLI: 注入钩子（改写函数/关闭弹窗）
+  end
+  CLI->>CH: page.navigate(url)
+  CH->>DOM: 加载与渲染
+  DOM-->>CH: load 事件
+  opt 默认（加载后）
+  CLI->>CH: Runtime.evaluate(--js/--js-file)
+  CH->>DOM: 执行 JS（滚动/提取数据/改 DOM）
+  DOM-->>CH: 返回值入 console
+  end
+  CLI->>CH: 截图
+  CH-->>CLI: 截图 + Result
+```
+
 - 默认：页面加载后执行
 - `--run-js-before`：加载前执行，适合提前注入 hook、改写函数、关闭弹窗
 

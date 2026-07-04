@@ -53,6 +53,81 @@ flowchart LR
   RW --> PP[writePrettyJSON 落盘]
 ```
 
+## Result 与证据字段关系
+
+`*models.Result` 是顶层结构，各类证据以字段形式挂载其下，关系如下：
+
+```mermaid
+erDiagram
+    RESULT ||--o{ SCREENSHOT : contains
+    RESULT ||--o| HTML : contains
+    RESULT ||--o| HEADERS : contains
+    RESULT ||--o{ COOKIE : contains
+    RESULT ||--o{ CONSOLE_LOG : contains
+    RESULT ||--o| HAR : contains
+    RESULT ||--o{ TECHNOLOGY : contains
+    RESULT ||--o| TLS_INFO : contains
+    RESULT ||--o| PERCEPTION_HASH : contains
+    RESULT ||--o| EVIDENCE_SUMMARY : wrapped_by
+    RESULT ||--o| EVIDENCE_BUNDLE : wrapped_by
+
+    RESULT {
+        string URL
+        string FinalURL
+        int Status
+        string Title
+        time Timestamp
+        duration Duration
+        string Error
+    }
+    SCREENSHOT {
+        bytes PNG
+    }
+    HTML {
+        string Source
+    }
+    HEADERS {
+        map Header
+    }
+    COOKIE {
+        string Name
+        string Value
+        string Domain
+        string Path
+    }
+    CONSOLE_LOG {
+        string Type
+        string Text
+    }
+    HAR {
+        json NetworkLogs
+    }
+    TECHNOLOGY {
+        string Name
+        string Category
+    }
+    TLS_INFO {
+        string Version
+        string Cipher
+    }
+    PERCEPTION_HASH {
+        string pHash
+    }
+    EVIDENCE_SUMMARY {
+        string ScreenshotPath
+        string HTMLPath
+    }
+    EVIDENCE_BUNDLE {
+        bytes Screenshot
+        string HTML
+        json HAR
+        json ConsoleLogs
+        json Cookies
+    }
+```
+
+`EvidenceSummary` 取关键字段做摘要，`EvidenceBundle` 把截图+HTML+HAR+Console+Cookies 一次打包，便于批量存档。
+
 ## 下一步
 
 - [Result Schema](../reference/result-schema)

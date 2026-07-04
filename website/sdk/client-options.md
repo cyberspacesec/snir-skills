@@ -56,6 +56,53 @@ flowchart TD
 
 [`applyDevicePreset`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/sdk/options.go#L564)：当指定 `device` 时，从 [`device_presets`](../internals/runner-device) 取视口/UA/DPR 应用到 Options。
 
+## ClientOptions 配置维度
+
+`ClientOptions` 与 `ScreenshotOptions` 的字段按职责归类：
+
+```mermaid
+mindmap
+  root((SDK 选项))
+    ClientOptions 全局
+      连接
+        ChromePath 本地路径
+        WSSURL 远程调试 URL
+        AutoConnect 自动发现
+      池与并发
+        MaxConcurrent 并发上限
+        IdleTimeout 空闲超时
+      安全
+        BlacklistEnabled SSRF 防护
+      输出
+        OutputPath 默认目录
+    ScreenshotOptions 单次
+      截图
+        FullPage/Element/XPath
+        Format/Quality
+        Timeout/Delay
+        MaxRetries
+        ScreenshotPath/SkipSave
+      视口设备
+        Viewport/Device
+        DeviceEmulation
+        MobileEmulation/Touch
+      网络身份
+        Proxy/ProxyList
+        UserAgent
+        Headers/AcceptLanguage
+      指纹
+        Fingerprint/Plugins
+        DisableWebRTC/SpoofedScreen
+      交互
+        JS/JSBefore/JSAfter
+        Actions/Form
+      证据
+        HTML/ConsoleLogs
+        HAR/Cookies
+```
+
+`ClientOptions` 设跨多次截图的稳定基线，`ScreenshotOptions` 做单次覆盖，二者经 `mergeWithScreenshotOptions` 合并。
+
 ## 下一步
 
 - [Client](./client)

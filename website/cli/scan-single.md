@@ -51,6 +51,27 @@ flowchart LR
     style Out fill:#e6f4ea,stroke:#3aa676
 ```
 
+单 URL 从入参到产出的采集时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant ENR as EnrichEndpoint
+  participant CH as Chrome
+  participant EV as 证据采集
+  participant W as Writer
+  U->>ENR: scan single example.com
+  ENR->>ENR: 补全 http/https + 解析 host/port/scheme
+  ENR->>CH: 导航至归一化 URL
+  CH->>CH: 等待 load（受 --timeout/--delay）
+  CH-->>EV: 页面就绪
+  EV->>EV: save-html/headers/cookies/console/network
+  EV->>CH: 截图（视口/全页/元素）
+  CH-->>W: 组装 Result
+  W->>W: 写 jsonl/csv/db/screenshots/stdout
+  W-->>U: 完成（单点失败不中断）
+```
+
 ## 输出
 
 ::: details 输出位置一览

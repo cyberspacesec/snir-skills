@@ -23,6 +23,25 @@ flowchart LR
   HTML --> WS[webserve 查看]
 ```
 
+report 命令族按职责分类的心智图：
+
+```mermaid
+mindmap
+  root((report))
+    html 富 HTML 报告
+      单文件自包含
+      内嵌截图缩略图
+      便于分享归档
+    convert 格式转换
+      JSONL 转 CSV
+      提取扁平字段
+      BI/Excel 友好
+    merge 合并
+      多批次汇总
+      去重合并
+      分布式收尾
+```
+
 ## 示例
 
 ```bash

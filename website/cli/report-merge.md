@@ -42,6 +42,27 @@ flowchart LR
     style O fill:#e6f4ea,stroke:#3aa676
 ```
 
+多批次 JSONL 合并的去重/汇总时序：
+
+```mermaid
+sequenceDiagram
+  participant W1 as worker 1
+  participant W2 as worker 2
+  participant Wn as worker N
+  participant M as Merge
+  participant D as 去重/合并
+  participant O as all.jsonl
+  W1->>M: batch1.jsonl
+  W2->>M: batch2.jsonl
+  Wn->>M: batchN.jsonl
+  M->>M: 逐行读取所有输入
+  M->>D: 按 URL/哈希判重
+  D->>D: 合并同目标多版本
+  D->>O: 写出合并结果
+  O-->>M: 完成
+  Note over M,O: 后续 report html 生成总报告
+```
+
 ## 适用场景
 
 - 多次分批扫描后统一汇总

@@ -70,6 +70,33 @@ for _, r := range results {
 | `BatchCaptureBytes` | `[]BatchBytesResult`（含 PNG） |
 | `BatchCaptureEvidenceBundle` | `[]BatchEvidenceBundleResult`（含全证据） |
 
+## 批量回调时序
+
+上图为内部并发执行视角，下面从调用方看整批任务的下发与结果回传：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as Client
+    participant ET as ExpandTargets
+    participant B as 批处理循环
+    participant CB as 结果回调
+
+    U->>C: BatchCapture(混合输入, opts)
+    C->>ET: 展开为候选 URL 列表
+    ET-->>C: []string
+    C->>B: 启动批处理(并发=MaxConcurrent)
+    loop 每个目标(保留原始 Index)
+        B->>B: 借 Driver 截图
+        B->>CB: 回传 BatchResult{Target, Result, Index}
+    end
+    B-->>C: 收集完毕
+    C-->>U: []BatchResult(按原始顺序)
+    Note over U,CB: r.Index 保持输入顺序<br/>方便回溯哪个目标失败
+```
+
+`BatchResult.Index` 保持原始输入顺序，即使内部并发完成顺序不同，回传后仍可按序号对回原始输入。
+
 ## 下一步
 
 - [Client](./client)

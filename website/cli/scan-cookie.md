@@ -38,6 +38,31 @@ flowchart LR
   S --> E[导出 Netscape]
 ```
 
+Cookie 从外部导入、注入浏览器、采集后再写回/导出的完整时序：
+
+```mermaid
+sequenceDiagram
+  participant F as 外部 Cookie 源
+  participant CLI as snir scan
+  participant JAR as CookieJar
+  participant CH as Chrome
+  participant OUT as 输出文件
+  F->>CLI: --cookie / --cookie-file / --cookie-import
+  CLI->>JAR: 加载 Cookie
+  JAR->>CH: 注入到浏览器上下文
+  CH->>CH: 导航 + 截图 + 采集
+  CH-->>JAR: 会话中新增/变更的 Cookie
+  opt --cookie-write-back
+  JAR->>OUT: 写回 cookie-file（JSON）
+  end
+  opt --cookie-export
+  JAR->>OUT: 导出 Netscape cookies.txt
+  end
+  opt --save-cookies
+  CH-->>CLI: Result.cookies 作为证据
+  end
+```
+
 ## Cookie 持久化文件（JSON）
 
 `--cookie-file` 指定一个 JSON 文件，`CookieJar` 跨请求复用 Cookie。配合 `--cookie-write-back`，截图后把浏览器实际 Cookie（含登录态）写回，下次扫描自动带上。

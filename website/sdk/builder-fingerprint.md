@@ -60,6 +60,46 @@ flowchart TD
 
 指纹也可在 `ClientOptions` 设客户端基线，单次 `With*` 覆盖。见 [ClientOptions](./client-options)。
 
+## 指纹维度分类
+
+各构建器对应的浏览器指纹暴露面，按维度归类：
+
+```mermaid
+mindmap
+  root((浏览器指纹))
+    navigator 对象
+      platform
+        WithFingerprint
+      vendor
+        WithFingerprint
+      plugins
+        WithPlugins
+      userAgent
+        WithUserAgent
+    WebGL 渲染
+      GPU 厂商
+        WithFingerprint
+      GPU 型号
+        WithFingerprint
+      WEBGL_debug_renderer_info
+    WebRTC
+      真实 IP 泄露
+        WithDisableWebRTC
+      STUN 直连
+    屏幕对象
+      screen.width
+        WithSpoofedScreen
+      screen.height
+        WithSpoofedScreen
+      像素比
+        WithMobileEmulation
+    HTTP 请求头
+      Accept-Language
+        WithAcceptLanguage
+      自定义头
+        WithCustomHeaders
+```
+
 ## 下一步
 
 - [构建器总览](./builders)

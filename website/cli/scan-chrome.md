@@ -59,6 +59,22 @@ flowchart TD
     style Run fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+Chrome 进程从发现、启动到扫描结束的状态流转：
+
+```mermaid
+stateDiagram-v2
+  [*] --> 发现: 需要浏览器
+  发现 --> 已就绪: 本地 chromedp 自动发现
+  发现 --> 已就绪: --chrome-path 指定
+  发现 --> 远程接入: --wss 指定
+  已就绪 --> 扫描中: 导航目标 URL
+  扫描中 --> 已就绪: 单页完成
+  扫描中 --> 失败: 超时/崩溃
+  失败 --> [*]
+  远程接入 --> 已就绪: 复用 provider Chrome
+  已就绪 --> [*]: 进程退出
+```
+
 ## 远程 Chrome
 
 `--wss` 连接远程 CDP 端点，免本地 Chrome，可被多 worker 复用。详见 [远程 Chrome](../advanced/remote-chrome)、[provider](./provider)。

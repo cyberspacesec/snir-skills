@@ -44,6 +44,30 @@ flowchart TD
     style Debug fill:#e6f4ea,stroke:#3aa676
 ```
 
+全局标志经 `PersistentPreRunE` 注入，对任意子命令统一生效的时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant CLI as snir 根命令
+  participant PRE as PersistentPreRunE
+  participant LOG as 日志层
+  participant SUB as 子命令执行
+  U->>CLI: snir scan example.com -D -q
+  CLI->>CLI: cobra 解析持久化标志
+  CLI->>PRE: 进入 PreRun
+  PRE->>PRE: 判断 --quiet 与 --debug-log
+  alt --quiet 启用
+  PRE->>LOG: EnableSilence（静默优先）
+  else --debug-log 且未静默
+  PRE->>LOG: EnableDebug（含 CDP 细节）
+  else 两者皆无
+  PRE->>LOG: 默认日志
+  end
+  PRE-->>SUB: 继续 RunE
+  SUB-->>U: 结果输出（按日志级别）
+```
+
 ## 何时用
 
 - 🐛 **`-D` 调试**：排查失败、看 CDP 细节、定位超时原因

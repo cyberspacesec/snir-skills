@@ -67,6 +67,36 @@ flowchart LR
 简单页面交互用 `WithActions`；要填表单登录用 `WithForm`。
 :::
 
+## JS 注入与交互时序
+
+JSBefore/JSAfter 与 Actions 的执行顺序贯穿整个页面生命周期：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant O as ScreenshotOptions
+    participant R as Runner
+    participant Pg as 页面
+
+    U->>O: WithJSBefore(js) 注入前置脚本
+    U->>O: WithActions(...) 编排交互
+    U->>O: WithJSAfter(js) 注入后置脚本
+    O->>R: 提交截图请求
+    R->>Pg: 注入 JSBefore(导航前)
+    Note over Pg: 例: 移除 consent 弹窗
+    R->>Pg: 导航加载页面
+    Pg-->>R: load 完成
+    R->>Pg: 执行 Actions 序列
+    Note over R,Pg: WaitVisible→Scroll→Click→...
+    R->>Pg: 执行 JSAfter(加载后)
+    Note over Pg: 例: 滚动到底部
+    R->>Pg: 截图
+    Pg-->>R: PNG
+    R-->>U: *Result
+```
+
+`WithJS` 是 `WithJSAfter` 的别名，加载后执行。
+
 ## 下一步
 
 - [构建器总览](./builders)

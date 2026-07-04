@@ -84,6 +84,35 @@ flowchart LR
 
 `--ports` 是 Web 候选 URL 展开，不是端口扫描。见 [端口展开 CLI](../cli/scan-ports)。
 
+## 端口展开时序
+
+从裸 host 到候选 URL 列表，展开过程按协议开关组合端口：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant ET as ExpandTargets
+    participant PO as 端口/协议选项
+    participant Out as 候选列表
+
+    U->>ET: ExpandTargets(["example.com"], opts)
+    ET->>PO: 读取端口与协议配置
+    PO-->>ET: 端口集(WithPorts/WithCommonWebPorts)
+    PO-->>ET: 协议开关(WithHTTPAndHTTPS 等)
+    alt 输入已带 scheme://host:port
+        ET->>Out: 原样保留
+    else 裸 host/IP
+        loop 每个端口 × 每个启用协议
+            ET->>Out: 生成 scheme://host:port
+        end
+    end
+    Out-->>U: 候选 URL 列表
+    Note over U,Out: 例: example.com + :8080 + HTTP/HTTPS<br/>=> http://example.com:8080<br/>=> https://example.com:8080
+    U->>U: 列表交给并发扫描池
+```
+
+注意 `ExpandTargets` 只生成 URL，不做任何 TCP/UDP 连通性探测。
+
 ## 下一步
 
 - [构建器总览](./builders)

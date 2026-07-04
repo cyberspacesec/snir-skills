@@ -35,6 +35,27 @@ flowchart LR
     style Excel fill:#e6f4ea,stroke:#3aa676
 ```
 
+JSONL → CSV 转换的逐行处理时序：
+
+```mermaid
+sequenceDiagram
+  participant CLI as report convert
+  participant R as JSONL Reader
+  participant F as 字段扁平化
+  participant W as CSV Writer
+  participant FS as out.csv
+  CLI->>R: 打开 results.jsonl
+  loop 每行
+  R->>F: 一条 Result JSON
+  F->>F: 提取 url/title/code/hash 等标量
+  F->>W: 一行 CSV 记录
+  W->>FS: 追加写入
+  end
+  R-->>CLI: EOF
+  CLI-->>CLI: 关闭文件
+  Note over F,W: 嵌套证据 headers/network 会被省略或序列化为字符串
+```
+
 ## 适用场景
 
 ::: tip JSONL → CSV 是最常用转换

@@ -51,6 +51,30 @@ graph TD
   REP --> R3[merge]
 ```
 
+按命令族分类的心智图：
+
+```mermaid
+mindmap
+  root((snir CLI))
+    scan 扫描族
+      single 单 URL
+      file 批量文件
+      cidr 网段
+    api HTTP 服务
+      鉴权 X-API-Key
+      并发队列
+    provider CDP 服务
+      共享 Chrome :9223
+      多 worker 接入
+    report 报告族
+      html 富 HTML
+      convert 格式转换
+      merge 合并
+    webserve 本地查看
+      静态文件 :8080
+    version 版本
+```
+
 ## 帮助
 
 ```bash

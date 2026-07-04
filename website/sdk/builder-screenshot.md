@@ -79,6 +79,42 @@ opts2 := sdk.NewScreenshotOptions(
 
 `WithSkipSave()` 不落盘截图，常与字节模式或纯证据采集搭配。
 
+## 截图执行时序
+
+各 `With*` 选项在 Driver 执行流程中的落点：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant O as ScreenshotOptions
+    participant DP as DriverPool
+    participant Dr as Driver
+    participant Pg as 页面
+
+    U->>O: 组装选项(Timeout/Delay/Format/Path...)
+    U->>DP: Capture(url, opts)
+    DP->>Dr: Acquire 借出 Driver
+    Dr->>Pg: 设置视口/设备模拟
+    Dr->>Pg: 导航(url, WithTimeout 超时)
+    Pg-->>Dr: load 完成
+    Dr->>Dr: WithDelay 等待渲染收尾
+    alt WithFullPage/WithElement/WithXPath
+        Dr->>Pg: 按范围截图
+    else 默认
+        Dr->>Pg: 视口截图
+    end
+    Pg-->>Dr: PNG 字节
+    Dr->>Dr: WithFormat 格式化(jpeg/png)
+    alt WithSkipSave
+        Dr-->>U: 仅返回字节
+    else WithScreenshotPath
+        Dr->>Dr: 写入磁盘
+        Dr-->>U: 字节 + 路径
+    end
+    DP->>Dr: Release 归还池
+    Note over U,Dr: 失败时 WithMaxRetries 控制重试次数
+```
+
 ## 下一步
 
 - [构建器总览](./builders)

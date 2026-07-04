@@ -44,6 +44,40 @@ flowchart LR
     style Main fill:#e6f4ea,stroke:#3aa676
 ```
 
+`screenshots` 主表与各嵌套证据表的实体关系：
+
+```mermaid
+erDiagram
+  screenshots ||--o{ headers : "result_id"
+  screenshots ||--o{ network_logs : "result_id"
+  screenshots ||--o{ console_logs : "result_id"
+  screenshots ||--o{ cookies : "result_id"
+  screenshots ||--o{ tls : "result_id"
+  screenshots ||--o{ technologies : "result_id"
+  screenshots }o--o{ tags : "screenshot_tags"
+  screenshots {
+    bigint id PK
+    string url
+    string title
+    int response_code
+    string html
+    string perception_hash
+    bool failed
+  }
+  headers {
+    bigint id PK
+    bigint result_id FK
+    string key
+    string value
+  }
+  technologies {
+    bigint id PK
+    bigint result_id FK
+    string name
+    string version
+  }
+```
+
 | 表 | 对应模型 | 说明 |
 |----|---------|------|
 | `screenshots` | `Screenshot` | 主表，含 url/title/code/hash 等 |

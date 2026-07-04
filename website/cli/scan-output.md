@@ -45,6 +45,23 @@ flowchart LR
     style R fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+`Result` 产出后被分发给各 Writer、最终落盘为不同格式的状态流转：
+
+```mermaid
+stateDiagram-v2
+  [*] --> 采集: 截图+证据完成
+  采集 --> 分发: Result 就绪
+  分发 --> 写JSONL: --write-jsonl
+  分发 --> 写CSV: --write-csv
+  分发 --> 写控制台: --write-stdout
+  分发 --> 写SQLite: --db
+  写JSONL --> 已落盘: results.jsonl
+  写CSV --> 已落盘: results.csv
+  写控制台 --> 已落盘: 终端实时
+  写SQLite --> 已落盘: snir.db
+  已落盘 --> [*]
+```
+
 | 格式 | 特点 | 适合 |
 |------|------|------|
 | JSONL | 流式、每行一条 JSON、追加友好 | 管线、jq 处理 |

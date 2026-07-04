@@ -28,6 +28,30 @@ flowchart TD
     style Rec fill:#fff4e6,stroke:#e8a317,color:#1a1a1a
 ```
 
+按退出码类别归类的心智图：
+
+```mermaid
+mindmap
+  root((退出码))
+    0 成功
+      全部目标完成
+      脚本判断 $? 为 0
+    非 0 致命
+      参数错误
+      Chrome 找不到
+      配置非法
+      进程级异常
+    单目标 failed
+      记入 results.jsonl
+      failed=true
+      不影响进程退出码
+      需 jq 查询
+    脚本友好
+      $? 反映进程整体
+      failed 字段反映单点
+      两者结合判断
+```
+
 ## 错误处理
 
 `scan` 命令对常见错误做了美化，给出可操作建议而非原始堆栈：

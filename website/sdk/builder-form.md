@@ -62,6 +62,38 @@ flowchart LR
 需要更细粒度控制（中间穿插滚动、等待某元素、多次点击）就退回 `WithActions` 手动编排。见 [JS 与交互](./builder-js)。
 :::
 
+## 构建与提交时序
+
+`WithForm` 自动编排"填写→提交→等待→截图"四步，整体时序如下：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant F as Form 工厂
+    participant O as ScreenshotOptions
+    participant R as Runner
+    participant Pg as 页面
+
+    U->>F: NewForm/FormWithSubmit(fields...)
+    F->>F: 组装 Form 结构(字段+提交按钮+waitAfter)
+    F-->>U: runner.Form
+    U->>O: WithForm(form)
+    O->>R: 提交截图请求
+    R->>Pg: 导航到表单页
+    loop 每个字段
+        R->>Pg: FormInput/FormSelect/FormCheckbox
+        Pg-->>R: 字段已填写
+    end
+    R->>Pg: 点击提交按钮
+    Pg-->>R: 表单已提交
+    R->>R: waitAfterSubmit 等待加载
+    R->>Pg: 截图(可配 WithFullPage/WithCookies)
+    Pg-->>R: PNG + 证据
+    R-->>U: *Result
+```
+
+`waitAfterSubmit` 是提交后、截图前的留白时间，给异步跳转/渲染收尾。
+
 ## 下一步
 
 - [构建器总览](./builders)

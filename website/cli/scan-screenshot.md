@@ -28,6 +28,30 @@ flowchart TD
   M -- --skip-screenshot --> N[不截图,仅证据]
 ```
 
+截图参数从下发、CDP 渲染到落盘的时序：
+
+```mermaid
+sequenceDiagram
+  participant CLI as snir scan
+  participant CH as Chrome(CDP)
+  participant FS as 文件系统
+  CLI->>CH: 应用分辨率 --resolution-x/y
+  opt --full-page
+  CLI->>CH: 全页面截图（滚动拼接）
+  else --selector/--xpath
+  CLI->>CH: 定位元素后截该元素
+  else 默认
+  CLI->>CH: 截当前视口
+  end
+  opt --screenshot-format jpeg
+  CLI->>CH: 指定 --screenshot-quality 压缩
+  end
+  CH-->>CLI: 图片字节
+  CLI->>CLI: SanitizeFilename 清理非法字符
+  CLI->>FS: 写入 --screenshot-path 目录
+  FS-->>CLI: 落盘完成
+```
+
 ## 示例
 
 ```bash

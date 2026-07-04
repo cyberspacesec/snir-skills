@@ -51,6 +51,27 @@ flowchart LR
     style Br fill:#e6f4ea,stroke:#3aa676
 ```
 
+富 HTML 报告的渲染时序：
+
+```mermaid
+sequenceDiagram
+  participant CLI as report html
+  participant R as ReadJSONLResults
+  participant RD as ReportData
+  participant T as RichHTMLTemplate
+  participant FS as report.html
+  CLI->>R: -i results.jsonl
+  loop 每行
+  R->>R: 反序列化为 Result
+  R->>RD: 累加结果列表
+  end
+  R-->>RD: 组装总览/计数/缩略图
+  RD->>T: 执行模板渲染
+  T->>T: 内嵌 CSS 与截图缩略图
+  T-->>FS: 写出自包含 HTML
+  FS-->>CLI: 单文件报告
+```
+
 ```bash
 snir scan file -f urls.txt --full-page \
   --save-html --save-headers \

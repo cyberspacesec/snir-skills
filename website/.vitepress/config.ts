@@ -1,8 +1,10 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // snir 文档站配置
 // 导航与侧边栏覆盖项目的每一个模块与功能点
-export default defineConfig({
+export default withMermaid(
+  defineConfig({
   // 部署在 GitHub Pages 子路径 /snir-skills/ 下，必须设置 base
   // 否则 CSS/JS 等静态资源会按根路径 / 加载而 404，导致布局错乱
   base: '/snir-skills/',
@@ -352,4 +354,12 @@ export default defineConfig({
     lightModeSwitchTitle: '切换到浅色主题',
     darkModeSwitchTitle: '切换到深色主题'
   }
-})
+}),
+  {
+    // mermaid 客户端渲染：把 ```mermaid 代码块渲染为流程图/时序图等
+    // 主题随站点明暗切换
+    mermaid: {
+      theme: 'default'
+    }
+  }
+)

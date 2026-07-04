@@ -73,6 +73,67 @@ res, _ := client.Capture("https://example.com",
 
 各专项构建器有单独详解：[截图](./builder-screenshot)、[视口](./builder-viewport)、[代理](./builder-proxy)、[Cookie](./builder-cookie)、[指纹](./builder-fingerprint)、[JS](./builder-js)、[表单](./builder-form)、[黑名单](./builder-blacklist)、[端口](./builder-ports)。
 
+## 构建器分类
+
+按职责归类，所有 `With*` 构建器可归为以下几类：
+
+```mermaid
+mindmap
+  root((ScreenshotOption))
+    截图控制
+      WithFullPage
+      WithElement
+      WithXPath
+      WithFormat
+      WithTimeout
+      WithDelay
+      WithMaxRetries
+      WithScreenshotPath
+      WithSkipSave
+    视口与设备
+      WithViewport
+      WithDevice
+      WithDeviceEmulation
+      WithMobileEmulation
+      WithTouchEmulation
+    网络与代理
+      WithProxy
+      WithProxyList
+      WithProxyFile
+      WithProxyURL
+      WithUserAgent
+      WithCustomHeaders
+      WithAcceptLanguage
+    身份与指纹
+      WithFingerprint
+      WithPlugins
+      WithDisableWebRTC
+      WithSpoofedScreen
+    Cookie 注入
+      WithInjectedCookies
+      WithCookieHeader
+      WithCookieImport
+      WithCookieFile
+      WithCookieWriteBack
+    证据采集
+      WithHTML
+      WithConsoleLogs
+      WithHAR
+      WithCookies
+    交互逻辑
+      WithJS
+      WithJSBefore
+      WithJSAfter
+      WithActions
+      WithForm
+    目标与安全
+      WithBlacklist
+      WithDefaultBlacklist
+      WithBlacklistFile
+      WithPorts
+      WithTargetProtocols
+```
+
 ## 下一步
 
 - [Client](./client)

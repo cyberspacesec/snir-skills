@@ -66,6 +66,37 @@ result, _ := client.Capture("https://example.com",
 
 实现细节见 [pkg/sdk（内部）](../internals/sdk)。
 
+## 调用穿越分层时序
+
+一次 `Capture` 调用自上而下穿越 SDK→Runner→Provider→CDP 各层，再自下而上返回 Result：
+
+```mermaid
+sequenceDiagram
+    participant App as 你的应用
+    participant SDK as pkg/sdk
+    participant R as pkg/runner
+    participant P as pkg/provider
+    participant CDP as chromedp/cdproto
+    participant Ch as Chrome
+
+    App->>SDK: client.Capture(url, With*...)
+    SDK->>SDK: 应用 ScreenshotOptions
+    SDK->>R: toRunnerOptions + merge
+    R->>R: 黑名单检查 + 借 Driver
+    R->>P: 从共享池获取 Driver
+    P->>CDP: 调用 CDP 命令
+    CDP->>Ch: Page.navigate + 等待
+    Ch-->>CDP: 页面加载完成
+    CDP->>Ch: Page.captureScreenshot + 证据采集
+    Ch-->>CDP: PNG + HTML/HAR/Cookies
+    CDP-->>P: Driver 结果
+    P-->>R: Driver 归还
+    R-->>SDK: *models.Result
+    SDK-->>App: *Result(可 WrapResult 包装)
+```
+
+SDK 是最上层封装——绝大多数场景只需调 `sdk.Shared*`，底层 runner/provider/cdp 自动串联。
+
 ## 下一步
 
 - [Client](./client)

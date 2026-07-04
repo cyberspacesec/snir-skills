@@ -80,6 +80,23 @@ go build ./...
 go test ./pkg/sdk/...
 ```
 
+## 安装时间线
+
+从零到跑通第一个截图，按时间顺序的步骤：
+
+```mermaid
+timeline
+    title SDK 接入时间线
+    第 1 步 : 确认前置 : Go 1.23+ : 准备 Chrome/Chromium 或远程 CDP
+    第 2 步 : 引入依赖 : go get github.com/cyberspacesec/snir-skills/pkg/sdk
+    第 3 步 : import 包 : import "github.com/cyberspacesec/snir-skills/pkg/sdk"
+    第 4 步 : 最小示例 : sdk.SharedCapture(url, WithFullPage, WithHTML)
+    第 5 步 : 验证结果 : 打印 URL/Title/ResponseCode
+    第 6 步 : 进阶配置 : NewClient + DefaultClientOptions 起步
+```
+
+`SharedCapture` 用共享池，无需管理 Client 生命周期——单次/少量调用最省事。
+
 ## 下一步
 
 - [SDK 总览](./overview)

@@ -45,6 +45,41 @@ flowchart TD
 
 返回值带 `AutoConnectMode`，便于日志/调试知道用了哪种。
 
+整个探测过程按优先级依次尝试三种来源，命中即返回 Client：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant AC as AutoConnectClient
+    participant D as Discovery
+    participant Ch as Chrome
+
+    U->>AC: AutoConnectClient(opts)
+    AC->>AC: 检查 opts.WSSURL
+    alt 指定 WSSURL
+        AC->>Ch: 远程 WSS 连接
+        Ch-->>AC: Connected
+        AC-->>U: Client + Mode=远程 WSS
+    else 未指定
+        AC->>AC: 检查本地 ChromePath/默认路径
+        alt 找到本地 Chrome
+            AC->>Ch: exec 启动本地进程
+            Ch-->>AC: Started
+            AC-->>U: Client + Mode=本地 exec
+        else 无本地 Chrome
+            AC->>D: 探测远程调试端口(:9222 等)
+            alt 命中调试端口
+                D-->>AC: Discovered
+                AC->>Ch: 连接已运行实例
+                Ch-->>AC: Connected
+                AC-->>U: Client + Mode=发现
+            else 无可用 Chrome
+                AC-->>U: 返回错误
+            end
+        end
+    end
+```
+
 ## 与 discovery 的关系
 
 [`AutoConnectClient`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/sdk/autoconnect.go#L36) 复用 [`pkg/runner/discovery`](../internals/runner-discovery) 的 `DiscoverChrome`/`AutoConnect`。

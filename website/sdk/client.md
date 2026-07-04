@@ -90,6 +90,41 @@ for _, url := range urls {
 - ✅ 短期一次性任务：用 `sdk.SharedCapture` 更省心，无需管理 Client
 :::
 
+## Client vs SharedCapture 复用路径
+
+两条路径都复用 Driver 池，区别在池的归属与生命周期管理：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant NC as NewClient
+    participant SC as SharedCapture
+    participant SP as 全局共享池
+    participant DP as Client 自有池
+    participant Dr as Driver
+
+    alt 长生命周期(NewClient)
+        U->>NC: NewClient(opts)
+        NC->>DP: 初始化自有连接池
+        loop 多次截图
+            U->>DP: client.Capture(url, opts)
+            DP->>Dr: Acquire
+            Dr-->>DP: Release
+        end
+        U->>NC: defer client.Close()
+        NC->>DP: 关闭池+Chrome
+    else 一次性(SharedCapture)
+        U->>SC: SharedCapture(url, opts)
+        SC->>SP: 借用全局共享池(单例)
+        SP->>Dr: Acquire
+        Dr-->>SP: Release
+        SC-->>U: *Result
+        Note over SP: 池由进程管理,无需手动 Close
+    end
+```
+
+`SharedCapture` 走全局共享池单例（见 [共享池](./shared)），适合单次/少量调用；`NewClient` 自管池，适合循环复用。
+
 ## 下一步
 
 - [ClientOptions](./client-options)

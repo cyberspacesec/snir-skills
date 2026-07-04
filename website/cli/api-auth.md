@@ -40,6 +40,34 @@ flowchart LR
     style Exec fill:#e6f4ea,stroke:#3aa676
 ```
 
+一次 API 请求从接入到执行的关键校验时序：
+
+```mermaid
+sequenceDiagram
+  participant C as 调用方
+  participant TLS as HTTPS 反代
+  participant API as snir api
+  participant AUTH as 鉴权中间件
+  participant BL as 黑名单
+  participant DR as Driver
+  C->>TLS: POST /screenshot + X-API-Key
+  TLS->>API: 转发（终止 TLS）
+  API->>AUTH: 读取 X-API-Key
+  AUTH->>AUTH: 比对配置 key
+  alt 缺失或错误
+  AUTH-->>C: 401/403 拒绝
+  else 通过
+  AUTH->>BL: 目标 URL 过黑名单
+  alt 命中黑名单
+  BL-->>C: 拒绝
+  else 放行
+  BL->>DR: 执行截图
+  DR-->>API: Result
+  API-->>C: 200 + 结果
+  end
+  end
+```
+
 ## 安全建议
 
 ::: danger key 是最后一道门，别让它裸奔

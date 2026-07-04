@@ -67,6 +67,43 @@ flowchart TD
 预设清单见 [设备模拟 CLI](../cli/scan-device) 与 `pkg/runner/device_presets.go`。
 :::
 
+## 视口与设备应用到 CDP 时序
+
+三条路径最终都汇入 CDP 的 `Emulation` 域，时序如下：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant O as ScreenshotOptions
+    participant P as 设备预设表
+    participant Dr as Driver
+    participant CDP as CDP Emulation 域
+
+    alt WithViewport(w,h)
+        U->>O: 仅视口尺寸
+        O->>Dr: 传入宽高
+        Dr->>CDP: Emulation.setDeviceMetricsOverride(宽高)
+    else WithDevice("iphone-15")
+        U->>O: 设备名
+        O->>P: 查 applyDevicePreset
+        P-->>O: UA+视口+DPR+mobile+touch
+        O->>Dr: 应用全套设备参数
+        Dr->>CDP: Emulation.setDeviceMetricsOverride + setUserAgentOverride
+    else WithDeviceEmulation(w,h,scale,...)
+        U->>O: 全手动参数
+        O->>Dr: 逐项参数
+        Dr->>CDP: Emulation.setDeviceMetricsOverride(全参数)
+    else WithMobileEmulation + WithTouchEmulation
+        U->>O: 移动视口 + 触摸
+        O->>Dr: DPR + 触摸开关
+        Dr->>CDP: Emulation.setTouchEmulationEnabled
+    end
+    CDP-->>Dr: 模拟已生效
+    Dr->>CDP: 导航 + 截图
+```
+
+四条路径差异在"设了什么"，但最终都通过 CDP `Emulation` 域落地。
+
 ## 下一步
 
 - [构建器总览](./builders)

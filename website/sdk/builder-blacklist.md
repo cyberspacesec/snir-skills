@@ -66,6 +66,37 @@ flowchart TD
 - ❌ SDK 接收外部 URL 的场景（如自建 API），黑名单更是必需——否则用户传个 `169.254.169.254` 就能打云元数据
 :::
 
+## 构建与应用时序
+
+黑名单从配置到生效分三步——构建规则集、合并到 Options、进入浏览器前检查：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant B as 构建器
+    participant O as ScreenshotOptions
+    participant BL as 黑名单引擎
+    participant Nav as 浏览器导航
+
+    U->>B: WithDefaultBlacklist() + WithBlacklist(...)
+    B->>B: 合并默认规则与自定义规则
+    B->>O: 写入 BlacklistPatterns
+    U->>O: WithBlacklistFile("blocklist.txt")
+    O->>O: 加载文件规则并入集
+    Note over O: 最终规则集 = 默认 + 自定义 + 文件
+    U->>Nav: Capture(url, opts)
+    Nav->>BL: rejectBlacklistedTarget(url)
+    alt 命中黑名单
+        BL-->>Nav: 拒绝, 记录命中规则
+        Nav-->>U: 黑名单 Result(不导航)
+    else 通过
+        BL-->>Nav: 放行
+        Nav->>Nav: 正常导航截图
+    end
+```
+
+`WithNoBlacklist()` 等价于跳过 `rejectBlacklistedTarget` 这一步，关卡关闭。
+
 ## 下一步
 
 - [构建器总览](./builders)

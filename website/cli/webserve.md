@@ -63,6 +63,27 @@ flowchart LR
     style Cdp fill:#e6f4ea,stroke:#3aa676
 ```
 
+`webserve` 从启动到浏览器访问的时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant WS as snir webserve
+  participant FS as 扫描产物目录
+  participant HTTP as 静态服务器
+  participant BR as 浏览器
+  U->>WS: webserve --dir . --host --port
+  WS->>FS: 扫描产物目录
+  WS->>HTTP: 绑定 :8080 监听
+  HTTP-->>WS: 就绪
+  WS-->>U: 打印访问地址
+  BR->>HTTP: GET http://localhost:8080/
+  HTTP->>FS: 读取 report.html / 截图
+  FS-->>HTTP: 静态资源
+  HTTP-->>BR: 返回页面
+  BR-->>U: 浏览报告/截图
+```
+
 ## 下一步
 
 - [report 总览](./report)
