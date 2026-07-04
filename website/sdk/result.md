@@ -38,7 +38,9 @@ Result
 
 ## EvidenceBundle
 
-`EvidenceBundle` 把截图+HTML+HAR+Console+Cookies 打包，便于一次导出全部证据，批量场景常用。
+::: tip 批量场景的"证据打包袋"
+`EvidenceBundle` 把截图+HTML+HAR+Console+Cookies **一次打包**，批量场景常用——不用逐个字段取，一个结构拿全证据，配合 `writePrettyJSON` 直接落盘成可读 JSON 存档。
+:::
 
 ## 包装流程
 

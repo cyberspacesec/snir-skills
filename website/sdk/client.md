@@ -75,14 +75,20 @@ sequenceDiagram
 
 ## 生命周期
 
+::: warning 别忘 `defer client.Close()`
+`Client` 持有 Chrome 连接池，**不 Close 会泄漏浏览器进程**。正确模式：
+
 ```go
 client, _ := sdk.NewClient(opts)
-defer client.Close()   // 释放池
+defer client.Close()   // ← 必须有
 for _, url := range urls {
     res, _ := client.Capture(url, sdk.WithFullPage())
-    // 处理 res
 }
 ```
+
+- ✅ 长生命周期服务：构造一次，循环复用，程序退出前 Close
+- ✅ 短期一次性任务：用 `sdk.SharedCapture` 更省心，无需管理 Client
+:::
 
 ## 下一步
 

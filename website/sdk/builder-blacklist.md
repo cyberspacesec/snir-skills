@@ -59,7 +59,12 @@ flowchart TD
 
 ## 安全
 
-生产环境保留默认黑名单防 SSRF。仅在授权内网扫描时才 `WithNoBlacklist()`。见 [安全注意](../advanced/security)。
+::: danger SSRF 防护底线
+- ✅ 生产环境**保留默认黑名单**（`WithDefaultBlacklist()`）防 SSRF
+- ✅ 对外部输入的目标先过黑名单再采集
+- ⚠️ 仅在**授权内网扫描**时才 `WithNoBlacklist()`
+- ❌ SDK 接收外部 URL 的场景（如自建 API），黑名单更是必需——否则用户传个 `169.254.169.254` 就能打云元数据
+:::
 
 ## 下一步
 

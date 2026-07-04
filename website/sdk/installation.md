@@ -42,6 +42,7 @@ go 1.23.0
 
 ## 最小可运行示例
 
+::: details 完整可跑 main.go
 ```go
 package main
 
@@ -61,6 +62,8 @@ func main() {
     fmt.Println(result.URL, result.Title, result.ResponseCode)
 }
 ```
+`SharedCapture` 用共享池，无需手动管理 Client 生命周期——单次/少量调用最省事。
+:::
 
 ## 依赖
 

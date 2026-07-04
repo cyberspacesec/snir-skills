@@ -61,12 +61,19 @@ opts2 := sdk.NewScreenshotOptions(
 
 ## 超时与延迟
 
-- `WithTimeout`：整体页面加载超时
-- `WithDelay`：加载完成后额外等待，适合异步内容/动画
+::: tip timeout 管加载，delay 管渲染收尾
+- `WithTimeout(d)`：**整体页面加载超时**，到点没 load 完直接失败
+- `WithDelay(d)`：**加载完成后再等**，留给异步内容/动画/懒加载渲染
+
+慢站点/SPA 常见组合：`WithTimeout(60*time.Second)` + `WithDelay(2*time.Second)`——给足加载，再等渲染收尾。
+:::
 
 ## 格式
 
-`WithFormat("jpeg", 80)`：JPEG 质量 80。`WithFormat("png", 0)`：PNG（quality 忽略）。
+::: info PNG 无视 quality，JPEG 才看
+`WithFormat("jpeg", 80)`：JPEG 质量 80（体积/质量甜点）。
+`WithFormat("png", 0)`：PNG 无损，**quality 参数被忽略**传 0 即可。
+:::
 
 ## 跳过保存
 

@@ -56,7 +56,11 @@ flowchart LR
 
 ## 与 Actions 的关系
 
-表单是 `Actions` 之上的高层封装：自动按字段填写 → 点提交 → 等待。需要更细粒度控制用 `WithActions`。见 [JS 与交互](./builder-js)。
+::: info 表单 = Actions 之上的高层封装
+`WithForm` 自动编排：填写字段 → 点提交 → `waitAfterSubmit` 等待。三步打包，省去手写 `ActionClick`/`ActionType` 序列。
+
+需要更细粒度控制（中间穿插滚动、等待某元素、多次点击）就退回 `WithActions` 手动编排。见 [JS 与交互](./builder-js)。
+:::
 
 ## 下一步
 

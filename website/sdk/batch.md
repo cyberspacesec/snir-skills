@@ -47,7 +47,8 @@ sequenceDiagram
 
 ## 输入展开
 
-配合 [`ExpandTargets`](./targets) 支持混合输入：
+::: info 混合输入一条命令搞定
+配合 [`ExpandTargets`](./targets) 支持混合输入——单个 URL、CIDR 网段、目标文件可混着传，统一展开为候选列表：
 
 ```go
 targets := sdk.ExpandTargets([]string{"example.com", "10.0.0.0/29", "list.txt"}, nil)
@@ -58,6 +59,8 @@ for _, r := range results {
     }
 }
 ```
+`r.Index` 保持原始顺序，方便回溯是哪个输入扫挂了。
+:::
 
 ## 变体
 

@@ -43,7 +43,14 @@ flowchart TD
 
 ## DefaultClientOptions
 
-[`DefaultClientOptions`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/sdk/options.go#L97) 提供开箱即用的安全默认：启用黑名单、合理并发与超时。
+::: tip 没特殊需求就用默认
+[`DefaultClientOptions`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/sdk/options.go#L97) 提供开箱即用的**安全默认**：
+- ✅ 启用黑名单（SSRF 防护）
+- ✅ 合理并发上限与超时
+- ✅ 合理空闲超时
+
+99% 的场景直接 `DefaultClientOptions()` 起步即可，按需覆盖个别字段，别从零构造。
+:::
 
 ## 设备预设
 

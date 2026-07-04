@@ -57,8 +57,14 @@ flowchart LR
 
 ## 与证据采集区别
 
-- `WithCookies()`（证据）：把浏览器 Cookie 存入 `Result.cookies`
-- `WithCookie*`（注入）：设置会话 Cookie
+::: warning 注入 ≠ 采集，方向相反
+| 类别 | 选项 | 方向 | 作用 |
+|------|------|------|------|
+| **注入** | `WithCookie*` / `WithCookieImport` | 外部 → 浏览器 | 设会话 Cookie 维持登录态 |
+| **采集** | `WithCookies()` | 浏览器 → Result | 把浏览器 Cookie 存为证据 |
+
+可同用：`WithCookieImport` 带登录态截图，再 `WithCookies()` 把实际 Cookie 采下来。
+:::
 
 详见 [Cookie 管理（进阶）](../advanced/cookie)。
 

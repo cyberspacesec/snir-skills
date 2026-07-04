@@ -28,7 +28,13 @@ opts := sdk.NewScreenshotOptions(
 
 ## 反检测要点
 
-各选项对应的指纹暴露面与伪装位置：
+::: warning WebRTC 是指纹伪装的最大漏洞
+其他指纹项（platform/WebGL/screen）伪装得再好，**WebRTC 一旦启用就会通过 STUN 直连暴露真实公网/内网 IP**——指纹伪装前功尽弃。
+
+走代理采集时**务必** `WithDisableWebRTC()`，否则真实 IP 会被目标站点通过 WebRTC 探出。
+:::
+
+各选项对应的指纹暴露面：
 
 ```mermaid
 flowchart TD

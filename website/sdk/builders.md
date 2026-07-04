@@ -40,6 +40,7 @@ flowchart LR
 
 ## 工作原理
 
+::: details 函数式选项，类型安全可组合
 每个 `With*` 修改 `*ScreenshotOptions`：
 
 ```go
@@ -51,6 +52,9 @@ func WithFullPage() ScreenshotOption {
 ```
 
 `Capture` 先建默认 `ScreenshotOptions`，依次应用各 option，再 [`mergeWithScreenshotOptions`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/sdk/options.go#L326) 合并到基线。
+
+这种"函数式选项"模式的好处：零值即默认、可任意组合、新增选项不破坏旧调用方。
+:::
 
 ## 示例
 

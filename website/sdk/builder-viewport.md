@@ -57,10 +57,15 @@ flowchart TD
     style Apply fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
-- `WithDevice(name)`：用预设（含 UA/视口/像素比/移动/触摸）
-- `WithDeviceEmulation(...)`：手动指定各参数
+::: tip 三条路径，从简到繁按需选
+| 路径 | 选项 | 设了什么 | 适合 |
+|------|------|---------|------|
+| 仅视口 | `WithViewport(w,h)` | 只改尺寸 | 桌面端不同分辨率 |
+| 内置预设 | `WithDevice("iphone-15")` | UA+视口+像素比+移动+触摸 | 模拟某真机 |
+| 全手动 | `WithDeviceEmulation(...)` | 逐项指定 | 自定义设备/反检测 |
 
 预设清单见 [设备模拟 CLI](../cli/scan-device) 与 `pkg/runner/device_presets.go`。
+:::
 
 ## 下一步
 

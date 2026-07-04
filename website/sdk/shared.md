@@ -60,9 +60,12 @@ sequenceDiagram
 
 ## 何时用
 
-- 一次性脚本
-- 演示/示例
-- 不想管 Client 生命周期
+::: tip Shared vs Client，一句话抉择
+- 🪶 **一次性脚本/演示/示例** → `SharedCapture`，零管理，写一行跑一次
+- 🏢 **长驻服务/需要自定义池大小/远程 Chrome/精确关闭时机** → `Client`
+
+`Shared*` 首次调用自动建全局单例池，进程退出时释放——你完全不用管生命周期，代价是控制力弱。
+:::
 
 需要细粒度控制（自定义池大小、远程 Chrome、关闭时机）用 [Client](./client)。
 

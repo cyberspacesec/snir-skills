@@ -14,6 +14,10 @@
 
 策略类型 `runner.ProxyStrategy`：`round-robin`/`random`/`sequential`。
 
+::: info sequential = 自动故障转移
+代理不稳定时选 `ProxyStrategySequential`——当前代理失败**自动切下一个**，配合 `WithMaxRetries` 重试最大化成功率。`round-robin`/`random` 则不论成败轮换。
+:::
+
 ## 示例
 
 ```go

@@ -29,6 +29,12 @@ flowchart TD
   D --> C
 ```
 
+::: tip 零配置也能跑，按优先级自动找 Chrome
+`AutoConnectClient` 不强制配置——按以下优先级探测可用 Chrome：`opts.WSSURL` 指定则远程 WSS 模式；本地 `ChromePath` 或默认路径能找到则本地 exec 模式；探测已运行的远程调试端口（如 `:9222`）则发现模式；都没有返回错误。
+
+返回的 `AutoConnectMode` 告诉你实际用了哪种，便于日志排查。
+:::
+
 ## AutoConnectMode 取值
 
 | 模式 | 说明 |
