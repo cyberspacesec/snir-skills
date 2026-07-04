@@ -96,6 +96,30 @@ snir scan example.com -D
 
 输出详细 CDP 交互过程，定位问题。
 
+一个问题从出现到闭环的状态流转：
+
+```mermaid
+stateDiagram-v2
+    [*] --> 报错
+    报错 --> 调试中: 开 -D 看日志
+    调试中 --> Chrome缺失: 未找到浏览器
+    Chrome缺失 --> 已解决: 安装或 --chrome-path 或 --wss
+    调试中 --> 网络异常: ERR 连接或 DNS
+    网络异常 --> 已解决: 检查可达性 DNS 代理
+    调试中 --> 超时: 加载未完成
+    超时 --> 已解决: --timeout --delay
+    调试中 --> 证书错误: TLS 校验失败
+    证书错误 --> 已解决: 修复证书或测试 --ignore-cert
+    调试中 --> 元素缺失: 节点 id 找不到
+    元素缺失 --> 已解决: ActionWaitVisible 或换选择器
+    调试中 --> 截图空白: JS 渲染或反爬
+    截图空白 --> 已解决: --delay 滚动 换指纹
+    调试中 --> 失败率高: 批量被限流
+    失败率高 --> 已解决: 降 threads 加代理重试
+    已解决 --> [*]
+    调试中 --> [*]: 升级为 Issue
+```
+
 ## 下一步
 
 - [错误码](../reference/error-codes)

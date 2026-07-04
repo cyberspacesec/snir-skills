@@ -82,6 +82,22 @@ HTTP API 用 `ConcurrencyLimiter`：
 过多会触发**目标限流**或**耗尽内存**。从 5-10 起步，观察目标响应与机器负载再调。见 [性能调优](./performance)。
 :::
 
+池中一个 Driver 从空闲到回收的生命周期：
+
+```mermaid
+stateDiagram-v2
+    [*] --> 创建: DriverPool 初始化
+    创建 --> 空闲: 加入池等待
+    空闲 --> 借出: 任务 Acquire
+    借出 --> 执行中: 导航截图
+    执行中 --> 空闲: Release 归还复用
+    执行中 --> 异常: 页面崩溃或超时
+    异常 --> 关闭: 释放资源
+    空闲 --> 关闭: 空闲超时 IdleTimeout
+    关闭 --> [*]
+    借出 --> 借出: 排队等待名额
+```
+
 ## 下一步
 
 - [DriverPool](../internals/runner-pool)

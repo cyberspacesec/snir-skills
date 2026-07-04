@@ -45,6 +45,43 @@ flowchart TD
   RES --> JSON[SendJSONResponse]
 ```
 
+## 一次请求的完整时序
+
+下图展示一次 HTTP API 请求从接入到返回的完整链路：调用方发起请求，依次穿过鉴权、并发限流中间件，进入 Handler 后由 Server 调用 Driver 完成截图，再沿原路返回 JSON 响应。
+
+```mermaid
+sequenceDiagram
+  participant C as 调用方
+  participant R as Router
+  participant A as AuthMiddleware
+  participant L as 限流中间件
+  participant H as Handler
+  participant S as Server
+  participant D as Driver/Pool
+
+  C->>R: POST /screenshot {url,...}
+  R->>A: 转发
+  A->>A: 校验 X-API-Key/Authorization
+  alt 鉴权失败
+    A-->>C: 401 Unauthorized
+  else 鉴权通过
+    A->>L: 放行
+    L->>L: Acquire 信号量/排队
+    alt 队列已满
+      L-->>C: 503 拒绝
+    else 获得槽位
+      L->>H: 进入 Handler
+      H->>S: ProcessScreenshot(req)
+      S->>D: 借 Driver 截图
+      D-->>S: Result
+      S-->>H: Result + 存盘
+      H-->>L: Release 槽位
+      L-->>R: 响应
+      R-->>C: 200 {id,url,path}
+    end
+  end
+```
+
 ## 启动
 
 ::: tip 生产启动最小参数

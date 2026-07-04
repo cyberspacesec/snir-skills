@@ -63,6 +63,33 @@ timeline
 - ✅ 富 HTML 报告
 - ✅ VitePress 文档站 + GitHub Pages 部署
 
+各阶段工作按领域归纳如下：
+
+```mermaid
+mindmap
+  root((snir 路线图))
+    采集核心
+      CDP Provider 共享
+      统一 Result 模型
+      全量证据采集
+    智能分析
+      感知哈希聚类
+      技术栈检测
+      报告模板增强
+    工程化
+      Go SDK Builder
+      HTTP API 鉴权限流
+      共享池与并发
+    文档生态
+      VitePress 文档站
+      GitHub Pages 部署
+      多语言文档
+    规模化
+      Provider 集群
+      PostgreSQL 可选
+      云原生部署
+```
+
 ## 下一步
 
 - [贡献指南](./contributing)

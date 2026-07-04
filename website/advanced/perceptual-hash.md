@@ -68,6 +68,31 @@ GROUP BY perception_hash_group_id
 HAVING count(*) > 1;
 ```
 
+扫描入库后比对哈希并归组、触发相似告警的时序：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Scan as 扫描任务
+    participant Phash as pkg/phash
+    participant DB as SQLite
+    participant Alert as 告警/聚类
+    Scan->>Phash: ComputePerceptionHash 截图
+    Phash-->>Scan: 返回 pHash 十六进制
+    Scan->>DB: 写入 screenshots.perception_hash
+    Scan->>Phash: 与已有哈希 Distance 比对
+    Phash-->>Scan: 返回汉明距离
+    alt 距离 小于等于 阈值
+        Scan->>Phash: HashGroup 归同组
+        Phash-->>Scan: 返回 group_id
+        Scan->>DB: 更新 perception_hash_group_id
+        Scan->>Alert: 命中相似页面
+        Alert-->>Scan: 输出聚类或改版告警
+    else 距离 大于 阈值
+        Scan->>DB: 新建独立组
+    end
+```
+
 ## 下一步
 
 - [pkg/phash](../internals/phash)

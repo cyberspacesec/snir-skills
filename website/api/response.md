@@ -41,6 +41,34 @@
 
 [`SendJSONResponse`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/helpers.go#L41) 设置状态码与 `Content-Type: application/json`，序列化 `APIResponse` 写回。
 
+## 响应结构分类
+
+下图按"成功/错误"两条主线归纳响应结构与各端点的返回字段，所有出口都套同一 `APIResponse` 信封。
+
+```mermaid
+mindmap
+  root((响应结构))
+    成功响应
+      截图 200
+        id url path
+        HTML HAR Cookies 可选证据
+      批量 200
+        results 每条 BatchResult
+      健康 200
+        status ok
+      统计 200
+        active waiting max queue uptime
+    错误响应
+      400 参数错误
+      401 鉴权失败
+      429 503 并发队列满
+      500 内部错误
+    统一信封
+      APIResponse
+        Success Data Error Message
+      SendJSONResponse 序列化
+```
+
 ## 状态码
 
 | 码 | 场景 |

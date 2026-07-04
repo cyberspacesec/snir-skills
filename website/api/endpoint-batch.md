@@ -30,6 +30,25 @@ sequenceDiagram
   H-->>C: 200 {results:[...]}
 ```
 
+## 批次执行状态机
+
+下图展示 `/batch` 请求在并发处理阶段的状态流转：批次整体受服务级限流约束，内部再用信号量控制批次内并发，聚合所有子任务结果后统一返回。
+
+```mermaid
+stateDiagram-v2
+  [*] --> 接收批次
+  接收批次 --> 占服务级槽位 : 限流通过
+  接收批次 --> 503 : 队列满
+  占服务级槽位 --> 调度子任务
+  调度子任务 --> 执行中 : 信号量有空位
+  执行中 --> 完成 : 单个子任务返回
+  完成 --> 调度子任务 : 还有剩余
+  调度子任务 --> 聚合结果 : 全部完成
+  聚合结果 --> 200 : 返回 []BatchResult
+  200 --> [*]
+  503 --> [*]
+```
+
 ## 请求体
 
 `BatchScreenshotRequest`（[types.go#L113](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/types.go#L113)）：

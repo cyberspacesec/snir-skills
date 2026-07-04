@@ -32,6 +32,28 @@ flowchart LR
 
 技术检测在证据采集后自动进行，结果存入 `Result.Technologies`。
 
+证据采集完成后到 Technologies 字段写入的时序：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Scan as 扫描流程
+    participant Ev as 证据采集
+    participant Det as Detector
+    participant FP as 指纹库
+    participant Res as Result
+    Scan->>Ev: 采集 HTML 头 Cookie Meta
+    Ev-->>Scan: 返回证据字段
+    Scan->>Det: NewDetector 载入内置指纹库
+    Det->>FP: 读取 fingerprints.go
+    FP-->>Det: 返回 Fingerprint 集合
+    Scan->>Det: 匹配证据
+    Det->>Det: HTML 正则 + 头/Cookie/Meta 比对
+    Det-->>Scan: 返回 []Technology
+    Scan->>Res: 写入 Result.Technologies
+    Scan->>Res: 入库 technologies 表
+```
+
 ## Detector
 
 ```go

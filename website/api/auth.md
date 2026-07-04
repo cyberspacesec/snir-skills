@@ -22,6 +22,33 @@ flowchart TD
   K -- 否 --> REJ[401 Unauthorized]
 ```
 
+## 鉴权时序
+
+下图展示一次请求的鉴权交互：中间件读取配置与请求头，比对密钥后决定放行或返回 401。未配置 `--api-key` 时直接放行（仅本地测试）。
+
+```mermaid
+sequenceDiagram
+  participant C as 调用方
+  participant M as AuthMiddleware
+  participant CF as ServerOptions
+  participant N as NextHandler
+
+  C->>M: 请求 + Authorization/X-API-Key 头
+  M->>CF: 读取 APIKey 配置
+  alt 未配置 APIKey
+    M->>N: 直接放行
+    N-->>C: 正常响应
+  else 已配置 APIKey
+    M->>M: 提取并比对密钥
+    alt 密钥匹配
+      M->>N: 放行
+      N-->>C: 正常响应
+    else 密钥缺失/不匹配
+      M-->>C: 401 Unauthorized
+    end
+  end
+```
+
 ## 使用
 
 客户端在请求头携带密钥：

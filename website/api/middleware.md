@@ -27,6 +27,39 @@ flowchart LR
 若 Concurrency 在前，未授权的垃圾请求也会占满并发槽位，把合法请求挤到队列——等于 DoS 放大。Auth 先过滤掉非法请求，再让通过的进入并发控制，是正确的防御顺序。
 :::
 
+## 中间件链时序
+
+下图展示一次请求穿过中间件链的完整时序：日志记录入口→鉴权过滤→并发限流获取槽位→（可选 CORS）→进入业务 Handler，再沿链路返回响应。鉴权失败或队列满都会提前短路。
+
+```mermaid
+sequenceDiagram
+  participant C as 调用方
+  participant LOG as 日志/Recovery
+  participant A as Auth
+  participant L as Concurrency
+  participant CORS as CORS
+  participant H as Handler
+
+  C->>LOG: 请求进入
+  LOG->>A: 记录入口
+  alt 鉴权失败
+    A-->>C: 401
+  else 鉴权通过
+    A->>L: 放行
+    alt 队列已满
+      L-->>C: 503
+    else 获得槽位
+      L->>CORS: 进入业务前置
+      CORS->>H: 调用 Handler
+      H-->>CORS: 响应
+      CORS-->>L: 回写
+      L->>L: Release 槽位
+      L-->>LOG: 返回
+      LOG-->>C: 响应
+    end
+  end
+```
+
 ## 注册
 
 [`SetupRoutes`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/server_methods.go#L90) 把中间件应用到路由组。

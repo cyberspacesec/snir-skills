@@ -82,6 +82,29 @@ flowchart LR
 `Writer` 之间互不阻塞，单次扫描的 `Result` 会被广播给所有启用的 Writer，因此 JSONL + SQLite + 截图可同时产出而无需多次扫描。
 :::
 
+四种输出格式按特点与适用场景归纳：
+
+```mermaid
+mindmap
+  root((输出格式))
+    JSONL
+      每行一条 JSON
+      流式追加
+      适合管线与 jq
+    CSV
+      扁平表格
+      嵌套字段序列化
+      适合 Excel 与 BI
+    SQLite
+      GORM 自动建表
+      result_id 关联 CASCADE
+      适合长期存储与分析
+    Stdout
+      实时控制台
+      默认开启
+      适合调试
+```
+
 ## 文件命名
 
 截图文件名经 `SanitizeFilename` 清理非法字符，保证跨平台安全。截图目录默认 `./screenshots/`。

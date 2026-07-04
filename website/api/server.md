@@ -49,6 +49,32 @@ stateDiagram-v2
   Stopped --> [*]
 ```
 
+## 启动与关闭时序
+
+下图展示 Server 从构造、初始化池、注册路由、监听服务到优雅关闭的完整交互过程：调用方依次触发 `NewServer` → `InitPool` → `SetupRoutes` → `Run`，收到信号后 `ClosePool` 释放 Chrome 子进程。
+
+```mermaid
+sequenceDiagram
+  participant U as 调用方
+  participant S as Server
+  participant P as 浏览器池
+  participant R as Router
+  participant C as Chrome 进程
+
+  U->>S: NewServer(options)
+  S->>P: InitPool(opts)
+  P->>C: 启动 Chrome 子进程
+  C-->>P: 就绪
+  S->>R: SetupRoutes 注册路由
+  S->>S: Run 监听
+  Note over S: 接收请求/借还池
+  U->>S: 收到关闭信号
+  S->>P: ClosePool
+  P->>C: 终止子进程
+  C-->>P: 已退出
+  S-->>U: 服务停止
+```
+
 ::: warning 优雅关闭别忘 ClosePool
 `ClosePool()` 释放浏览器池与 Chrome 进程。服务退出前务必调用，否则 Chrome 子进程残留，长期跑会越积越多吃光内存。容器场景靠 `docker stop` 的 SIGTERM + 进程信号处理触发。
 :::

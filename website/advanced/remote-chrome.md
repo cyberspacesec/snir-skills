@@ -42,7 +42,6 @@ snir scan example.com --wss ws://provider-host:9222/devtools/browser/<id>
 见 [provider 命令](../cli/provider)。
 
 ## SDK
-
 ```go
 client, _ := sdk.NewRemoteClient("ws://host:9222/devtools/browser/xxx", 10)
 defer client.Close()
@@ -65,6 +64,27 @@ flowchart TD
   Q -- 无 --> R{需多进程共享?}
   R -- 是 --> P[snir provider]
   R -- 否 --> W[直接 --wss 远程]
+```
+
+客户端经 `--wss` 连接远程 Chrome 完成一次截图的时序：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cli as snir 客户端
+    participant RCDP as 远程 Chrome CDP
+    participant Page as 目标页面
+    Cli->>RCDP: WebSocket 连接 ws://host:9222/devtools/browser/<id>
+    RCDP-->>Cli: 连接建立
+    Cli->>RCDP: Target.createTarget 开新标签页
+    RCDP-->>Cli: 返回 targetId
+    Cli->>Page: Page.navigate 目标 URL
+    Page-->>RCDP: 触发加载事件
+    RCDP-->>Cli: Page.loadEventFired
+    Cli->>RCDP: Page.captureScreenshot
+    RCDP-->>Cli: 返回截图 base64
+    Cli->>RCDP: Target.closeTarget 关闭标签页
+    Cli->>Cli: 写入产物并断开会话
 ```
 
 ## 安全

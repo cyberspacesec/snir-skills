@@ -63,6 +63,32 @@ erDiagram
 删除一条 `screenshots` 记录时，GORM 的 `OnDelete:CASCADE` 会自动清除其下属的 headers、network_logs、cookies、technologies 等所有子表记录，避免孤儿数据。
 :::
 
+各表按职责归类如下：
+
+```mermaid
+mindmap
+  root((SQLite 表结构))
+    主表
+      screenshots 主记录
+      scan_sessions 扫描会话
+    证据子表
+      headers 响应头
+      network_logs 网络请求
+      console_logs 控制台
+      cookies Cookie
+      tls TLS 信息
+    标签
+      tags 标签定义
+      screenshot_tags 关联表
+    分析
+      technologies 技术栈
+    索引字段
+      html
+      title
+      perception_hash
+      perception_hash_group_id
+```
+
 ## 索引
 
 `html`、`title`、`perception_hash`、`perception_hash_group_id` 建索引。

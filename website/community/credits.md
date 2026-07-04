@@ -4,6 +4,31 @@
 
 ## 核心依赖
 
+snir 的能力建立在以下优秀开源项目之上，按职能归类：
+
+```mermaid
+mindmap
+  root((snir 依赖栈))
+    浏览器驱动
+      chromedp
+      cdproto
+    CLI 与 API
+      cobra
+      gorilla/mux
+    数据持久化
+      gorm
+      glebarez/sqlite
+    情报与分析
+      goimagehash
+      wappalyzer 技术指纹
+    终端体验
+      charmbracelet/log
+      glamour
+      fatih/color
+    文档与站点
+      VitePress
+```
+
 | 项目 | 用途 |
 |------|------|
 | [chromedp](https://github.com/chromedp/chromedp) / [cdproto](https://github.com/chromedp/cdproto) | Chrome DevTools Protocol 驱动 |

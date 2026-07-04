@@ -46,6 +46,34 @@ flowchart LR
   OPT --> PS[ProcessScreenshot]
 ```
 
+## 请求类型分类
+
+下图按端点维度归纳 API 的请求类型与各自的关键字段，便于快速对照"该端点接受什么"。
+
+```mermaid
+mindmap
+  root((请求类型))
+    截图请求
+      ScreenshotRequest
+        URL 视口 FullPage
+        Format Quality
+        WaitUntil Delay Timeout
+        HTML HAR Cookies ConsoleLogs
+        CustomHeaders UserAgent Proxy
+        Cookies Forms Actions Fingerprint
+    批量请求
+      BatchScreenshotRequest
+        requests 多个截图请求
+        concurrency 批内并发
+    元信息
+      ScreenshotInfo
+        id url path
+        时间戳 状态
+    响应信封
+      APIResponse
+        Success Data Error Message
+```
+
 ## BatchScreenshotRequest
 
 `BatchScreenshotRequest` 包含 `[]ScreenshotRequest` 与并发参数，由 [`HandleBatchScreenshot`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/batch.go#L13) 处理。

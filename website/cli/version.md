@@ -27,6 +27,24 @@ snir version
 排查问题时也先报版本号，便于定位是否已修复。
 :::
 
+`snir version` 作为安装后的第一道自检，其判定分支如下：
+
+```mermaid
+flowchart TD
+  START([snir version]) --> Q{输出?}
+  Q -- Logo + 版本号 --> OK[✅ 二进制可用]
+  Q -- command not found --> P1[PATH 未配好<br/>重新安装/链接]
+  Q -- 动态库缺失 --> P2[系统不兼容<br/>换 Docker 方案]
+  Q -- 报错退出 --> P3[查 exit code<br/>见退出码参考]
+  OK --> USE[可正常 scan/api/...]
+  P1 & P2 & P3 --> REINSTALL[重装后再次 version]
+
+  style OK fill:#e6f4ea,stroke:#3aa676
+  style P1 fill:#fde8e8,stroke:#d23a3a
+  style P2 fill:#fde8e8,stroke:#d23a3a
+  style P3 fill:#fde8e8,stroke:#d23a3a
+```
+
 - 安装后验证
 - 排查时确认版本
 - 脚本中取版本号

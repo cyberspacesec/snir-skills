@@ -29,6 +29,35 @@ graph LR
 从 **5-10** 起步 → 跑一批看失败率 → 失败率升就降并发、稳了再缓加。**观察驱动**，别一上来拉满。
 :::
 
+性能调优围绕以下维度展开：
+
+```mermaid
+mindmap
+  root((性能调优))
+    并发
+      threads 与 maxConcurrent
+      起步 5 至 10
+      观察失败率调整
+    浏览器复用
+      进程内 DriverPool
+      共享池单例
+      跨进程 provider
+    超时延迟
+      timeout 慢站点
+      delay 等异步
+    截图体积
+      JPEG 加质量
+      skip-screenshot
+      内存模式不落盘
+    远程分担
+      wss 转移压力
+      专用 Chrome 机器
+    资源监控
+      API GET stats
+      SharedPoolStats
+      容器内存 CPU
+```
+
 ## 浏览器复用
 
 - 进程内多任务：共享池（`Shared*`）

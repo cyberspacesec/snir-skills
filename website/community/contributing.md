@@ -25,6 +25,33 @@ flowchart LR
 - Node 20+（构建文档站）
 - Chrome/Chromium（运行截图）
 
+一次 PR 从发起到合并的典型时序：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Dev as 贡献者
+    participant Fork as Fork 仓库
+    participant Branch as 特性分支
+    participant CI as GitHub CI
+    participant Maint as 维护者
+    participant Main as 主仓库
+    Dev->>Fork: Fork 主仓库
+    Dev->>Branch: 创建分支 feat:xxx
+    Dev->>Branch: 编码 + go test
+    Dev->>Branch: 提交并推送
+    Dev->>Main: 发起 Pull Request
+    Main->>CI: 触发 CI 构建/测试/格式校验
+    CI-->>Main: 报告结果
+    Maint->>Main: Review 代码
+    Maint-->>Dev: 反馈/修改意见
+    Dev->>Branch: 按反馈迭代
+    Branch->>CI: 再次触发 CI
+    CI-->>Maint: 校验通过
+    Maint->>Main: 批准并 Squash Merge
+    Main-->>Dev: 合并完成
+```
+
 ### 构建
 
 ```bash

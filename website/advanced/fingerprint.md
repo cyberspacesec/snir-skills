@@ -57,6 +57,26 @@ mindmap
 指纹伪装可降低识别，但非万能。高级反爬可能仍能检测（canvas 指纹、行为分析等）。
 :::
 
+指纹从配置到注入页面执行的时序：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as 调用方
+    participant Opts as ClientOptions
+    participant Pool as DriverPool
+    participant Page as 页面上下文
+    participant Eval as CDP evaluate
+    User->>Opts: 设置 WithUserAgent / WithFingerprint / WithPlugins
+    Opts->>Pool: 取 Driver 并创建上下文
+    Pool->>Page: Network.setUserAgentOverride
+    Pool->>Page: Emulation.setDeviceMetricsOverride 屏幕
+    Pool->>Eval: 注入 JS 覆盖 platform/vendor/WebGL/plugins
+    Eval-->>Page: navigator 属性已伪装
+    User->>Page: 导航并截图
+    Page-->>User: 返回伪装后的产物
+```
+
 ## 下一步
 
 - [指纹构建器](../sdk/builder-fingerprint)

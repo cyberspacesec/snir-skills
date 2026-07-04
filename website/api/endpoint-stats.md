@@ -45,6 +45,27 @@ flowchart LR
   M --> GR[Grafana 面板]
 ```
 
+## 统计收集时序
+
+下图展示 `GET /stats` 的调用链：Handler 调用 `GetConcurrencyStats` 汇总并发与池负载，封装为 `APIResponse` 返回，供 Prometheus 抓取与 Grafana 面板消费。
+
+```mermaid
+sequenceDiagram
+  participant M as 监控端
+  participant H as HandleStats
+  participant S as GetConcurrencyStats
+  participant L as ConcurrencyLimiter
+
+  M->>H: GET /stats
+  H->>S: 取运行统计
+  S->>L: 读取 active/waiting
+  L-->>S: 当前计数
+  S->>S: 拼装 max/queue/uptime
+  S-->>H: 统计快照
+  H-->>M: 200 {success:true,data:{active,waiting,max,queue,uptime}}
+  M->>M: Grafana 面板/告警
+```
+
 ::: tip active 持续接近 max = 该扩容了
 定期抓 `/stats`，若 `active` 长期贴近 `max`、`waiting` 常年 > 0，说明 Chrome 池是瓶颈——要么调大 `--max-concurrent`（同时扩 Chrome 池），要么上 `provider` 多机分担。可接 Prometheus 抓取做容量规划与告警。
 :::

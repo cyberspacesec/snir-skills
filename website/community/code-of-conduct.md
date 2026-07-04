@@ -29,6 +29,25 @@
 
 违规行为请通过 [GitHub Issue](https://github.com/cyberspacesec/snir-skills/issues) 私密报告给维护者。维护团队将审查并妥善处理。
 
+违规报告的处理流程：
+
+```mermaid
+flowchart TD
+  R([收到违规报告]) --> T1[维护团队审查]
+  T1 --> Q{是否违规?}
+  Q -- 否 --> C1[反馈报告人，结案]
+  Q -- 轻微 --> W[私下提醒/警告]
+  Q -- 严重 --> S[暂停或封禁相关权限]
+  Q -- 恶意/重复 --> B[永久封禁]
+  W & S & B --> F[记录存档]
+  F --> Done([社区恢复友好状态])
+
+  style C1 fill:#e6f4ea,stroke:#3aa676
+  style W fill:#fff4e6,stroke:#e89a3a
+  style S fill:#fde8e8,stroke:#d23a3a
+  style B fill:#d23a3a,stroke:#9a2a2a,color:#fff
+```
+
 ## 下一步
 
 - [贡献指南](./contributing)

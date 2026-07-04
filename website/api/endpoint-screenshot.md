@@ -33,6 +33,27 @@ sequenceDiagram
   H-->>C: 200 {id, url, path}
 ```
 
+## 请求状态流转
+
+下图展示单次截图请求在 Handler 内部的状态机：从解析请求、生成 Options、调用截图、到落盘返回，以及各异常分支（参数错误、超时、内部错误）的出口。
+
+```mermaid
+stateDiagram-v2
+  [*] --> 解析请求
+  解析请求 --> 参数校验
+  参数校验 --> 生成Options : createRunnerOptions
+  参数校验 --> 400 : 字段非法
+  生成Options --> 截图中 : ProcessScreenshot
+  截图中 --> 落盘存证 : 成功
+  截图中 --> 超时 : Timeout 到点
+  截图中 --> 500 : Driver 异常
+  超时 --> 500
+  落盘存证 --> 200 : 返回 id/url/path
+  200 --> [*]
+  400 --> [*]
+  500 --> [*]
+```
+
 ## 请求示例
 
 ::: details curl 调用示例

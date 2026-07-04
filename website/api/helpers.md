@@ -15,6 +15,31 @@
 | `UrlWithProtocol(url, https, http)` | [L60](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/helpers.go#L60) | 补协议 |
 | `UrlHasProtocol(url)` | [L82](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/helpers.go#L82) | 是否已有协议 |
 
+## 函数分类
+
+下图按职责把 `helpers.go` 中的辅助函数归类：响应输出、目录/文件、URL 协议三条线，便于快速定位该用哪个。
+
+```mermaid
+mindmap
+  root((辅助函数))
+    响应输出
+      SendJSONResponse
+        统一 APIResponse 信封
+        设置状态码与 Content-Type
+    目录与文件
+      CreateDir
+        建截图存储目录
+      IsImageFile
+        判断是否图片
+      GetImageContentType
+        推断图片 MIME
+    URL 协议
+      UrlHasProtocol
+        是否已带协议
+      UrlWithProtocol
+        补 http 或 https
+```
+
 ## SendJSONResponse
 
 [`SendJSONResponse`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/helpers.go#L41) 统一封装 `APIResponse`（成功/失败、数据、消息），所有 handler 都用它输出，保证响应格式一致。
