@@ -18,6 +18,15 @@ snir version
 
 ## 用途
 
+::: tip 装完先 `snir version` 验证
+任何安装方式（go install / 二进制 / docker）跑通后，第一件事就是 `snir version`：
+- ✅ 能打出 Logo + 版本号 → 二进制可用、Chrome 不依赖也能跑
+- ❌ 报 `command not found` → PATH 没配好
+- ❌ 报动态库缺失 → 二进制与系统不兼容，换 docker 方案
+
+排查问题时也先报版本号，便于定位是否已修复。
+:::
+
 - 安装后验证
 - 排查时确认版本
 - 脚本中取版本号

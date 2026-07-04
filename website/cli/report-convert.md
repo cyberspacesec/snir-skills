@@ -37,6 +37,12 @@ flowchart LR
 
 ## 适用场景
 
+::: tip JSONL → CSV 是最常用转换
+JSONL 适合管线与 jq，但同事/老板要看 Excel。`report convert -i x.jsonl -o x.csv` 一步转成扁平表格，直接双击打开。
+
+注意：CSV 会丢嵌套证据（headers/network 等），要全量证据请保留 JSONL。
+:::
+
 - 把 JSONL 转为 CSV 供 Excel 分析
 - 把采集结果转为下游工具所需格式
 - 提取扁平字段用于 BI

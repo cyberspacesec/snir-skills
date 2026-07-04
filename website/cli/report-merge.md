@@ -25,6 +25,10 @@ snir report html -i all.jsonl -o report.html
 
 `MergeOptions` 控制多个输入与输出路径。`Merge` 读取所有输入 JSONL，去重/合并后写出。
 
+::: info 多 worker 分布式采集的标准收尾
+多机/多 worker 各扫一批 → 各产 `batchN.jsonl` → `report merge -i *.jsonl -o all.jsonl` 汇总 → `report html` 出一份总报告。这是分布式采集的典型收尾流程。
+:::
+
 ```mermaid
 flowchart LR
     I1["batch1.jsonl"] --> M[Merge]

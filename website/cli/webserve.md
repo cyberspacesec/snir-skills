@@ -32,9 +32,14 @@ snir webserve --dir .
 
 ## 适用场景
 
-- 本地浏览生成的 HTML 报告
-- 查看截图目录
-- 临时分享采集结果（仅本地/内网）
+::: tip 三步看报告，无需部署
+```bash
+snir scan file -f urls.txt --write-jsonl      # 1. 扫
+snir report html -i results.jsonl -o report.html  # 2. 生成报告
+snir webserve --dir .                          # 3. 浏览器打开 localhost:8080
+```
+适合本地浏览 HTML 报告、查看截图目录、临时内网分享——无需 Nginx，一条命令起服务。
+:::
 
 ## 与 provider 的区别
 

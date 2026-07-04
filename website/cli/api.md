@@ -65,6 +65,12 @@ curl -X POST http://127.0.0.1:8080/screenshot \
 
 `--max-concurrent` 限制同时在执行的截图数；超出进入 `--queue-size` 队列等待。满则拒绝。见 [并发限流](../api/concurrency)。
 
+::: warning 默认密钥仅本地用，对外务必显式设
+- `--api-key` 不指定会**自动生成并打印**到启动日志——适合本地一次性试用
+- 对外暴露（哪怕内网）务必显式 `--api-key <强随机值>`，并配合反代/网络隔离
+- 默认 `--host 0.0.0.0` 会监听所有网卡，仅本机用请改 `--host 127.0.0.1`
+:::
+
 ```mermaid
 flowchart LR
     Req[HTTP 请求] --> Auth{X-API-Key?}

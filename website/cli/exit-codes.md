@@ -52,8 +52,19 @@ fi
 
 ## 注意
 
-- 部分目标失败不必然使整个进程退出非零；具体取决于命令实现。批量扫描中单个失败通常记录在 `Result.Failed` 而非中断。
-- 检查 `results.jsonl` 中 `failed` 字段以确认每条结果状态。
+::: warning 退出码 ≠ 单目标成败
+这是最容易误解的点：
+
+- **进程退出码**：反映 snir 进程**整体**是否正常结束（参数错、Chrome 找不到等致命错误才非零）
+- **单目标 `failed` 字段**：批量扫描中某个 URL 失败**通常不会**让进程退出非零，而是记在 `results.jsonl` 的 `failed=true`
+
+→ 脚本里判断"扫没扫好"不能只看 `$?`，**必须查 `failed` 字段**：
+```bash
+snir scan file -f urls.txt --write-jsonl
+# $? 为 0 不代表每个 URL 都成功
+jq 'select(.failed == true)' results.jsonl   # 这才是真正的失败列表
+```
+:::
 
 ## 下一步
 

@@ -24,10 +24,14 @@ snir report html -i results.jsonl
 
 富 HTML 报告包含：
 
+::: tip 一个 report.html = 一份可分享的全量证据
+报告是**单文件自包含**——CSS、截图缩略图全部内嵌，无需额外资源。可直接发邮件、存档、离线打开，对方不用装任何东西。
+
 - 📋 结果总览（成功/失败计数、状态码分布）
 - 🖼️ 截图缩略图网格
 - 📝 每个结果的元信息（URL/标题/状态码/技术栈/哈希）
 - 🔍 证据展开（HTML/头/Cookie/控制台/网络，按采集项）
+:::
 
 模板由 `pkg/report/html.go` 的 `RichHTMLTemplate` 渲染。
 

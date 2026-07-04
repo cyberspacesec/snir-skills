@@ -60,8 +60,14 @@ snir scan example.com --wss ws://provider-host:9222/devtools/browser/<id>
 
 ## 与 DriverPool 的区别
 
-- `DriverPool`（进程内）：同进程多任务复用一批 Driver
-- `provider`（跨进程）：多进程共享同一 Chrome 端点
+::: info 两层复用，别搞混
+| 层级 | 机制 | 复用范围 | 启动开销 |
+|------|------|---------|---------|
+| `DriverPool`（进程内） | 同进程复用一批 Driver | 单进程多任务 | 低 |
+| `provider`（跨进程） | 多进程共享同一 Chrome 端点 | 多进程/多 worker | 集中管理 |
+
+进程内并发用 `DriverPool` 即可；只有跨进程/跨机器共享浏览器时才需要起 `provider`。
+:::
 
 见 [并发与池](../advanced/concurrency)。
 

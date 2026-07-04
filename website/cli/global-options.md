@@ -26,8 +26,11 @@ snir scan example.com -q
 
 ## 行为细节
 
-- `PersistentPreRunE` 中处理：若 `--quiet` 启用，调用 `log.EnableSilence()`；若 `--debug-log` 且未静默，调用 `log.EnableDebug()`。
-- 静默优先级高于调试：同时指定时静默生效。
+::: info 静默优先于调试
+`PersistentPreRunE` 中：`--quiet` 启用 → `log.EnableSilence()`；`--debug-log` 且未静默 → `log.EnableDebug()`。
+
+同时指定 `-D -q` 时**静默优先**——不会有 CDP 细节输出，只有结果。要调试就别加 `-q`。
+:::
 
 ```mermaid
 flowchart TD
