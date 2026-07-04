@@ -21,6 +21,17 @@ snir scan file -f watch.txt \
   --write-jsonl --jsonl-file archive/$DATE/results.jsonl
 ```
 
+每天一份归档，随时间累积成可回溯的视觉历史：
+
+```mermaid
+timeline
+    title 页面视觉时间线
+    07-01 : 截图存档 : pHash A
+    07-02 : 截图存档 : pHash A（距离 0，未变）
+    07-03 : 截图存档 : pHash B（距离 18，改版！）
+    07-04 : 截图存档 : pHash B（距离 0，稳定）
+```
+
 ## 变化检测（感知哈希）
 
 snir 自动为每张截图计算感知哈希。对比两次哈希距离即可判断是否改版：

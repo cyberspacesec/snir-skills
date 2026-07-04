@@ -20,6 +20,18 @@ flowchart LR
     style M5 fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+也可以用时间线看待这五分钟的渐进解锁：
+
+```mermaid
+timeline
+    title 五分钟能力解锁
+    第 1 分钟 : scan url : 拿到第一张截图
+    第 2 分钟 : --save-* : headers/html/cookies 全量证据
+    第 3 分钟 : file / cidr / --ports : 批量与网段展开
+    第 4 分钟 : --device / --proxy : 真机模拟与代理出口
+    第 5 分钟 : snir api / Go SDK : 服务化与类型化集成
+```
+
 ## 第 1 分钟：第一张截图
 
 ```bash

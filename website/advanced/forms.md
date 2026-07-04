@@ -4,6 +4,11 @@
 
 snir 提供 `InteractionAction` 与 `Form` 两层抽象，结构化地与页面交互。
 
+::: info 两层抽象
+- **InteractionAction**：原子动作（点击/输入/滚动/等待/悬停），灵活组合
+- **Form**：声明式表单（字段 + 提交按钮 + 等待），一行完成登录等场景
+:::
+
 ## 交互动作（Actions）
 
 SDK 工厂（CLI 经 API 的 `actions` 字段）：
@@ -44,6 +49,25 @@ opts := sdk.NewScreenshotOptions(
 result, _ := sdk.SharedCapture("https://example.com/login", opts)
 ```
 
+登录场景下，浏览器与 snir 的逐步交互时序：
+
+```mermaid
+sequenceDiagram
+  participant SNIR as snir
+  participant CH as Chrome
+  participant PAGE as 登录页
+  SNIR->>CH: 导航 /login
+  CH->>PAGE: 加载表单
+  SNIR->>CH: 填 username/password
+  SNIR->>CH: 勾选 remember
+  SNIR->>CH: 点击 #login-btn
+  CH->>PAGE: 提交表单
+  PAGE-->>CH: 跳转登录后页
+  SNIR->>CH: 等待 waitAfterSubmit
+  SNIR->>CH: 截图 + 采集登录态 Cookie
+  CH-->>SNIR: Result
+```
+
 ## 交互流程
 
 ```mermaid
@@ -54,15 +78,19 @@ flowchart LR
 
 ## 选择 CSS 还是 XPath
 
-- CSS：简单、可读，多数场景够用
-- XPath：复杂层级、无 id/class 时更精确
+::: tip 选型建议
+- **CSS**：简单、可读，多数场景够用
+- **XPath**：复杂层级、无 id/class 时更精确
+:::
 
 ## 适用场景
 
-- 登录后页面截图
-- 触发"加载更多"
-- 关闭弹窗后截图
-- 等待异步内容出现
+::: info 典型场景
+- 🔐 登录后页面截图
+- 📜 触发"加载更多"
+- ✖️ 关闭弹窗后截图
+- ⏳ 等待异步内容出现
+:::
 
 ## 下一步
 

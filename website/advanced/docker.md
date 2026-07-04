@@ -23,6 +23,24 @@ flowchart LR
     style Vol fill:#e6f4ea,stroke:#3aa676
 ```
 
+容器运行时，snir 与内置 Chromium、挂载卷的协作时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 调用方
+  participant CT as snir 容器
+  participant CHR as chromium(alpine)
+  participant VOL as /app/data 卷
+  U->>CT: docker run ... snir scan file -f urls.txt
+  CT->>CHR: 启动无头 chromium
+  CHR-->>CT: 就绪
+  CT->>CHR: 逐 URL 导航+截图
+  CHR-->>CT: 截图字节
+  CT->>VOL: 写 screenshots/*.png
+  CT->>VOL: 写 results.jsonl + go-web-screenshot.db
+  CT-->>U: 控制台摘要
+```
+
 ## Dockerfile 概览
 
 ```dockerfile

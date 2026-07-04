@@ -29,6 +29,29 @@ flowchart LR
     style Q6 fill:#e6f4ea,stroke:#3aa676
 ```
 
+按主题归类的常见疑问全景：
+
+```mermaid
+mindmap
+  root((FAQ 主题))
+    环境与依赖
+      找不到 Chrome
+      chrome-path 指定
+      远程 CDP --wss
+    截图范围
+      元素截图 selector/xpath
+      整页 full-page
+      视口与设备
+    网络与身份
+      代理 --proxy
+      登录后截图
+      Cookie 导入
+    输出与存储
+      JSONL / CSV / SQLite
+      富 HTML 报告
+      证据展开
+```
+
 ## 安装与运行
 
 ### 截图需要 Chrome 吗？

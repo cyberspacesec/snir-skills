@@ -90,6 +90,52 @@ flowchart LR
     style S fill:#e6f4ea,stroke:#3aa676
 ```
 
+证据在 SQLite 中按类型分表，外键关联主结果：
+
+```mermaid
+erDiagram
+    results ||--o{ evidence_cookies : has
+    results ||--o{ evidence_headers : has
+    results ||--o{ evidence_console : has
+    results ||--o{ evidence_network : has
+    results ||--|| evidence_html : one
+    results {
+        int id PK
+        text url
+        text title
+        int status_code
+        text phash
+        text technologies
+        text tls_json
+    }
+    evidence_cookies {
+        int id PK
+        int result_id FK
+        text name
+        text value
+        text domain
+    }
+    evidence_headers {
+        int id PK
+        int result_id FK
+        text key
+        text value
+    }
+    evidence_console {
+        int id PK
+        int result_id FK
+        text level
+        text text
+    }
+    evidence_network {
+        int id PK
+        int result_id FK
+        text method
+        text url
+        int status
+    }
+```
+
 ## 下一步
 
 - [Result Schema](../reference/result-schema)

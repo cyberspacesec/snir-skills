@@ -27,6 +27,28 @@ flowchart TD
 - 渐进文档指引告诉代理"需要细节时打开哪个 reference"
 :::
 
+代理从收到任务到返回结果的完整时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 上游任务
+  participant A as AI 代理
+  participant S as SKILL.md
+  participant R as references/
+  participant SNIR as snir
+  participant DB as SQLite/JSONL
+  U->>A: "采集这批 URL 的证据"
+  A->>S: 读入口，判断任务形态
+  alt 需要细节
+    A->>R: 按需打开 scan-workflows / api-and-sdk
+  end
+  A->>SNIR: 选定模式执行（CLI/API/SDK）
+  SNIR->>SNIR: 截图 + 证据采集
+  SNIR->>DB: 持久化结果
+  SNIR-->>A: Result 摘要
+  A-->>U: 返回结构化摘要
+```
+
 ## 选择集成模式
 
 | 代理形态 | 推荐模式 |

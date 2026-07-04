@@ -4,6 +4,12 @@
 
 snir 的 Cookie 能力分两类：**注入**（会话保持）与**证据**（采集存档）。
 
+::: tip 两类能力，别混淆
+- **注入**：让截图带上登录态（`--cookie*`），影响"截到的内容"
+- **证据**：把页面现有 Cookie 采集存档（`--save-cookies`），只是"记录"
+两者可同时用：注入登录态后，再把登录后的 Cookie 存为证据。
+:::
+
 ## 注入 vs 证据
 
 | 目的 | 工具 | Result 字段 |
@@ -60,8 +66,30 @@ opts := sdk.NewScreenshotOptions(
 
 ## CookieJar 与 Netscape
 
-- `CookieJar`（JSON）：跨任务复用，`--cookie-file`
-- Netscape（`cookies.txt`）：curl/wget 互通，`--cookie-import`/`--cookie-export`
+::: details 两种 Cookie 存储格式
+- **CookieJar**（JSON）：snir 原生，跨任务复用，`--cookie-file`
+- **Netscape**（`cookies.txt`）：与 curl/wget 互通，`--cookie-import`/`--cookie-export`
+:::
+
+一个 Cookie 在 snir 体系中的完整生命周期：
+
+```mermaid
+stateDiagram-v2
+  [*] --> External: curl 登录 / 上次采集
+  External --> Imported: --cookie-import (Netscape)
+  Imported --> Jar: 加载到 CookieJar
+  Jar --> Injected: 采集时按域名注入浏览器
+  Injected --> Collected: 浏览器更新 Cookie
+  Collected --> Jar: --cookie-write-back 写回
+  Jar --> Persisted: 持久化到 cookie-file (JSON)
+  Jar --> Exported: --cookie-export (Netscape)
+  Exported --> [*]: 供 curl/wget 复用
+  Persisted --> Jar: 下次任务加载
+```
+
+::: tip 与 curl 互通的登录态
+先用 `curl` 登录导出 `cookies.txt`，再 `snir scan --cookie-import login.txt` 直接带登录态截图——无需在 snir 里重做登录流程。
+:::
 
 见 [内部 CookieJar](../internals/runner-cookie-jar)、[Netscape Cookie](../internals/runner-cookie-netscape)。
 

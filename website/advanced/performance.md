@@ -23,7 +23,11 @@ graph LR
   T -- 服务器 --> C2[20-50]
 ```
 
-过多并发会触发目标限流、耗尽内存、降成功率。从 5-10 起步，观察失败率调整。
+过多并发会触发目标限流、耗尽内存、降成功率。
+
+::: tip 调优心法
+从 **5-10** 起步 → 跑一批看失败率 → 失败率升就降并发、稳了再缓加。**观察驱动**，别一上来拉满。
+:::
 
 ## 浏览器复用
 
@@ -39,9 +43,11 @@ graph LR
 
 ## 截图体积
 
-- 批量存档用 JPEG：`--screenshot-format jpeg --screenshot-quality 80`
-- 仅要证据：`--skip-screenshot`
-- 内存模式不落盘：SDK `ScreenshotBytes` / API `MemoryWriter`
+::: details 三种减体积策略
+- **批量存档**：JPEG + 质量，`--screenshot-format jpeg --screenshot-quality 80`
+- **仅要证据不要图**：`--skip-screenshot`
+- **内存模式不落盘**：SDK `ScreenshotBytes` / API `MemoryWriter`
+:::
 
 ## 远程 Chrome
 

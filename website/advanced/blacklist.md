@@ -60,9 +60,36 @@ flowchart LR
   B -- 通过 --> A[采集]
 ```
 
-- ✅ 生产保留默认黑名单
-- ✅ 对用户输入的目标先过黑名单
-- ❌ 仅在授权内网扫描时才禁用
+黑名单对域名与 IP 双重拦截的实际时序（以 `internal.local` 为例）：
+
+```mermaid
+sequenceDiagram
+  participant U as 调用方
+  participant BL as Blacklist 检查
+  participant DNS as DNS 解析
+  participant CH as Chrome
+  U->>BL: 目标 internal.local
+  BL->>BL: 规则匹配域名 internal.local
+  BL-->>U: 拒绝（命中域名规则）
+  Note over BL,DNS: 若域名未命中，再查解析后 IP
+  U->>BL: 目标 benign.com
+  BL->>BL: 域名未命中
+  BL->>DNS: 解析 benign.com
+  DNS-->>BL: 93.184.216.34
+  BL->>BL: 比对 IP 规则（10.0.0.0/8、169.254.x 等）
+  BL-->>U: 通过
+  U->>CH: 采集 benign.com
+```
+
+::: danger SSRF 防护底线
+- ✅ 生产环境**保留默认黑名单**
+- ✅ 对用户输入的目标**先过黑名单**再采集
+- ❌ 仅在**授权内网扫描**时才 `--enable-blacklist=false`
+:::
+
+::: warning 云元数据是 SSRF 重灾区
+`169.254.169.254` 等云元数据端点能泄露临时凭证/实例身份。默认黑名单已屏蔽，**切勿为图方便而禁用**。
+:::
 
 ## 下一步
 

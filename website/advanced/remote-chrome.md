@@ -69,8 +69,12 @@ flowchart TD
 
 ## 安全
 
-- 远程调试端口勿暴露公网，限内网或加鉴权
-- `--remote-debugging-address` 默认 127.0.0.1，开放需谨慎
+::: danger 远程调试端口暴露=完全控制
+Chrome 远程调试端口等价于"能在该 Chrome 里执行任意操作"。**切勿暴露公网**：
+- 限内网访问，或加网络层鉴权
+- `--remote-debugging-address` 默认 `127.0.0.1`，开放 `0.0.0.0` 需极度谨慎
+- Provider/远程 Chrome 应部署在受控网络
+:::
 
 ## 下一步
 

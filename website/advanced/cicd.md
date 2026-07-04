@@ -26,6 +26,23 @@ flowchart TD
     style 用户 fill:#3aa676,stroke:#2a7a56,color:#fff
 ```
 
+`docs.yml` 从代码推送到线上文档的部署时序：
+
+```mermaid
+sequenceDiagram
+  participant DEV as 开发者
+  participant GH as GitHub
+  participant CI as Actions runner
+  participant PAGES as GitHub Pages
+  DEV->>GH: git push main（website/** 变更）
+  GH->>CI: 触发 docs.yml
+  CI->>CI: npm install
+  CI->>CI: npm run docs:build → dist/
+  CI->>PAGES: 上传 pages artifact
+  PAGES->>PAGES: 部署到 <user>.github.io/snir-skills
+  PAGES-->>DEV: 线上可访问
+```
+
 ## 工作流
 
 | 工作流 | 触发 | 作用 |

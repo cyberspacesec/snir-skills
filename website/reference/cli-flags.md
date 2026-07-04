@@ -22,6 +22,24 @@ flowchart TD
     style Out fill:#e6f4ea,stroke:#3aa676
 ```
 
+标志从命令行到运行时的解析时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant CLI as cobra 命令树
+  participant BIND as 标志绑定
+  participant O as Options
+  participant R as Runner
+  U->>CLI: snir scan file -f urls.txt --full-page
+  CLI->>CLI: 匹配子命令 scan file
+  CLI->>CLI: 合并全局 + scan 公共 + 子命令标志
+  CLI->>BIND: 按绑定写入对应 Options 字段
+  BIND->>O: 填充 Options.Scan/Chrome/Writer...
+  O->>R: NewRunner(options)
+  R-->>U: 执行采集
+```
+
 ## 全局持久化标志
 
 | 标志 | 简写 | 默认 | 说明 |

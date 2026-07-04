@@ -4,6 +4,10 @@
 
 `pkg/techdetect` 通过指纹匹配识别框架/CMS/CDN/分析等。
 
+::: tip 自动进行，无需开关
+技术检测在证据采集后**自动**运行，结果存入 `Result.Technologies`。只要跑了截图，就有技术栈结果，无需额外标志。
+:::
+
 ## 指纹维度
 
 `Fingerprint` 从四个维度匹配：

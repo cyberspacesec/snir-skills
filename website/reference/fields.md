@@ -88,6 +88,23 @@ graph TD
   R --> TE[Technologies]
 ```
 
+一条 Result 从采集到多形态输出的状态流转：
+
+```mermaid
+stateDiagram-v2
+  [*] --> 采集: Driver 执行
+  采集 --> 组装: 填充字段
+  组装 --> 内存Result
+  内存Result --> JSONL: --write-jsonl
+  内存Result --> CSV: --write-csv
+  内存Result --> SQLite: --db
+  内存Result --> HTML报告: report html
+  JSONL --> [*]
+  CSV --> [*]
+  SQLite --> [*]
+  HTML报告 --> [*]
+```
+
 ## 下一步
 
 - [Result Schema](./result-schema)

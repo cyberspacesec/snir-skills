@@ -57,6 +57,26 @@ graph TD
 | CSV 文件 | `results.csv` |
 | DB 文件 | `go-web-screenshot.db` |
 
+## 配置如何流向运行时
+
+同一份 `Options` 在运行期被分派到不同子系统：
+
+```mermaid
+flowchart LR
+  O[Options] --> R[Runner]
+  O -->|Chrome 组| D[Driver: 路径/UA/超时/视口/代理/指纹]
+  O -->|Scan 组| S[Scan: 线程/截图/证据/JS/黑名单/Cookie]
+  O -->|Writer 组| W[Writer: JSONL/CSV/STDOUT]
+  O -->|DB 组| DB[(SQLite)]
+  O -->|API 组| A[HTTP API server]
+  R --> D
+  D --> RES[Result]
+  RES --> W
+  RES --> DB
+  S -.约束.-> D
+  A -.触发.-> R
+```
+
 ## Go SDK 配置
 
 SDK 用 `ClientOptions`（客户端级）+ `ScreenshotOptions`（每截图级，Builder 模式）。见 [ClientOptions](../sdk/client-options) 与 [构建器](../sdk/builders)。

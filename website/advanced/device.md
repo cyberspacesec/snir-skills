@@ -4,6 +4,10 @@
 
 `DevicePreset`（`pkg/runner/device_presets.go`）封装视口、UA、像素比、移动端、触摸等参数。
 
+::: info 一个预设 = 一整套移动端配置
+`--device iphone-15` 不是只改视口，而是同时设置视口尺寸、User-Agent、设备像素比、移动端视口标记、触摸仿真——一次模拟整台真机。
+:::
+
 ## 预设
 
 `--list-devices` 查看全部。常用：
@@ -61,6 +65,23 @@ flowchart TD
   Q -- 模拟某真机 --> P[预设 --device]
   Q -- 自定义尺寸 --> M[手动 --resolution-x/y + UA]
   Q -- 精细控制 --> SDK[WithDeviceEmulation]
+```
+
+预设应用到 `Options.Chrome` 的写入时序：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant CLI as snir --device
+  participant AP as ApplyToOptions
+  participant O as Options.Chrome
+  participant CH as Chrome
+  U->>CLI: --device "iPhone 15"
+  CLI->>AP: 查 DevicePresets 表
+  AP-->>AP: 取 viewport/UA/scaleFactor/isMobile/hasTouch
+  AP->>O: 写入各项
+  O->>CH: chromedp.emulateDevice
+  CH-->>U: 渲染为移动视口
 ```
 
 ## 下一步

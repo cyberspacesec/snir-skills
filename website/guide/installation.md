@@ -33,6 +33,29 @@ flowchart TD
     class S1,S2,S3,S4 pick;
 ```
 
+四条安装路径一览：
+
+```mermaid
+mindmap
+  root((安装 snir))
+    脚本
+      ./scripts/install-snir.sh
+      已克隆仓库
+      最快推荐
+    预编译二进制
+      curl 下载 tar 包
+      无需源码
+      服务器直装
+    源码构建
+      make build
+      二次开发定制
+      需 Go 工具链
+    Docker
+      docker compose up -d
+      生产容器化
+      内置 Chromium
+```
+
 ::: tip 💡 推荐路径
 绝大多数用户走 **脚本安装 → 验证 → 就绪** 即可。源码构建与 Docker 适合二次开发与生产容器化场景。
 :::

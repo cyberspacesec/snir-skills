@@ -88,6 +88,35 @@ snir scan example.com --wss ws://host:9222/devtools/browser/<id>
 
 模式可组合。例如：HTTP API 后端用 Go SDK 调内核，多 worker 经 CDP Provider 共享 Chrome。
 
+典型的"API + SDK + Provider"组合架构：
+
+```mermaid
+flowchart TB
+    subgraph 调用方
+        C1[非 Go 系统]
+        C2[Go 应用]
+        C3[多进程 worker]
+    end
+    subgraph 接入层
+        C1 -->|HTTP| API[snir api]
+        C2 -->|import| SDK[pkg/sdk]
+        C3 -->|--wss| W[worker]
+    end
+    subgraph 执行层
+        API --> SDK
+        SDK -->|借 Driver| POOL[DriverPool]
+        W -->|借连接| PROV[snir provider]
+    end
+    PROV --> CHROME[(共享 Chrome)]
+    POOL --> CHROME
+    CHROME --> RES[Result → JSONL/SQLite/报告]
+
+    style API fill:#e6f4ea,stroke:#3aa676
+    style SDK fill:#e6f4ea,stroke:#3aa676
+    style PROV fill:#3aa676,stroke:#2a7a56,color:#fff
+    style CHROME fill:#e6f4ea,stroke:#3aa676
+```
+
 ## 下一步
 
 - [快速开始](./quick-start)

@@ -45,6 +45,27 @@ flowchart LR
   C -- 全 flag 表 --> R4[docs/superpowers/*.md]
 ```
 
+代理自发现并调用 snir 的端到端时序：
+
+```mermaid
+sequenceDiagram
+  participant TASK as 上游任务
+  participant AG as AI 代理
+  participant SK as SKILL.md
+  participant REF as references/
+  participant SNIR as snir
+  TASK->>AG: 截图 example.com
+  AG->>SK: 读 frontmatter + 指令
+  SK-->>AG: 知道用 snir scan
+  AG->>SNIR: snir scan example.com --full-page
+  SNIR-->>AG: screenshots/example.com.png
+  AG->>REF: 想要批量?打开 scan-workflows.md
+  REF-->>AG: snir scan file -f urls.txt
+  AG->>SNIR: 批量扫描
+  SNIR-->>AG: results.jsonl
+  AG-->>TASK: 返回截图 + JSONL
+```
+
 只在需要时打开更深文档，避免一次性加载全部上下文。
 
 ## references/ 各文件

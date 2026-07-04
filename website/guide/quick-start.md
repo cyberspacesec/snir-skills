@@ -65,6 +65,19 @@ flowchart LR
     style G fill:#e6f4ea,stroke:#3aa676
 ```
 
+新用户从安装到拿到第一张截图的典型时间线：
+
+```mermaid
+timeline
+    title 首次运行体验
+    第 0 步 : 安装 snir（见安装指南）
+    第 1 步 : snir scan example.com
+    第 2 步 : 自动发现本地 Chrome
+    第 3 步 : 无头启动 + 导航
+    第 4 步 : screenshots/ 出现 PNG
+    第 5 步 : 控制台打印结果摘要
+```
+
 这会：
 
 1. 启动无头 Chrome

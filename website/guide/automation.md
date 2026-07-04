@@ -84,6 +84,28 @@ if jq -e 'select(.failed == true)' today.jsonl | grep -q .; then
 fi
 ```
 
+巡检从触发到告警的完整时序：
+
+```mermaid
+sequenceDiagram
+  participant CRON as cron/CI
+  participant SNIR as snir scan
+  participant DB as SQLite
+  participant JQ as jq 检测
+  participant OPS as 告警通道
+  CRON->>SNIR: 定时触发 scan file
+  SNIR->>SNIR: 并发截图+证据
+  SNIR->>DB: 写 Result
+  SNIR->>JQ: 输出 JSONL
+  JQ->>JQ: 筛选 failed/变化
+  alt 有失败或变化
+    JQ->>OPS: 触发告警
+    OPS-->>CRON: 通知值班
+  else 全部正常
+    JQ-->>CRON: 静默
+  end
+```
+
 ## 工作流
 
 ```mermaid
