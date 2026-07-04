@@ -65,11 +65,15 @@ docs: expand proxy rotation guide
 
 ## PR 检查清单
 
+::: details 提 PR 前逐项核对
 - [ ] 代码通过 `go build` 与 `go test`
 - [ ] 新功能有测试
 - [ ] 文档已更新（`website/` 或 `references/`）
-- [ ] 提交信息清晰
+- [ ] 提交信息遵循 Conventional Commits（`feat:`/`fix:`/`docs:`）
 - [ ] 不引入新的外部依赖（除非必要）
+- [ ] `gofmt -w` 已跑（CI 会校验格式）
+- [ ] 截图相关改动本地用真实 Chrome 验证过
+:::
 
 ## 行为准则
 

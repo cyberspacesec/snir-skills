@@ -61,7 +61,12 @@ ChromeNotFoundError
 
 ### 证书错误
 
-**建议**：测试环境可 `--ignore-cert-errors`（生产慎用）。
+::: danger --ignore-cert-errors 仅限测试
+`--ignore-cert-errors` 让 snir 接受任意伪造证书，**无法识别中间人攻击**。
+
+- ✅ 仅用于**测试自签名证书**的内网环境
+- ❌ 生产环境**切勿使用**，否则等于关掉 HTTPS 的安全保障
+:::
 
 ## 排查流程
 
