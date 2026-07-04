@@ -35,12 +35,16 @@ sequenceDiagram
 
 ## 请求示例
 
+::: details curl 调用示例
 ```bash
 curl -X POST http://localhost:8080/screenshot \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","fullPage":true,"format":"png"}'
 ```
+
+`Authorization: Bearer <key>` 与 `X-API-Key: <key>` 两种头都接受。
+:::
 
 ## 取回
 

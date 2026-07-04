@@ -50,7 +50,12 @@ sequenceDiagram
 
 ## 并发
 
-`ProcessBatchConcurrent` 用 goroutine + 信号量控制并发，受服务级 [`ConcurrencyLimiter`](./concurrency) 约束。
+::: info 两层并发，别搞混
+- **批次内并发**：请求体 `concurrency` 字段控制本批次内同时跑几个
+- **服务级并发**：整个 `/batch` 请求受 `ConcurrencyLimiter` 约束，仍占 `--max-concurrent` 名额
+
+`ProcessBatchConcurrent` 用 goroutine + 信号量控制批次内并发，受服务级 [`ConcurrencyLimiter`](./concurrency) 约束。
+:::
 
 ## 示例
 

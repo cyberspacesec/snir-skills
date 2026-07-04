@@ -23,6 +23,10 @@ flowchart LR
 
 鉴权在前：未授权请求不占用并发槽位。
 
+::: tip 顺序很关键：Auth 必须在 Concurrency 前
+若 Concurrency 在前，未授权的垃圾请求也会占满并发槽位，把合法请求挤到队列——等于 DoS 放大。Auth 先过滤掉非法请求，再让通过的进入并发控制，是正确的防御顺序。
+:::
+
 ## 注册
 
 [`SetupRoutes`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/api/server_methods.go#L90) 把中间件应用到路由组。

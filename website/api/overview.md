@@ -47,10 +47,16 @@ flowchart TD
 
 ## 启动
 
+::: tip 生产启动最小参数
 ```bash
-snir api --host 0.0.0.0 --port 8080 --api-key <secret> \
+snir api --host 127.0.0.1 --port 8080 \
+  --api-key $(openssl rand -hex 32) \
   --max-concurrent 10 --queue-size 100
 ```
+- `--host 127.0.0.1`：仅本机，公网暴露交给反代
+- `--api-key`：强随机，勿用弱口令
+- `--max-concurrent`：建议 ≤ Chrome 池大小，否则请求排队
+:::
 
 见 [CLI api](../cli/api) 与 [安全](../advanced/security)。
 

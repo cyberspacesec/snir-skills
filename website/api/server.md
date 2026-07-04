@@ -49,6 +49,10 @@ stateDiagram-v2
   Stopped --> [*]
 ```
 
+::: warning 优雅关闭别忘 ClosePool
+`ClosePool()` 释放浏览器池与 Chrome 进程。服务退出前务必调用，否则 Chrome 子进程残留，长期跑会越积越多吃光内存。容器场景靠 `docker stop` 的 SIGTERM + 进程信号处理触发。
+:::
+
 ## 下一步
 
 - [API 总览](./overview)

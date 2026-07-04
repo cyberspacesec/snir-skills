@@ -45,7 +45,9 @@ flowchart LR
   M --> GR[Grafana 面板]
 ```
 
-可接 Prometheus 抓取，做容量规划与告警。`active` 持续接近 `max` 说明需扩容。
+::: tip active 持续接近 max = 该扩容了
+定期抓 `/stats`，若 `active` 长期贴近 `max`、`waiting` 常年 > 0，说明 Chrome 池是瓶颈——要么调大 `--max-concurrent`（同时扩 Chrome 池），要么上 `provider` 多机分担。可接 Prometheus 抓取做容量规划与告警。
+:::
 
 ## 下一步
 

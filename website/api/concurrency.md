@@ -44,10 +44,12 @@ API 服务用前者，`--queue-size` 控制队列深度。
 
 ## 配置
 
-- `--max-concurrent N`：并发上限（建议 ≤ Chrome 池大小）
-- `--queue-size N`：等待队列深度
+::: warning max-concurrent 不是越大越好
+- `--max-concurrent N`：并发上限，**建议 ≤ Chrome 池大小**——超过池大小请求只能排队等 Driver，徒增延迟
+- `--queue-size N`：等待队列深度，缓冲突发流量
 
-队列满返回 503，客户端应退避重试。见 [故障排查](../advanced/troubleshooting)。
+队列满返回 **503**，客户端应**退避重试**（指数退避，别立即重打）。见 [故障排查](../advanced/troubleshooting)。
+:::
 
 ## 下一步
 
