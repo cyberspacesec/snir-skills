@@ -120,6 +120,30 @@ snir scan example.com \
 用 `jq` 查看：`jq -c '{url,title,code:.response_code}' results.jsonl`
 :::
 
+一次采集的证据分落到不同产物：
+
+```mermaid
+mindmap
+  root((采集产物))
+    screenshots
+      全页 PNG
+      视口 PNG
+      元素截图
+    results.jsonl
+      流式一行一 Result
+      全字段 JSON
+    results.csv
+      表格化
+      易导入 Excel
+    SQLite
+      results 主表
+      证据各子表
+      可 SQL 查询
+    控制台
+      摘要输出
+      彩色状态
+```
+
 ## 批量扫描
 
 从文件批量：

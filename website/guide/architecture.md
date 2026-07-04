@@ -88,6 +88,28 @@ graph TD
 | `pkg/islazy` | 文件/目录/字符串工具 |
 | `pkg/ascii` | Logo 与版本信息 |
 
+Runner 内部各组件协作完成一次采集的时序：
+
+```mermaid
+sequenceDiagram
+  participant ENTRY as 入口(CLI/API/SDK)
+  participant R as Runner
+  participant POOL as DriverPool
+  participant D as Driver(ChromeDP)
+  participant BL as 黑名单
+  participant W as Writer
+  ENTRY->>R: Run(options, target)
+  R->>BL: 先过黑名单
+  BL-->>R: 通过
+  R->>POOL: Acquire Driver
+  POOL-->>R: Driver
+  R->>D: Configure + Navigate + 截图/证据
+  D-->>R: Result
+  R->>POOL: Release Driver
+  R->>W: 分发(jsonl/csv/db)
+  R-->>ENTRY: Result
+```
+
 ## 关键设计：多入口共享内核
 
 ```mermaid
