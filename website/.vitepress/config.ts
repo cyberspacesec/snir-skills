@@ -3,11 +3,14 @@ import { defineConfig } from 'vitepress'
 // snir 文档站配置
 // 导航与侧边栏覆盖项目的每一个模块与功能点
 export default defineConfig({
+  // 部署在 GitHub Pages 子路径 /snir-skills/ 下，必须设置 base
+  // 否则 CSS/JS 等静态资源会按根路径 / 加载而 404，导致布局错乱
+  base: '/snir-skills/',
   lang: 'zh-CN',
   title: 'snir',
   description: 'AI 原生的网页截图与情报采集工具 — 让 AI 代理与自动化系统拥有浏览器级取证能力',
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/snir-skills/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#3aa676' }],
     ['meta', { name: 'og:title', content: 'snir — AI 原生网页情报采集' }],
     ['meta', { name: 'og:description', content: '基于 Chrome DevTools Protocol 的截图与 Web 情报子系统，支持 CLI、HTTP API、Go SDK 与共享 CDP Provider。' }]
