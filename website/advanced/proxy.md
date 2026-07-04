@@ -87,8 +87,21 @@ http://proxy:3128
 
 ## 安全注意
 
-- 代理不等于匿名；WebRTC 可能泄露真实 IP，配合 `WithDisableWebRTC()`
-- 遵守代理服务条款与目标站点访问策略
+::: warning 代理 ≠ 匿名
+代理只改 HTTP/HTTPS 出口，**不等于匿名**。以下渠道仍可能泄露真实 IP：
+
+- 🌐 **WebRTC**：浏览器 WebRTC 会绕过代理直连 STUN 服务器暴露内网 IP
+- 🐘 **DNS 泄漏**：DNS 查询可能不走代理解析
+- 🧩 **浏览器插件/扩展**：可能直连回源
+
+务必配合 `WithDisableWebRTC()`，并在采集前用 `https://browserleaks.com/webrtc` 类站点验证。
+:::
+
+::: danger 合规底线
+- ✅ 遵守代理服务商条款与目标站点的访问策略
+- ✅ 遵守 `robots.txt` 与目标站点速率限制
+- ❌ 勿用代理规避法律或服务条款约束
+:::
 
 ## 下一步
 

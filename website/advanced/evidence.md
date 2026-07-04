@@ -44,18 +44,26 @@ opts := sdk.NewScreenshotOptions(
 
 ## 内存字节 vs 文件
 
-- 文件：截图落盘 `screenshots/`，证据入库/JSONL
-- 内存字节：`ScreenshotBytes`/API `MemoryWriter`，截图以字节返回，不落盘
+::: info 两种交付形态
+| 形态 | 字段 / Writer | 截图落盘？ | 适用 |
+|------|---------------|-----------|------|
+| 文件 | 默认 `Writer` | ✅ `screenshots/` | 批量存档、归档复查 |
+| 内存字节 | `ScreenshotBytes` / API `MemoryWriter` | ❌ 仅返回字节 | 实时 API、无磁盘环境 |
+:::
+
+证据（HTML/头/Cookie/控制台/网络）始终随 `Result` 入库或写 JSONL，与截图形态无关。
 
 ## 何时采集什么
 
-| 场景 | 证据 |
-|------|------|
-| 资产盘点 | html + headers |
-| 安全侦察 | 全量 |
-| 报错排查 | console + network |
-| 会话 | cookies |
-| TLS 审计 | tls（自动） |
+::: tip 按场景选证据，避免全量采集的开销
+| 场景 | 推荐证据 | 理由 |
+|------|---------|------|
+| 资产盘点 | html + headers | 够看技术栈与响应特征 |
+| 安全侦察 | 全量 | 任何证据都可能成为线索 |
+| 报错排查 | console + network | 控制台与网络日志直指根因 |
+| 会话/登录 | cookies | 复用会话、识别身份 |
+| TLS 审计 | tls（自动） | 证书无需额外开关 |
+:::
 
 ## 持久化
 

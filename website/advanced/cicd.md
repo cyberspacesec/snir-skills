@@ -36,6 +36,13 @@ flowchart TD
 
 ## 在 CI 中跑截图
 
+::: tip CI 环境跑 Chrome 的关键
+GitHub Actions 的 `ubuntu-latest` runner 自带 Chrome，但 CI 容器无桌面环境，必须给 Chrome 加 `--no-sandbox`，否则报 `No usable sandbox!` 失败。
+
+snir 在检测到 CI 环境（无 DISPLAY 且为 root）时**自动追加** `--no-sandbox`，无需手动处理。
+:::
+
+::: details 完整工作流示例
 ```yaml
 name: web-check
 on:
@@ -56,6 +63,7 @@ jobs:
             *.db
             screenshots/
 ```
+:::
 
 ## 文档站部署
 

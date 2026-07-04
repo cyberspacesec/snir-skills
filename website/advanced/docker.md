@@ -77,9 +77,18 @@ docker run --rm -p 8080:8080 -v $(pwd)/data:/app/data snir api --api-key secret
 
 ## 注意
 
-- 容器内 Chrome 用 `--no-sandbox`（alpine 默认）
-- 如需访问内网目标，注意容器网络
-- 大批量采集调大内存/并发
+::: warning 容器内 Chrome 必须关沙箱
+alpine 容器内默认以 root 运行，Chromium 的 sandbox 在此环境下会报 `No usable sandbox!` 而崩溃。snir 在容器内已自动追加 `--no-sandbox`。
+
+- ✅ 容器内可放心使用 `--no-sandbox`（容器本身就是隔离边界）
+- ❌ **宿主机直跑切勿 `--no-sandbox`**，会降低安全性，请改用专用用户 + sandbox
+:::
+
+::: info 容器网络与资源
+- 🌐 访问内网目标时，容器默认 bridge 网络可能无法到达宿主机内网——用 `--network host` 或自定义网络
+- 🧠 大批量采集（数百/上千 URL）调大 `mem_limit` 与 `--threads`，否则容器 OOM 被杀
+- 💾 数据卷 `./data:/app/data` 必须挂载，否则容器重建后截图/SQLite 全丢
+:::
 
 ## 下一步
 
