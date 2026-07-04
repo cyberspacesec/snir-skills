@@ -62,7 +62,9 @@ flowchart TD
 
 ## 与采集的衔接
 
-`Detect` 输入是 `Result` 中已采集的证据（Headers/HTML/Cookies/JS），无需额外请求，零成本附加在每次截图后。
+::: tip 零成本附加，截图即有技术栈
+`Detect` 输入是 `Result` 中**已采集的证据**（Headers/HTML/Cookies/JS），无需额外请求。技术检测在每次截图后自动跑，不增加网络开销——只要截了图，就有技术栈结果。
+:::
 
 ```mermaid
 flowchart LR

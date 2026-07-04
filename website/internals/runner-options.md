@@ -51,7 +51,11 @@ flowchart TD
 
 ## MergeOptions 语义
 
-[`MergeOptions`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/options.go#L131)：以 `base` 为底，`override` 中非零字段覆盖，零值字段保留 base。SDK 构造器链与 CLI 层叠配置都依赖此合并。
+::: warning 注意"零值"陷阱
+[`MergeOptions`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/options.go#L131)：以 `base` 为底，`override` 中**非零字段**覆盖，**零值字段保留 base**。
+
+这意味着你**无法用 override 把某字段显式设为"零值/关闭"**——例如想用 override 把 `Timeout` 改回 0（不限时），MergeOptions 会认为 0 是零值而保留 base 的值。这类需求得直接改 base 或用专门的禁用开关。
+:::
 
 ```mermaid
 flowchart LR

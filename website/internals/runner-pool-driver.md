@@ -44,7 +44,17 @@ sequenceDiagram
 
 ## isRetriableError
 
-[`isRetriableError`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/pool_driver.go#L42) 区分错误：网络抖动、临时连接失败等可重试；选择器找不到、黑名单拦截等不重试，避免无谓重试浪费时间。
+::: tip 智能重试，只重该重的
+[`isRetriableError`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/pool_driver.go#L42) 区分错误：
+
+| 可重试 | 不可重试 |
+|--------|---------|
+| 网络抖动、临时连接失败 | 选择器找不到元素 |
+| Chrome 进程崩溃 | 黑名单拦截 |
+| 超时（可能下次就好） | 配置错误（参数本身错） |
+
+避免对"换多少次都一样失败"的请求白白重试浪费时间——重试只对**瞬时性**错误有意义。
+:::
 
 ## 层次
 

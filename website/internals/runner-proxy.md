@@ -64,6 +64,10 @@ sequenceDiagram
 - 多地域采集
 - 隐匿来源（配合 WebRTC 禁用）
 
+::: tip 配合 WebRTC 禁用才是真匿名
+代理只换 HTTP/HTTPS 出口，WebRTC 会绕过代理直连暴露真实 IP。隐匿来源场景务必 `WithDisableWebRTC()`，否则代理白用——目标站通过 WebRTC 一探就露馅。
+:::
+
 见 [代理（进阶）](../advanced/proxy) 与 [CLI scan proxy](../cli/scan-proxy)。
 
 ## 下一步

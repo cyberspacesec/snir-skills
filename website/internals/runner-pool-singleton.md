@@ -53,7 +53,11 @@ flowchart TD
 
 ## 空闲超时
 
-[`SharedSetIdleTimeout`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/pool_singleton.go#L146)：浏览器空闲多久后关闭，节省资源。`0` 表示不自动关闭。
+::: tip 设个 idle 超时，省 Chrome 内存
+[`SharedSetIdleTimeout`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/runner/pool_singleton.go#L146)：浏览器空闲多久后自动关闭释放资源。`0` 表示不自动关闭。
+
+间歇性采集场景（如每小时跑一批）建议设 `5m`~`10m`——空闲时关 Chrome 省内存，下次任务来了自动重启。持续高频采集则设 `0` 保持常驻避免反复启动开销。
+:::
 
 ## 与 SDK 的关系
 

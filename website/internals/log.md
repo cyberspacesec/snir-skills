@@ -51,7 +51,11 @@ flowchart TD
 
 ## slog 适配
 
-`GetLogger` 返回标准库 `*slog.Logger`，通过 [`slogToCharm`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/log/log.go#L228) 桥接到 charm 输出，让用 slog 的库也能纳入统一风格。
+::: info 一个门面收编两类库
+`GetLogger` 返回标准库 `*slog.Logger`，通过 [`slogToCharm`](https://github.com/cyberspacesec/snir-skills/blob/main/pkg/log/log.go#L228) 桥接到 charm 输出。
+
+→ snir 自身用 `log.Info` 等 charm 风格函数，而依赖库（如 chromedp）若用 `slog`，也能纳入**同一套级别开关与彩色风格**，不会出现两套日志各打各的。
+:::
 
 ## CommandHelp Markdown
 

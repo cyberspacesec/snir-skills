@@ -54,7 +54,13 @@ flowchart LR
 
 ## 安全
 
-仅探测授权范围内的主机。远程调试端口勿暴露公网，见 [安全](../advanced/security) 与 [远程 Chrome](../advanced/remote-chrome)。
+::: danger 远程调试端口绝不暴露公网
+Chrome 的 `--remote-debugging-port` 一旦可达，任何人都能通过 `/json/version` 拿到 WebSocket 端点，**完全控制该 Chrome 实例**（可任意导航、执行 JS、读页面数据）。
+
+- ✅ 仅探测**授权范围内**的主机
+- ✅ 远程调试端口只在内网/容器网络开放，前置鉴权或 SSH 隧道
+- ❌ 切勿把 `:9222` 直接映射到公网
+:::
 
 ## 下一步
 

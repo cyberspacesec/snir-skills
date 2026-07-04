@@ -75,8 +75,12 @@ graph TD
   DP --> CONC[高并发复用]
 ```
 
-- `NewScanner`：每次新建 Runner，适合少量目标或简单场景
-- `NewPooledScanner`：复用 Chrome，适合批量
+::: tip 选型：少量用 NewScanner，批量用 NewPooledScanner
+- `NewScanner`：每次新建 Runner，适合**少量目标或简单场景**——省去建池开销
+- `NewPooledScanner`：复用 Chrome 池，适合**批量**——避免反复启动浏览器的巨大开销
+
+> 10 个以内目标用 `NewScanner` 即可；上百上千必上 `NewPooledScanner`，否则每个目标都启停一次 Chrome 会慢到无法接受。
+:::
 
 ## 与 CLI/API 的关系
 

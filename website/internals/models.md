@@ -104,9 +104,13 @@ flowchart LR
 
 ## 序列化约定
 
-- JSONL：`ScreenshotBytes` 标 `json:"-"` 不序列化（字节不入文本）
-- SQLite：`ScreenshotBytes` 标 `gorm:"-"` 不入库（字节不入库）
-- 索引字段：`html`/`title`/`perception_hash`/`perception_hash_group_id` 标 `gorm:"index"`
+::: details 截图字节不入文本/不入库，省空间
+- JSONL：`ScreenshotBytes` 标 `json:"-"` **不序列化**——字节不入文本，否则 JSONL 文件巨大
+- SQLite：`ScreenshotBytes` 标 `gorm:"-"` **不入库**——字节不入库，截图以文件形式存 `screenshots/`，DB 只存路径
+- 索引字段：`html`/`title`/`perception_hash`/`perception_hash_group_id` 标 `gorm:"index"`，加速查询
+
+→ 要拿截图字节，用 `ScreenshotBytes` 字段或 `*Bytes` 系列 API，不依赖 JSONL/DB。
+:::
 
 ## 下一步
 

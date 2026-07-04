@@ -29,11 +29,15 @@ flowchart TD
 
 ## Options 字段
 
-| 字段 | 说明 |
-|------|------|
-| `Path` | SQLite 文件路径 |
-| `EnableWAL` | WAL 模式提升并发 |
-| `BusyTimeout` | 锁等待 |
+::: tip 并发写多用 WAL 模式
+| 字段 | 建议 | 理由 |
+|------|------|------|
+| `Path` | 持久化目录 | 容器记得挂卷 |
+| `EnableWAL` | ✅ 生产开启 | WAL 模式读写不互锁，并发写入吞吐高很多 |
+| `BusyTimeout` | 5-15s | 高并发下偶发锁竞争时等待而非立即报错 |
+
+默认模式（rollback journal）写入时会全局锁表，批量采集并发写容易 `database is locked`，WAL 是解药。
+:::
 
 ## 表结构
 
