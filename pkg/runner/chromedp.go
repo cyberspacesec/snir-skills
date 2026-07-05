@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"net/url"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
@@ -59,6 +60,39 @@ func NewChromeDP(opts *Options) (*ChromeDP, error) {
 		cancel: cancel,
 		opts:   opts,
 	}, nil
+}
+
+// urlMatchesTarget 判断 CDP 报告的响应 URL 是否属于本次扫描的目标请求。
+//
+// 浏览器导航到 "https://example.com" 后，CDP 的 EventResponseReceived 报告的
+// Response.URL 通常是 "https://example.com/"（带尾斜杠）。直接用 == 或 HasSuffix
+// 比较会漏掉这种最常见的情形，导致 response_code / final_url / headers / TLS
+// 等主请求字段全部丢失。这里用 net/url 规范化 scheme+host+path 后再比较，并对
+// 解析失败的情况回退到去掉尾斜杠的字符串比较。
+func urlMatchesTarget(respURL, target string) bool {
+	if respURL == target {
+		return true
+	}
+	// 去掉尾斜杠后比较，覆盖 "https://example.com" vs "https://example.com/"
+	if strings.TrimRight(respURL, "/") == strings.TrimRight(target, "/") {
+		return true
+	}
+	ru, err1 := url.Parse(respURL)
+	tu, err2 := url.Parse(target)
+	if err1 == nil && err2 == nil {
+		// scheme + host 必须一致；path 视空为 "/"
+		rp := ru.Path
+		if rp == "" {
+			rp = "/"
+		}
+		tp := tu.Path
+		if tp == "" {
+			tp = "/"
+		}
+		return ru.Scheme == tu.Scheme && ru.Host == tu.Host && rp == tp
+	}
+	// 解析失败时的兜底：后缀匹配
+	return strings.HasSuffix(respURL, target) || strings.HasSuffix(target, respURL)
 }
 
 // Witness implements the Driver interface
@@ -111,9 +145,9 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 				nl.StatusCode = int(e.Response.Status)
 				nl.ContentType = e.Response.MimeType
 			}
-			// 记录主请求的响应详情（精确匹配或后缀匹配目标URL）
+			// 记录主请求的响应详情（规范化 host+path 匹配，兼容尾斜杠差异）
 			respURL := e.Response.URL
-			if respURL == target || strings.HasSuffix(respURL, target) || strings.HasSuffix(target, respURL) {
+			if urlMatchesTarget(respURL, target) {
 				// 提取响应头
 				if e.Response.Headers != nil {
 					for name, val := range e.Response.Headers {
@@ -282,6 +316,31 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 	// 页面导航
 	tasks = append(tasks, chromedp.Navigate(target))
 
+	// 等待页面就绪：document.readyState 达到 complete 或 interactive。
+	// Navigate 自身会等 frameStoppedLoading，但部分 Chrome 构建（如 snap chromium）
+	// 在该事件上不可靠，导致后续 dom.GetDocument / 截图出现 "Could not find node
+	// with given id"。这里加一个显式的 readyState 轮询，并在轮询失败时降级为固定等待。
+	tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
+		readyDeadline := time.Now().Add(15 * time.Second)
+		var state string
+		for time.Now().Before(readyDeadline) {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			if err := chromedp.Evaluate(`document.readyState`, &state).Do(ctx); err == nil {
+				if state == "complete" || state == "interactive" {
+					return nil
+				}
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		// 超时也不报错：降级为短暂固定等待，让后续动作尽量有机会成功
+		time.Sleep(500 * time.Millisecond)
+		return nil
+	}))
+
 	// 添加延迟
 	if c.opts.Chrome.Delay > 0 {
 		tasks = append(tasks, chromedp.Sleep(time.Duration(c.opts.Chrome.Delay)*time.Second))
@@ -360,24 +419,15 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 
 	tasks = append(tasks,
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			// 获取响应码 — 优先精确匹配，其次模糊匹配，最后取第一个非零状态码
+			// 获取响应码 — 优先规范化匹配目标 URL，其次取第一个非零状态码
 			var statusCode int
 			for _, nl := range networkEvents {
-				if nl.URL == target {
+				if urlMatchesTarget(nl.URL, target) {
 					statusCode = nl.StatusCode
 					break
 				}
 			}
-			// 精确匹配失败，尝试后缀匹配
-			if statusCode == 0 {
-				for _, nl := range networkEvents {
-					if strings.HasSuffix(nl.URL, target) || strings.HasSuffix(target, nl.URL) {
-						statusCode = nl.StatusCode
-						break
-					}
-				}
-			}
-			// 仍然为0，取第一个有非零状态码的响应
+			// 匹配失败，取第一个有非零状态码的响应
 			if statusCode == 0 {
 				for _, nl := range networkEvents {
 					if nl.StatusCode > 0 {
