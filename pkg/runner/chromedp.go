@@ -10,12 +10,13 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-	"net/url"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
@@ -178,14 +179,21 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 				}
 				// 记录最终URL（重定向后的真实URL）
 				finalURL = respURL
-				// 记录响应原因短语
-				responseReason = e.Response.StatusText
-				// 记录协议版本
+				// 记录协议版本（必须在 reason 降级之前赋值）
 				if e.Response.Protocol != "" {
 					protocol = e.Response.Protocol
 				}
-				// 记录内容长度（从响应头中提取）
-				if cl, ok := e.Response.Headers["Content-Length"]; ok {
+				// 记录响应原因短语
+				responseReason = e.Response.StatusText
+				// HTTP/2/3 不传输 reason phrase，空属正常；仅 HTTP/1.x 空时从状态码推断
+				if responseReason == "" && strings.HasPrefix(protocol, "http/1") {
+					responseReason = http.StatusText(int(e.Response.Status))
+				}
+				// 记录内容长度（优先用 CDP 的 EncodedDataLength，协议无关；
+				// HTTP/2 不传输 Content-Length 头，单纯从头解析会恒为 0）
+				if e.Response.EncodedDataLength > 0 {
+					contentLength = int64(e.Response.EncodedDataLength)
+				} else if cl, ok := e.Response.Headers["Content-Length"]; ok {
 					if clStr, ok := cl.(string); ok {
 						if clInt, err := strconv.ParseInt(clStr, 10, 64); err == nil {
 							contentLength = clInt
@@ -223,6 +231,17 @@ func (c *ChromeDP) Witness(target string, opts *Options) (*models.Result, error)
 					Level:   "error",
 					Message: msg,
 				})
+			}
+		case *network.EventLoadingFinished:
+			// 加载完成事件携带最终 EncodedDataLength，比 ResponseReceived 时更准确
+			if e.EncodedDataLength > 0 {
+				if nl, ok := networkEvents[e.RequestID.String()]; ok {
+					nl.ContentLength = int64(e.EncodedDataLength)
+				}
+				// 主请求的 contentLength 在 ResponseReceived 时可能为 0（数据未传完），这里兜底
+				if contentLength == 0 {
+					contentLength = int64(e.EncodedDataLength)
+				}
 			}
 		default:
 			// 忽略其他 CDP 事件

@@ -149,16 +149,17 @@ type Header struct {
 	Value    string `json:"value"`
 }
 
-// NetworkLog represents a network request log
+// NetworkLog represents a network request log entry
 type NetworkLog struct {
-	ID          uint        `json:"id" gorm:"primarykey"`
-	ResultID    uint        `json:"result_id"`
-	Type        RequestType `json:"type"`
-	URL         string      `json:"url"`
-	Method      string      `json:"method"`
-	StatusCode  int         `json:"status_code"`
-	ContentType string      `json:"content_type"`
-	Body        string      `json:"body"`
+	ID            uint        `json:"id" gorm:"primarykey"`
+	ResultID      uint        `json:"result_id"`
+	Type          RequestType `json:"type"`
+	URL           string      `json:"url"`
+	Method        string      `json:"method"`
+	StatusCode    int         `json:"status_code"`
+	ContentType   string      `json:"content_type"`
+	ContentLength int64       `json:"content_length"`
+	Body          string      `json:"body"`
 }
 
 // ConsoleLog represents a console log entry
