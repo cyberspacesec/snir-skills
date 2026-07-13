@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -119,6 +120,33 @@ func (d *DB) GetScreenshotByURL(url string) (*Screenshot, error) {
 func (d *DB) GetAllScreenshots() ([]*Screenshot, error) {
 	var screenshots []*Screenshot
 	if err := d.db.Find(&screenshots).Error; err != nil {
+		return nil, err
+	}
+	return screenshots, nil
+}
+
+// GetScreenshotsByHost 获取指定 host 前缀的所有截图（按扫描时间倒序）
+func (d *DB) GetScreenshotsByHost(host string) ([]*Screenshot, error) {
+	var screenshots []*Screenshot
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return nil, fmt.Errorf("host 不能为空")
+	}
+	if err := d.db.Where("host LIKE ?", host+"%").Order("probed_at DESC").Find(&screenshots).Error; err != nil {
+		return nil, err
+	}
+	return screenshots, nil
+}
+
+// GetScreenshotsByURL 获取指定 URL 的所有历史截图（按扫描时间倒序）
+// 与 GetScreenshotByURL 不同，本方法返回该 URL 的全部历史记录而非仅最新一条
+func (d *DB) GetScreenshotsByURL(url string) ([]*Screenshot, error) {
+	var screenshots []*Screenshot
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return nil, fmt.Errorf("url 不能为空")
+	}
+	if err := d.db.Where("url = ?", url).Order("probed_at DESC").Find(&screenshots).Error; err != nil {
 		return nil, err
 	}
 	return screenshots, nil
