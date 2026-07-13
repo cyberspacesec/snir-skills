@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cyberspacesec/snir-skills/pkg/api"
+	"github.com/cyberspacesec/snir-skills/pkg/database"
 	"github.com/cyberspacesec/snir-skills/pkg/log"
 )
 
@@ -43,10 +44,22 @@ var apiCmd = &cobra.Command{
 			BlacklistFile:         opts.Scan.BlacklistFile,
 			MaxConcurrentRequests: opts.API.MaxConcurrent,
 			RequestQueueSize:      opts.API.QueueSize,
+			DBPath:                opts.DB.Path,
 		}
 
 		// 创建API服务
 		server := api.NewServer(apiOptions)
+
+		// 若指定了 db-path，打开数据库以启用历史结果检索端点
+		if opts.DB.Path != "" {
+			db, err := database.NewDB(database.Options{Path: opts.DB.Path})
+			if err != nil {
+				log.Error("打开数据库失败，历史结果检索端点不可用", "error", err)
+			} else {
+				server.SetDB(db)
+				log.Info("历史结果检索已启用", "db_path", log.Cyan(opts.DB.Path))
+			}
+		}
 
 		// 初始化浏览器连接池（复用 Chrome 进程）
 		if err := server.InitPool(opts); err != nil {
@@ -78,6 +91,7 @@ func init() {
 	apiCmd.Flags().StringVar(&opts.API.Host, "host", "0.0.0.0", log.Cyan("API服务监听地址"))
 	apiCmd.Flags().IntVar(&opts.API.Port, "port", 8080, log.Cyan("API服务监听端口"))
 	apiCmd.Flags().StringVar(&opts.API.APIKey, "api-key", "", log.Cyan("API密钥，用于API鉴权，如不指定则自动生成"))
+	apiCmd.Flags().StringVar(&opts.DB.Path, "db-path", "", log.Cyan("数据库文件路径，启用后 /results 系列端点可检索历史扫描结果"))
 
 	// 添加黑名单相关选项
 	apiCmd.Flags().BoolVar(&opts.Scan.EnableBlacklist, "enable-blacklist", true, log.Cyan("启用URL黑名单检查"))
