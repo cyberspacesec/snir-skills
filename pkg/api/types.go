@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cyberspacesec/snir-skills/pkg/database"
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
 	"github.com/gorilla/mux"
@@ -157,6 +158,7 @@ type ServerOptions struct {
 	Host           string `json:"host"`
 	APIKey         string `json:"api_key"`
 	ScreenshotPath string `json:"screenshot_path"`
+	DBPath         string `json:"db_path"` // 数据库文件路径，非空则启用历史结果检索端点
 
 	// 批处理配置
 	MaxBatchSize          int `json:"max_batch_size"`
@@ -179,6 +181,7 @@ type Server struct {
 	shutdownCh       chan struct{}      // 关闭通道
 	serverStartTime  time.Time          // 服务器启动时间
 	pool             *runner.DriverPool // 浏览器连接池，复用 Chrome 进程
+	db               *database.DB       // 数据库，为 nil 时结果检索端点返回 503
 }
 
 // MemoryWriter 内存写入器实现 runner.Writer 接口

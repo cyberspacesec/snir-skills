@@ -113,6 +113,14 @@ func (s *Server) SetupRoutes() {
 	// 添加状态监控和健康检查端点
 	s.Router.HandleFunc("/stats", s.HandleStats).Methods("GET", "OPTIONS")
 	s.Router.HandleFunc("/health", HandleHealth).Methods("GET", "OPTIONS")
+
+	// 历史结果检索端点（需配合 --db-path 启用）
+	// 注意：gorilla/mux v1.x 按注册顺序匹配，静态路径必须先于 {id} 通配注册，
+	// 否则 /results/by-url 与 /results/by-host 会被 /results/{id} 捕获。
+	s.Router.HandleFunc("/results", s.HandleListResults).Methods("GET", "OPTIONS")
+	s.Router.HandleFunc("/results/by-url", s.HandleGetResultByURL).Methods("GET", "OPTIONS")
+	s.Router.HandleFunc("/results/by-host", s.HandleGetResultByHost).Methods("GET", "OPTIONS")
+	s.Router.HandleFunc("/results/{id}", s.HandleGetResult).Methods("GET", "OPTIONS")
 }
 
 // HandleRoot 处理根路径请求
