@@ -113,7 +113,7 @@ all, err := client.ListResults(100)
 
 ## 检索时序
 
-下图展示一次 `GET /results/by-url?url=...` 检索链路：Handler 解析 query、调用数据库层 `GetResultsByURL`、封装 `APIResponse` 返回，全程不启动 Chrome、不发任何网络请求到扫描目标。
+下图展示一次 `GET /results/by-url?url=...` 检索链路：Handler 解析 query、调用数据库层 `GetScreenshotsByURL`、封装 `APIResponse` 返回，全程不启动 Chrome、不发任何网络请求到扫描目标。
 
 ```mermaid
 sequenceDiagram
@@ -124,7 +124,7 @@ sequenceDiagram
 
   C->>H: GET /results/by-url?url=...
   H->>H: 解析 url query
-  H->>DB: GetResultsByURL(url)
+  H->>DB: GetScreenshotsByURL(url)
   Note over T: 无网络请求，Chrome 未启动
   DB-->>H: []Result（按 probed_at 倒序）
   H-->>C: 200 {success:true,data:[...]}

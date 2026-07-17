@@ -132,7 +132,7 @@ func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 		Data: map[string]interface{}{
 			"version":        "1.0.0",
 			"documentation":  "https://github.com/cyberspacesec/snir-skills",
-			"endpoints":      []string{"/screenshot", "/batch", "/screenshots_list", "/stats", "/health"},
+			"endpoints":      []string{"/screenshot", "/batch", "/screenshots_list", "/results", "/results/{id}", "/results/by-url", "/results/by-host", "/stats", "/health"},
 			"screenshot_dir": s.Options.ScreenshotPath,
 		},
 	})

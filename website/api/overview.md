@@ -29,6 +29,10 @@
 | POST | `/batch` | 批量截图 | [→](./endpoint-batch) |
 | GET | `/health` | 健康检查 | [→](./endpoint-health) |
 | GET | `/stats` | 统计 | [→](./endpoint-stats) |
+| GET | `/results` | 历史结果列表 | [→](./endpoints-results) |
+| GET | `/results/{id}` | 按 id 检索历史结果 | [→](./endpoints-results) |
+| GET | `/results/by-url` | 按 URL 查询历史 | [→](./endpoints-results) |
+| GET | `/results/by-host` | 按 host 模糊查询历史 | [→](./endpoints-results) |
 
 ## 请求处理链
 
