@@ -42,6 +42,7 @@
 *.exe
 *.exe~
 *.key
+*.jsonl
 *.log
 *.out
 *.p12
