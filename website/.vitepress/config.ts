@@ -215,7 +215,8 @@ export default withMermaid(
             { text: 'POST /screenshot', link: '/api/endpoint-screenshot' },
             { text: 'POST /batch', link: '/api/endpoint-batch' },
             { text: 'GET /health', link: '/api/endpoint-health' },
-            { text: 'GET /stats', link: '/api/endpoint-stats' }
+            { text: 'GET /stats', link: '/api/endpoint-stats' },
+            { text: '结果检索端点', link: '/api/endpoints-results' }
           ]
         }
       ],
