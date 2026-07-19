@@ -824,7 +824,10 @@ func (c *Client) ScreenshotEvidenceBundle(url string, dir string, screenshotOpts
 
 // ScreenshotEvidenceBundleWithContext 支持取消的全证据采集和证据包导出。
 func (c *Client) ScreenshotEvidenceBundleWithContext(ctx context.Context, url string, dir string, screenshotOpts *ScreenshotOptions) (*EvidenceBundle, *models.Result, error) {
-	opts := c.ensureScreenshotOptions(screenshotOpts)
+	// 克隆 opts：批量场景下多个 goroutine 共享同一 screenshotOpts 指针，
+	// WithEvidence() 会写 bool 字段，若直接写共享 opts 会触发 data race。
+	// 克隆后本 goroutine 只写自己的副本，消除并发写竞争。
+	opts := cloneScreenshotOptions(c.ensureScreenshotOptions(screenshotOpts))
 	WithEvidence()(opts)
 
 	_, result, err := c.ScreenshotBytesWithContext(ctx, url, opts)
@@ -837,6 +840,39 @@ func (c *Client) ScreenshotEvidenceBundleWithContext(ctx context.Context, url st
 		return nil, result, err
 	}
 	return bundle, result, nil
+}
+
+// cloneScreenshotOptions 返回 ScreenshotOptions 的深拷贝，隔离 slice/map/*bool 指针字段，
+// 避免调用方共享 opts 被并发修改时触发 data race。
+func cloneScreenshotOptions(src *ScreenshotOptions) *ScreenshotOptions {
+	if src == nil {
+		return &ScreenshotOptions{}
+	}
+	clone := *src // 值拷贝标量字段
+	// 深拷贝 slice 字段
+	if src.ProxyList != nil {
+		clone.ProxyList = append([]string(nil), src.ProxyList...)
+	}
+	if src.Plugins != nil {
+		clone.Plugins = append([]string(nil), src.Plugins...)
+	}
+	// 深拷贝 map 字段
+	if src.CustomHeaders != nil {
+		clone.CustomHeaders = make(map[string]string, len(src.CustomHeaders))
+		for k, v := range src.CustomHeaders {
+			clone.CustomHeaders[k] = v
+		}
+	}
+	// 深拷贝 *bool 字段
+	if src.IsMobile != nil {
+		v := *src.IsMobile
+		clone.IsMobile = &v
+	}
+	if src.HasTouch != nil {
+		v := *src.HasTouch
+		clone.HasTouch = &v
+	}
+	return &clone
 }
 
 // ScreenshotWithCookies 截图前注入自定义 Cookie

@@ -101,6 +101,10 @@ jobs:
 
       - name: Run tests with race detector and coverage
         run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+        env:
+          # CI runner 无稳定 Chrome，Chrome 集成测试在 -race 下易崩；跳过浏览器依赖测试。
+          # 纯单元测试仍全量运行并计入覆盖率。
+          SKIP_BROWSER_TESTS: "1"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

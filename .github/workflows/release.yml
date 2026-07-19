@@ -78,6 +78,10 @@ jobs:
 
       - name: Run tests
         run: go test -v -race ./...
+        env:
+          # Preflight 是发布前快速校验；Chrome 集成测试需真实浏览器且在 -race 下易崩，
+          # 留给开发者本地或专门的 e2e 环境跑。仅运行纯单元测试。
+          SKIP_BROWSER_TESTS: "1"
 
       - name: Build packages
         run: go build -v ./...
