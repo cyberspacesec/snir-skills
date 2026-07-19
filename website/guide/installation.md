@@ -86,14 +86,33 @@ snir version
 
 ## 方式三：源码构建
 
-需 Go 1.23+：
+需 Go 1.26+（从 [go.dev/dl](https://go.dev/dl/) 下载安装）：
 
 ```bash
 git clone https://github.com/cyberspacesec/snir-skills.git
 cd snir-skills
-make build
+make build                     # 构建 ./snir，注入版本/提交 ldflags
 ./snir version
+
+# 可选：安装到 PATH
+make install                   # go install 到 $GOPATH/bin
+
+# 可选：交叉编译（纯 Go，构建机无需 Chrome）
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o snir-arm64 .
 ```
+
+::: details make 目标说明
+| 目标 | 作用 |
+|------|------|
+| `make build` | 构建本地平台二进制，注入 version/commit/date ldflags |
+| `make install` | `go install` 到 `$GOPATH/bin` |
+| `make test` | 运行全部测试 |
+| `make release-test` | 本地预演 goreleaser 发布（`--snapshot --skip=publish`） |
+:::
+
+::: warning Go 版本
+`go.mod` 声明 `go 1.26.0`，低于 1.26 的工具链会触发 toolchain 自动下载。建议直接安装 1.26.5+ 避免额外下载。
+:::
 
 ## 方式四：Docker
 

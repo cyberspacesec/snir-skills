@@ -29,12 +29,26 @@ sudo mv snir /usr/local/bin/
 snir version
 ```
 
-If working from this repository:
+If working from this repository (build from source):
 
 ```bash
-make build
+# 1. Install Go 1.26+ from https://go.dev/dl/
+# 2. Clone and build
+git clone https://github.com/cyberspacesec/snir-skills.git
+cd snir-skills
+make build                     # builds ./snir with version/commit metadata
 ./snir version
+
+# 3. (Optional) Install to a directory on PATH
+make install                   # go install into $GOPATH/bin
+# or manually:
+sudo install -m 0755 snir /usr/local/bin/snir
+
+# 4. (Optional) Build for a different platform (no Chrome needed on build host)
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o snir-arm64 .
 ```
+
+`make build` injects version info via ldflags (see `Makefile`); `make release-test` runs `goreleaser --snapshot` to validate the full release pipeline locally without publishing.
 
 ## Common Tasks
 

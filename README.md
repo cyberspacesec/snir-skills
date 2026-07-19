@@ -391,14 +391,22 @@ docker run --rm ghcr.io/cyberspacesec/snir:latest scan example.com
 
 ### From Source
 
-Requires Go 1.23+.
+Requires Go 1.26+ (download from https://go.dev/dl/).
 
 ```bash
 git clone https://github.com/cyberspacesec/snir-skills.git
 cd snir-skills
-make build
+make build                     # build ./snir with version/commit ldflags
 ./snir version
+
+# optional: install to PATH
+make install                   # go install into $GOPATH/bin
+
+# optional: cross-compile (CGO-free, no Chrome on build host needed)
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o snir-arm64 .
 ```
+
+See [installation guide](https://cyberspacesec.github.io/snir-skills/guide/installation) for platform-specific notes.
 
 ### Browser Requirement
 
