@@ -1,8 +1,6 @@
 module github.com/cyberspacesec/snir-skills
 
-go 1.23.0
-
-toolchain go1.23.2
+go 1.26.0
 
 require (
 	github.com/charmbracelet/glamour v0.8.0

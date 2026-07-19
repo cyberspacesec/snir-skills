@@ -56,7 +56,7 @@ func (s *Server) ProcessScreenshot(req ScreenshotRequest, opts runner.Options) (
 			return nil, fmt.Errorf("截图失败: %v", err)
 		}
 		if result.Failed {
-			return nil, fmt.Errorf(result.FailedReason)
+			return nil, fmt.Errorf("%s", result.FailedReason)
 		}
 		return result, nil
 	}
@@ -80,7 +80,7 @@ func (s *Server) ProcessScreenshot(req ScreenshotRequest, opts runner.Options) (
 	}
 
 	if result.Failed {
-		return nil, fmt.Errorf(result.FailedReason)
+		return nil, fmt.Errorf("%s", result.FailedReason)
 	}
 
 	return result, nil

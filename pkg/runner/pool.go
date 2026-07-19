@@ -301,7 +301,7 @@ func (p *DriverPool) ScreenshotWithContext(ctx context.Context, target string, o
 
 	if result.Failed {
 		p.failedScreenshots.Add(1)
-		p.events.emitScreenshotFailed(target, duration, fmt.Errorf(result.FailedReason))
+		p.events.emitScreenshotFailed(target, duration, fmt.Errorf("%s", result.FailedReason))
 	}
 
 	// Cookie 写回：将浏览器获取的 Cookie 写回 CookieJar
