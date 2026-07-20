@@ -149,3 +149,103 @@ func TestResultJSONOmitsScreenshotBytes(t *testing.T) {
 		t.Fatalf("screenshot path should still be exposed in JSON: %s", jsonText)
 	}
 }
+
+func TestEnrichEndpoint_PackageLevel_NilSafe(t *testing.T) {
+	EnrichEndpoint(nil) // 不应 panic
+
+	r := &Result{URL: "http://example.com:8080/path"}
+	EnrichEndpoint(r)
+	if r.Host == "" {
+		t.Fatal("EnrichEndpoint 后 Host 不应为空")
+	}
+	if r.Scheme != "http" {
+		t.Fatalf("Scheme = %q, want http", r.Scheme)
+	}
+	if r.Port != 8080 {
+		t.Fatalf("Port = %d, want 8080", r.Port)
+	}
+	if r.Endpoint != "http://example.com:8080" {
+		t.Fatalf("Endpoint = %q, want http://example.com:8080", r.Endpoint)
+	}
+	if r.SchemaVersion != ResultSchemaVersion {
+		t.Fatalf("SchemaVersion = %q, want %q", r.SchemaVersion, ResultSchemaVersion)
+	}
+}
+
+func TestEnrichEndpoint_EmptyURLNoPanic(t *testing.T) {
+	r := &Result{} // URL 与 FinalURL 均为空
+	EnrichEndpoint(r)
+	// 不应 panic，且 SchemaVersion 仍被设置
+	if r.SchemaVersion != ResultSchemaVersion {
+		t.Fatalf("SchemaVersion = %q, want %q", r.SchemaVersion, ResultSchemaVersion)
+	}
+	if r.Host != "" || r.Scheme != "" || r.Port != 0 || r.Endpoint != "" {
+		t.Fatalf("空 URL 不应填充端点字段: %+v", r)
+	}
+}
+
+func TestDefaultPortForScheme(t *testing.T) {
+	tests := []struct {
+		scheme string
+		want   int
+	}{
+		{"http", 80},
+		{"https", 443},
+		{"HTTP", 80},
+		{"HTTPS", 443},
+		{"ftp", 0},
+		{"", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.scheme, func(t *testing.T) {
+			if got := DefaultPortForScheme(tt.scheme); got != tt.want {
+				t.Fatalf("DefaultPortForScheme(%q) = %d, want %d", tt.scheme, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResult_HeaderMap(t *testing.T) {
+	r := &Result{
+		Headers: []Header{{Name: "X-A", Value: "1"}, {Name: "X-A", Value: "2"}, {Name: "X-B", Value: "3"}},
+	}
+	m := r.HeaderMap()
+	if len(m["X-A"]) != 2 || m["X-A"][0] != "1" || m["X-A"][1] != "2" {
+		t.Fatalf("HeaderMap X-A = %v", m["X-A"])
+	}
+	if len(m["X-B"]) != 1 || m["X-B"][0] != "3" {
+		t.Fatalf("HeaderMap X-B = %v", m["X-B"])
+	}
+}
+
+func TestEnrichEndpoint_UnparseableURL(t *testing.T) {
+	// 无 scheme 且兜底 https:// 后 Host 仍为空 → 提前 return，不填充端点
+	r := &Result{URL: "://bad"}
+	EnrichEndpoint(r)
+	if r.Host != "" || r.Endpoint != "" {
+		t.Fatalf("不可解析 URL 不应填充端点: %+v", r)
+	}
+}
+
+func TestEnrichEndpoint_OnlyFinalURL(t *testing.T) {
+	// URL 为空、FinalURL 非空 → 用 FinalURL 兜底（已部分覆盖，强化断言）
+	r := &Result{URL: "   ", FinalURL: "https://final.example.com/x"}
+	EnrichEndpoint(r)
+	if r.Host != "final.example.com" {
+		t.Fatalf("Host = %q, want final.example.com", r.Host)
+	}
+	if r.Port != 443 {
+		t.Fatalf("Port = %d, want 443", r.Port)
+	}
+	if r.Endpoint != "https://final.example.com:443" {
+		t.Fatalf("Endpoint = %q", r.Endpoint)
+	}
+}
+
+func TestEnrichEndpoint_NilReceiver(t *testing.T) {
+	var r *Result
+	r.EnrichEndpoint() // 不应 panic
+	if r != nil {
+		t.Fatalf("nil receiver 应保持 nil")
+	}
+}

@@ -390,3 +390,62 @@ func TestDriverPool_ConcurrentScreenshots(t *testing.T) {
 		t.Errorf("TotalScreenshots = %d, want 3", stats.TotalScreenshots)
 	}
 }
+
+// TestProviderName 覆盖 pool.go 中纯函数 providerName 的 nil 与非 nil 分支。
+func TestProviderName(t *testing.T) {
+	if got := providerName(nil); got != "" {
+		t.Fatalf("providerName(nil) = %q, want 空串", got)
+	}
+	p := NewStaticProxy("http://127.0.0.1:8080")
+	if got := providerName(p); got != "static" {
+		t.Fatalf("providerName(static) = %q, want static", got)
+	}
+}
+
+// TestHasProxyProviderSource 覆盖 nil opts 与各 source 为 true 的分支。
+func TestHasProxyProviderSource(t *testing.T) {
+	if hasProxyProviderSource(nil) {
+		t.Fatal("nil opts 应返回 false")
+	}
+	opts := &Options{}
+	if hasProxyProviderSource(opts) {
+		t.Fatal("空 opts 应返回 false")
+	}
+	opts.Chrome.ProxyURL = "http://api/proxy"
+	if !hasProxyProviderSource(opts) {
+		t.Fatal("ProxyURL 非空应返回 true")
+	}
+	opts.Chrome.ProxyURL = ""
+	opts.Chrome.ProxyFile = "/tmp/proxies.txt"
+	if !hasProxyProviderSource(opts) {
+		t.Fatal("ProxyFile 非空应返回 true")
+	}
+	opts.Chrome.ProxyFile = ""
+	opts.Chrome.ProxyList = []string{"http://1.2.3.4:8080"}
+	if !hasProxyProviderSource(opts) {
+		t.Fatal("ProxyList 非空应返回 true")
+	}
+}
+
+// TestSameProxyProviderSource 覆盖 nil 分支与相等/不相等路径。
+func TestSameProxyProviderSource(t *testing.T) {
+	if !sameProxyProviderSource(nil, nil) {
+		t.Fatal("nil,nil 应视为相同")
+	}
+	if sameProxyProviderSource(nil, &Options{}) {
+		t.Fatal("nil 与非 nil 应视为不同")
+	}
+	a := &Options{}
+	a.Chrome.ProxyURL = "http://api"
+	a.Chrome.ProxyList = []string{"p1"}
+	b := &Options{}
+	b.Chrome.ProxyURL = "http://api"
+	b.Chrome.ProxyList = []string{"p1"}
+	if !sameProxyProviderSource(a, b) {
+		t.Fatal("相同 source 应返回 true")
+	}
+	b.Chrome.ProxyURL = "http://other"
+	if sameProxyProviderSource(a, b) {
+		t.Fatal("不同 ProxyURL 应返回 false")
+	}
+}

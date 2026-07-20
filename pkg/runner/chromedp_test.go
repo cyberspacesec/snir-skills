@@ -272,6 +272,58 @@ func TestBuildDeviceEmulationActions_DesktopNoOverride(t *testing.T) {
 	}
 }
 
+// TestBuildDeviceEmulationActions_EdgeCases 覆盖 nil opts、ScreenWidth/Height 覆盖、
+// width<=0 早返回、以及 SpoofScreenSize 触发 scaleFactor=1 的分支。
+func TestBuildDeviceEmulationActions_EdgeCases(t *testing.T) {
+	// nil opts → nil
+	if actions := buildDeviceEmulationActions(nil); actions != nil {
+		t.Fatalf("nil opts 应返回 nil, got %v", actions)
+	}
+
+	// ScreenWidth/Height 覆盖 WindowX/Y（IsMobile=true 触发 scaleFactor=1；无 HasTouch）
+	opts := makeTestOptions()
+	opts.Chrome.WindowX = 1
+	opts.Chrome.WindowY = 1
+	opts.Chrome.ScreenWidth = 393
+	opts.Chrome.ScreenHeight = 852
+	opts.Chrome.IsMobile = true
+	actions := buildDeviceEmulationActions(&opts)
+	if len(actions) != 1 {
+		t.Fatalf("ScreenWidth/Height 覆盖应返回 1 action (仅 metrics), got %d", len(actions))
+	}
+
+	// width<=0 早返回 nil（即便 ScreenWidth 也<=0）
+	opts2 := makeTestOptions()
+	opts2.Chrome.WindowX = 0
+	opts2.Chrome.WindowY = 0
+	opts2.Chrome.ScreenWidth = 0
+	opts2.Chrome.ScreenHeight = 0
+	opts2.Chrome.IsMobile = true
+	if actions := buildDeviceEmulationActions(&opts2); actions != nil {
+		t.Fatalf("width<=0 应返回 nil, got %v", actions)
+	}
+
+	// SpoofScreenSize 触发 scaleFactor=1（非 mobile、无 touch）
+	opts3 := makeTestOptions()
+	opts3.Chrome.WindowX = 1280
+	opts3.Chrome.WindowY = 800
+	opts3.Chrome.SpoofScreenSize = true
+	actions = buildDeviceEmulationActions(&opts3)
+	if len(actions) != 1 {
+		t.Fatalf("SpoofScreenSize 应返回 1 action (仅 metrics), got %d", len(actions))
+	}
+
+	// HasTouch 但无 mobile/scaleFactor=1（scaleFactor 由 HasTouch 触发）
+	opts4 := makeTestOptions()
+	opts4.Chrome.WindowX = 393
+	opts4.Chrome.WindowY = 852
+	opts4.Chrome.HasTouch = true
+	actions = buildDeviceEmulationActions(&opts4)
+	if len(actions) != 2 {
+		t.Fatalf("HasTouch 触发 scaleFactor=1 应返回 2 actions (metrics+touch), got %d", len(actions))
+	}
+}
+
 func TestChromeDP_Witness_MissingJavaScriptFile(t *testing.T) {
 	opts := makeTestOptions()
 	opts.Scan.JavaScriptFile = "/nonexistent/js/file.js"

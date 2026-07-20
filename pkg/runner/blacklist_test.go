@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"os"
 	"testing"
 )
 
@@ -148,5 +149,61 @@ func TestURLBlacklistPatterns(t *testing.T) {
 
 	if len(blacklist.regexPatterns) < 1 {
 		t.Errorf("Expected at least 1 regex pattern, got %d", len(blacklist.regexPatterns))
+	}
+}
+
+func TestLoadPatternsFromFile(t *testing.T) {
+	tmp := t.TempDir()
+	path := tmp + "/blacklist.txt"
+	content := "*.evil.com\n# 这是注释\nspam.test\n\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("写临时文件失败: %v", err)
+	}
+	patterns, err := loadPatternsFromFile(path)
+	if err != nil {
+		t.Fatalf("loadPatternsFromFile 错误: %v", err)
+	}
+	if len(patterns) == 0 {
+		t.Fatal("应至少读取到 1 个模式")
+	}
+	// 注释行和空行应被过滤，剩下 2 个有效模式
+	if len(patterns) != 2 {
+		t.Fatalf("应读取到 2 个模式(过滤注释和空行), got %d: %v", len(patterns), patterns)
+	}
+	if patterns[0] != "*.evil.com" || patterns[1] != "spam.test" {
+		t.Fatalf("模式顺序/内容不符, got %v", patterns)
+	}
+}
+
+func TestLoadPatternsFromFile_NotExist(t *testing.T) {
+	_, err := loadPatternsFromFile("/nonexistent/path/blacklist.txt")
+	if err == nil {
+		t.Fatal("文件不存在应返回错误")
+	}
+}
+
+// TestExtractDomainSimple 覆盖 pool.go 中的纯函数 extractDomainSimple 的各分支：
+// http/https 前缀剥离、以及 / : ? # 截断符。
+func TestExtractDomainSimple(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"http 前缀", "http://example.com/path", "example.com"},
+		{"https 前缀", "https://example.com/path", "example.com"},
+		{"带端口", "https://example.com:8080/x", "example.com"},
+		{"查询参数截断", "https://example.com?q=1", "example.com"},
+		{"锚点截断", "https://example.com#section", "example.com"},
+		{"无前缀裸域名", "example.com/path", "example.com"},
+		{"无前缀无路径", "example.com", "example.com"},
+		{"前缀后立即截断", "http://example.com:443", "example.com"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractDomainSimple(tt.in); got != tt.want {
+				t.Fatalf("extractDomainSimple(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
 	}
 }

@@ -24,3 +24,20 @@ func TestURLMatchesTarget(t *testing.T) {
 		}
 	}
 }
+
+// TestURLMatchesTarget_ParseFallback 覆盖 respURL/target 均无法被 url.Parse 解析时
+// 走后缀匹配兜底的分支（chromedp.go:96）。
+func TestURLMatchesTarget_ParseFallback(t *testing.T) {
+	// ":foo" 这类字符串 url.Parse 会返回错误，触发后缀匹配兜底
+	if !urlMatchesTarget(":foo", ":foo") {
+		t.Error("相同非法串后缀匹配应返回 true")
+	}
+	// 两个互不为后缀的非法串应返回 false
+	if urlMatchesTarget(":foo", ":bar") {
+		t.Error("互不后缀的非法串应返回 false")
+	}
+	// target 是 resp 的后缀（反向匹配）
+	if !urlMatchesTarget("prefix:foo", ":foo") {
+		t.Error("target 为 resp 后缀时应返回 true")
+	}
+}

@@ -155,6 +155,14 @@ func TestHashGroup_GetGroupMembers(t *testing.T) {
 	}
 }
 
+func TestHashGroup_GetGroupMembers_Nonexistent(t *testing.T) {
+	hg := NewHashGroup()
+	hg.Add("https://example.com", 0x1234567890abcdef, 5)
+	if got := hg.GetGroupMembers("https://nonexistent.com"); got != nil {
+		t.Fatalf("不存在的 URL 应返回 nil, got %v", got)
+	}
+}
+
 func TestHashGroup_GroupCount(t *testing.T) {
 	hg := NewHashGroup()
 	hg.Add("https://example.com", 0x1234567890abcdef, 5)
@@ -258,5 +266,113 @@ func TestComputeHash_InvalidBytes(t *testing.T) {
 	_, err := ComputeHash([]byte("not an image"))
 	if err == nil {
 		t.Error("Should return error for invalid image bytes")
+	}
+}
+
+func TestComputePerceptionHash_InvalidBytes(t *testing.T) {
+	_, err := ComputePerceptionHash([]byte("not an image"))
+	if err == nil {
+		t.Error("ComputePerceptionHash 应对非法字节返回错误")
+	}
+}
+
+func TestComputeAverageHash_InvalidBytes(t *testing.T) {
+	_, err := ComputeAverageHash([]byte("not an image"))
+	if err == nil {
+		t.Error("ComputeAverageHash 应对非法字节返回错误")
+	}
+}
+
+func TestDistance_ValidHashes(t *testing.T) {
+	// Distance 依赖 goimagehash 的 "Kind:hex" 字符串格式（如 "a:0000...")，
+	// 用两个相同合法 hash 验证成功路径与零距离。
+	h := "a:000001071f7fffff"
+	dist, err := Distance(h, h)
+	if err != nil {
+		t.Fatalf("Distance 返回错误: %v", err)
+	}
+	if dist < 0 {
+		t.Fatalf("Distance 不应为负: %d", dist)
+	}
+	if dist != 0 {
+		t.Fatalf("相同 hash Distance 应为 0, 实际 %d", dist)
+	}
+}
+
+func TestDistance_DifferentHashes(t *testing.T) {
+	dist, err := Distance("a:0000000000000000", "a:0000000000000001")
+	if err != nil {
+		t.Fatalf("Distance 返回错误: %v", err)
+	}
+	if dist != 1 {
+		t.Fatalf("单 bit 差异应为 1, 实际 %d", dist)
+	}
+}
+
+func TestDistance_InvalidHash(t *testing.T) {
+	// 第一个参数非法 → hash1 解析失败分支
+	_, err := Distance("not-a-valid-hash", "a:0000000000000001")
+	if err == nil {
+		t.Fatal("非法 hash1 应返回错误")
+	}
+	// 第二个参数非法 → hash2 解析失败分支
+	_, err = Distance("a:0000000000000001", "also-invalid")
+	if err == nil {
+		t.Fatal("非法 hash2 应返回错误")
+	}
+}
+
+func TestDistanceFromValues_Extra(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b uint64
+		want int
+	}{
+		{"相同值", 0x1234, 0x1234, 0},
+		{"全异", 0x00FF, 0xFF00, 16},
+		{"单bit差异", 0x0001, 0x0000, 1},
+		{"全零", 0, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DistanceFromValues(tt.a, tt.b); got != tt.want {
+				t.Fatalf("DistanceFromValues(%#x,%#x) = %d, want %d", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsSimilar_Extra(t *testing.T) {
+	if !IsSimilar(0x1234, 0x1234, 5) {
+		t.Fatal("相同 hash 应判为相似")
+	}
+	if IsSimilar(0x00FF, 0xFF00, 5) {
+		t.Fatal("距离 16 超过阈值 5 不应判为相似")
+	}
+	if !IsSimilar(0x0001, 0x0000, 5) {
+		t.Fatal("距离 1 在阈值 5 内应判为相似")
+	}
+}
+
+func TestHexToHashValue_Extra(t *testing.T) {
+	v, err := HexToHashValue("0000000000000001")
+	if err != nil {
+		t.Fatalf("HexToHashValue 错误: %v", err)
+	}
+	if v != 1 {
+		t.Fatalf("HexToHashValue = %#x, want 1", v)
+	}
+	if _, err := HexToHashValue("xyz"); err == nil {
+		t.Fatal("非法 hex 应返回错误")
+	}
+	// 空字符串在当前实现中走空循环，返回 (0, nil) —— 如实记录此行为。
+	if v, err := HexToHashValue(""); err != nil {
+		t.Fatalf("空字符串实现返回错误: %v", err)
+	} else if v != 0 {
+		t.Fatalf("空字符串应返回 0, 实际 %#x", v)
+	}
+	// 大写 hex 也应正确解析
+	if v, err := HexToHashValue("000000000000000F"); err != nil || v != 0xF {
+		t.Fatalf("大写 hex 解析失败: v=%#x err=%v", v, err)
 	}
 }

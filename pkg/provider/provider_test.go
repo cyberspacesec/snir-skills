@@ -919,3 +919,43 @@ func TestProvider_HandleScreenshot_EmptyBodyNoURL(t *testing.T) {
 		t.Errorf("错误消息应包含 'url parameter required', got: %s", w.Body.String())
 	}
 }
+
+func TestProvider_HealthHandler_NotInitialized(t *testing.T) {
+	p := &Provider{} // pool == nil 分支
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	p.handleHealth(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("未初始化 health 应返回 503, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "provider not initialized") {
+		t.Errorf("响应体应包含 'provider not initialized', got: %s", rr.Body.String())
+	}
+}
+
+func TestProvider_StatsHandler_NotInitialized(t *testing.T) {
+	p := &Provider{}
+	req := httptest.NewRequest(http.MethodGet, "/stats", nil)
+	rr := httptest.NewRecorder()
+	p.handleStats(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("未初始化 stats 应返回 503, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "provider not initialized") {
+		t.Errorf("响应体应包含 'provider not initialized', got: %s", rr.Body.String())
+	}
+}
+
+func TestProvider_ScreenshotHandler_NotInitialized(t *testing.T) {
+	// POST + 有效 url，但 pool==nil → 应返回 503（覆盖 handleScreenshot 的 pool==nil 早返回分支）
+	p := &Provider{}
+	req := httptest.NewRequest(http.MethodPost, "/screenshot?url=http://x.test", nil)
+	rr := httptest.NewRecorder()
+	p.handleScreenshot(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("未初始化 screenshot 应返回 503, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "provider not initialized") {
+		t.Errorf("响应体应包含 'provider not initialized', got: %s", rr.Body.String())
+	}
+}

@@ -345,3 +345,50 @@ func TestCloneScreenshotOptions(t *testing.T) {
 		t.Fatalf("CloneScreenshotOptions shared mutable fields: original=%+v cloned=%+v", opts, cloned)
 	}
 }
+
+func TestWithProxyStrategy(t *testing.T) {
+	tests := []runner.ProxyStrategy{
+		runner.ProxyRoundRobin,
+		runner.ProxyRandom,
+		runner.ProxySequential,
+	}
+	for _, s := range tests {
+		opts := NewScreenshotOptions()
+		WithProxyStrategy(s)(opts)
+		if opts.ProxyStrategy != s {
+			t.Fatalf("WithProxyStrategy(%s) = %s", s, opts.ProxyStrategy)
+		}
+	}
+}
+
+func TestWithHeaders(t *testing.T) {
+	opts := NewScreenshotOptions()
+	WithHeaders()(opts)
+	if !opts.SaveHeaders {
+		t.Fatal("WithHeaders 应设置 SaveHeaders=true")
+	}
+}
+
+func TestWithConsole(t *testing.T) {
+	opts := NewScreenshotOptions()
+	WithConsole()(opts)
+	if !opts.SaveConsole {
+		t.Fatal("WithConsole 应设置 SaveConsole=true")
+	}
+}
+
+func TestWithNetwork(t *testing.T) {
+	opts := NewScreenshotOptions()
+	WithNetwork()(opts)
+	if !opts.SaveNetwork {
+		t.Fatal("WithNetwork 应设置 SaveNetwork=true")
+	}
+}
+
+func TestWithEvidence_SetsAll(t *testing.T) {
+	opts := NewScreenshotOptions()
+	WithEvidence()(opts)
+	if !opts.SaveHTML || !opts.SaveHeaders || !opts.SaveConsole || !opts.SaveCookies || !opts.SaveNetwork {
+		t.Fatalf("WithEvidence 应设置全部证据字段, got %+v", opts)
+	}
+}
