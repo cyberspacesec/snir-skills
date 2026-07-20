@@ -105,6 +105,10 @@ config.yml
 coverage.html
 coverage.out
 coverage.txt
+coverage-report/
+
+# 扫描产物（运行时生成，不应入库）
+results.jsonl
 debug
 debug.exe
 go.work

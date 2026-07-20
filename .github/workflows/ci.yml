@@ -58,6 +58,31 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Verify package paths match directory structure
+        run: |
+          # 校验：每个 .go 文件的 package 声明必须与其所在目录名一致（根包为 main）
+          # 校验：无相对路径 import，所有内部 import 必须以 module 路径为前缀
+          mismatches=0
+          while IFS= read -r f; do
+            pkg=$(grep -m1 '^package ' "$f" | awk '{print $2}')
+            dir=$(dirname "$f")
+            if [ "$dir" = "." ]; then expected="main"; else expected=$(basename "$dir"); fi
+            if [ "$pkg" != "$expected" ]; then
+              echo "MISMATCH: $f package=$pkg expected=$expected"
+              mismatches=$((mismatches+1))
+            fi
+          done < <(find . -name '*.go' ! -name '*_test.go' -not -path './vendor/*')
+          if [ "$mismatches" -gt 0 ]; then
+            echo "::error::Found $mismatches package/directory mismatches"
+            exit 1
+          fi
+          # 校验：无相对路径 import
+          if grep -rn 'import' --include='*.go' . | grep -E '"\.\.?/'; then
+            echo "::error::Found relative import path"
+            exit 1
+          fi
+          echo "All package paths consistent with directory structure."
+
       - name: Validate skill bundle
         run: |
           test -f SKILL.md

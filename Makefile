@@ -1,4 +1,4 @@
-.PHONY: build clean install test release release-test
+.PHONY: build clean install test release release-test coverage coverage-check
 
 # 默认目标
 all: build
@@ -35,9 +35,22 @@ test:
 # 运行测试并生成覆盖率报告
 coverage:
 	@echo "正在生成测试覆盖率报告..."
-	@go test -coverprofile=coverage.out ./...
+	@SKIP_BROWSER_TESTS=1 go test -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "覆盖率报告已生成到 coverage.html"
+
+# 检查整体覆盖率是否达到阈值（默认 90%）
+coverage-check: coverage
+	@echo "检查覆盖率阈值（整体 >= 90%）..."
+	@total=$$(go tool cover -func=coverage.out | tail -1 | awk '{print $$3}' | tr -d '%'); \
+	if [ -z "$$total" ]; then echo "::error::无法解析覆盖率"; exit 1; fi; \
+	echo "当前整体覆盖率: $$total%"; \
+	result=$$(echo "$$total 90" | awk '{print ($$1 >= $$2) ? "pass" : "fail"}'); \
+	if [ "$$result" = "fail" ]; then \
+		echo "::error::覆盖率 $$total% 低于阈值 90%"; exit 1; \
+	else \
+		echo "覆盖率达标"; \
+	fi
 
 # GoReleaser - 测试发布过程（不实际发布）
 release-test:
@@ -61,6 +74,7 @@ help:
 	@echo "  make clean        - 清理构建结果"
 	@echo "  make test         - 运行测试"
 	@echo "  make coverage     - 生成测试覆盖率报告"
+	@echo "  make coverage-check - 生成报告并检查覆盖率阈值（>=90%）"
 	@echo "  make release-test - 测试 GoReleaser 配置"
 	@echo "  make release      - 创建新的发布版本"
 	@echo "  make help         - 显示帮助信息" 
