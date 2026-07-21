@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
@@ -552,6 +553,223 @@ func TestScreenshotHTML_ErrorBranch(t *testing.T) {
 	if err == nil {
 		t.Fatal("ScreenshotHTML() error = nil, want error")
 	}
+}
+
+// TestScreenshotCollectors_ErrorBranch 覆盖 ScreenshotHeaders/Cookies/
+// Console/Network 的 err != nil 返回分支（client.go:267/286/305/323）。
+func TestScreenshotCollectors_ErrorBranch(t *testing.T) {
+	client := &Client{pool: &fakeDriverPool{err: errors.New("boom")}, opts: DefaultClientOptions()}
+
+	if h, r, err := client.ScreenshotHeaders("https://example.com", nil); err == nil || h != nil || r != nil {
+		t.Errorf("ScreenshotHeaders 错误分支: err=%v h=%v r=%v", err, h, r)
+	}
+	if c, r, err := client.ScreenshotCookies("https://example.com", nil); err == nil || c != nil || r != nil {
+		t.Errorf("ScreenshotCookies 错误分支: err=%v c=%v r=%v", err, c, r)
+	}
+	if cl, r, err := client.ScreenshotConsole("https://example.com", nil); err == nil || cl != nil || r != nil {
+		t.Errorf("ScreenshotConsole 错误分支: err=%v cl=%v r=%v", err, cl, r)
+	}
+	if n, r, err := client.ScreenshotNetwork("https://example.com", nil); err == nil || n != nil || r != nil {
+		t.Errorf("ScreenshotNetwork 错误分支: err=%v n=%v r=%v", err, n, r)
+	}
+}
+
+// TestScreenshotEvidenceBundleWithContext_SaveError 覆盖
+// ScreenshotEvidenceBundleWithContext 的 SaveEvidenceBundle 失败分支
+// （client.go:838-840）。fake pool 返回带 ScreenshotBytes 的 result，
+// 但 dir 不可写让 SaveEvidenceBundle 失败。
+func TestScreenshotEvidenceBundleWithContext_SaveError(t *testing.T) {
+	res := &models.Result{URL: "https://example.com", ScreenshotBytes: []byte("png")}
+	client := &Client{pool: &fakeDriverPool{result: res}, opts: DefaultClientOptions()}
+	// dir 指向一个已存在的文件路径，使 MkdirAll 失败
+	filePath := filepath.Join(t.TempDir(), "afile")
+	os.WriteFile(filePath, []byte("x"), 0644)
+	bundle, result, err := client.ScreenshotEvidenceBundleWithContext(context.Background(), "https://example.com", filePath, nil)
+	if err == nil {
+		t.Fatal("无效 dir 应返回 SaveEvidenceBundle 错误")
+	}
+	if bundle != nil {
+		t.Error("失败时应返回 nil bundle")
+	}
+	if result == nil || result.URL != "https://example.com" {
+		t.Errorf("应返回 result, got %v", result)
+	}
+}
+
+// root 空/name 空用 target/超长截断分支（client.go:1738-1752）。
+func TestBatchEvidenceBundleDir_Branches(t *testing.T) {
+	if got := batchEvidenceBundleDir("", 0, "n", "t"); got != "" {
+		t.Errorf("空 root 应返回空, got %q", got)
+	}
+	// name 为空时用 target 作为 label
+	got := batchEvidenceBundleDir("/root", 2, "", "https://example.com")
+	if !strings.HasPrefix(got, "/root/003_") || !strings.Contains(got, "example.com") {
+		t.Errorf("name 空用 target, got %q", got)
+	}
+	// 超长 label（>96 runes）截断
+	long := strings.Repeat("a", 200)
+	got = batchEvidenceBundleDir("/root", 0, long, "t")
+	// 期望截断到 96 rune
+	base := filepath.Base(got)
+	prefix := "001_"
+	if !strings.HasPrefix(base, prefix) {
+		t.Fatalf("应有 idx 前缀, got %q", base)
+	}
+	label := strings.TrimPrefix(base, prefix)
+	if rc := utf8.RuneCountInString(label); rc != 96 {
+		t.Errorf("超长应截断到 96 rune, got %d", rc)
+	}
+}
+func TestWriteBackResultCookies_Branches(t *testing.T) {
+	t.Run("jar nil 创建成功并写回", func(t *testing.T) {
+		c := &Client{opts: DefaultClientOptions()}
+		c.writeBackResultCookies("https://example.com", []models.Cookie{{Name: "s", Value: "v"}}, nil)
+		if c.cookieJar == nil {
+			t.Fatal("应创建并缓存 cookieJar")
+		}
+	})
+	t.Run("jar nil 创建失败返回", func(t *testing.T) {
+		restoreSDKHooks(t)
+		newCookieJar = func(string) (*runner.CookieJar, error) {
+			return nil, errors.New("boom")
+		}
+		c := &Client{opts: DefaultClientOptions()}
+		c.writeBackResultCookies("https://example.com", []models.Cookie{{Name: "s", Value: "v"}}, nil)
+		if c.cookieJar != nil {
+			t.Error("创建失败不应设置 cookieJar")
+		}
+	})
+	t.Run("jar 已存在正常写回", func(t *testing.T) {
+		jar, err := runner.NewCookieJar(filepath.Join(t.TempDir(), "cookies.json"))
+		if err != nil {
+			t.Fatalf("NewCookieJar: %v", err)
+		}
+		c := &Client{opts: DefaultClientOptions(), cookieJar: jar}
+		c.writeBackResultCookies("https://example.com", []models.Cookie{{Name: "s", Value: "v", Domain: ".example.com"}}, jar)
+		got := jar.GetCookies(".example.com")
+		if len(got) != 1 || got[0].Name != "s" {
+			t.Errorf("写回后 GetCookies = %v", got)
+		}
+	})
+}
+
+// TestScreenshotCollectors_Success 覆盖 ScreenshotHeaders/Cookies/Console/
+// Network 的成功路径（返回 result 中对应字段）。
+func TestScreenshotCollectors_Success(t *testing.T) {
+	res := &models.Result{
+		URL:     "https://example.com",
+		Headers: []models.Header{{Name: "X", Value: "1"}},
+		Cookies: []models.Cookie{{Name: "c", Value: "v"}},
+		Console: []models.ConsoleLog{{Level: "log", Message: "hi"}},
+		Network: []models.NetworkLog{{Method: "GET", URL: "https://example.com"}},
+	}
+	client := &Client{pool: &fakeDriverPool{result: res}, opts: DefaultClientOptions()}
+
+	if h, _, err := client.ScreenshotHeaders("https://example.com", nil); err != nil || len(h) != 1 {
+		t.Errorf("ScreenshotHeaders: err=%v h=%v", err, h)
+	}
+	if c, _, err := client.ScreenshotCookies("https://example.com", nil); err != nil || len(c) != 1 {
+		t.Errorf("ScreenshotCookies: err=%v c=%v", err, c)
+	}
+	if cl, _, err := client.ScreenshotConsole("https://example.com", nil); err != nil || len(cl) != 1 {
+		t.Errorf("ScreenshotConsole: err=%v cl=%v", err, cl)
+	}
+	if n, _, err := client.ScreenshotNetwork("https://example.com", nil); err != nil || len(n) != 1 {
+		t.Errorf("ScreenshotNetwork: err=%v n=%v", err, n)
+	}
+}
+
+// TestCookieJarForOptions_Branches 覆盖 cookieJarForOptions 的全部分支
+// （client.go:1807/1811-1821/1824-1829）。
+func TestCookieJarForOptions_Branches(t *testing.T) {
+	withCookiesFile := func(path string) *runner.Options {
+		o := &runner.Options{}
+		o.Scan.CookiesFile = path
+		return o
+	}
+	t.Run("nil opts 返回默认 jar", func(t *testing.T) {
+		c := &Client{opts: DefaultClientOptions()}
+		if got := c.cookieJarForOptions(nil); got != nil {
+			t.Errorf("nil opts 应返回 nil（默认 cookieJar）, got %v", got)
+		}
+	})
+	t.Run("空 CookiesFile 返回默认 jar", func(t *testing.T) {
+		c := &Client{opts: DefaultClientOptions()}
+		got := c.cookieJarForOptions(&runner.Options{})
+		if got != nil {
+			t.Errorf("空 CookiesFile 应返回 nil, got %v", got)
+		}
+	})
+	t.Run("同文件且已有 jar 返回现有 jar", func(t *testing.T) {
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		existing, _ := runner.NewCookieJar(jarPath)
+		c := &Client{opts: DefaultClientOptions(), cookieJar: existing}
+		c.opts.CookieFile = jarPath
+		got := c.cookieJarForOptions(withCookiesFile(jarPath))
+		if got != existing {
+			t.Error("同文件且已有 jar 应返回现有 jar")
+		}
+	})
+	t.Run("同文件无 jar 创建并缓存", func(t *testing.T) {
+		restoreSDKHooks(t)
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		var created int
+		newCookieJar = func(path string) (*runner.CookieJar, error) {
+			created++
+			return runner.NewCookieJar(path)
+		}
+		c := &Client{opts: DefaultClientOptions()}
+		c.opts.CookieFile = jarPath
+		got := c.cookieJarForOptions(withCookiesFile(jarPath))
+		if got == nil || created != 1 {
+			t.Fatalf("应创建并缓存 jar, got=%v created=%d", got, created)
+		}
+		if c.cookieJar != got {
+			t.Error("应缓存到 c.cookieJar")
+		}
+	})
+	t.Run("同文件无 jar 创建失败返回 nil", func(t *testing.T) {
+		restoreSDKHooks(t)
+		newCookieJar = func(string) (*runner.CookieJar, error) {
+			return nil, errors.New("boom")
+		}
+		c := &Client{opts: DefaultClientOptions()}
+		c.opts.CookieFile = "same.json"
+		got := c.cookieJarForOptions(withCookiesFile("same.json"))
+		if got != nil {
+			t.Errorf("创建失败应返回 nil, got %v", got)
+		}
+	})
+	t.Run("不同文件创建成功不缓存", func(t *testing.T) {
+		restoreSDKHooks(t)
+		jarPath := filepath.Join(t.TempDir(), "cookies.json")
+		var created int
+		newCookieJar = func(path string) (*runner.CookieJar, error) {
+			created++
+			return runner.NewCookieJar(path)
+		}
+		c := &Client{opts: DefaultClientOptions()}
+		c.opts.CookieFile = "default.json"
+		got := c.cookieJarForOptions(withCookiesFile(jarPath))
+		if got == nil || created != 1 {
+			t.Fatalf("不同文件应创建 jar, got=%v created=%d", got, created)
+		}
+		if c.cookieJar == got {
+			t.Error("不同文件不应缓存到 c.cookieJar")
+		}
+	})
+	t.Run("不同文件创建失败返回 nil", func(t *testing.T) {
+		restoreSDKHooks(t)
+		newCookieJar = func(string) (*runner.CookieJar, error) {
+			return nil, errors.New("boom")
+		}
+		c := &Client{opts: DefaultClientOptions()}
+		c.opts.CookieFile = "default.json"
+		got := c.cookieJarForOptions(withCookiesFile("other.json"))
+		if got != nil {
+			t.Errorf("不同文件创建失败应返回 nil, got %v", got)
+		}
+	})
 }
 
 func TestCaptureFunctionalOptions_Unit(t *testing.T) {
@@ -3033,4 +3251,377 @@ func TestAutoConnectClient_DefaultFactoryError(t *testing.T) {
 	if client != nil || mode != "" || err == nil {
 		t.Fatalf("AutoConnectClient() client/mode/error = %v/%q/%v", client, mode, err)
 	}
+}
+
+// TestCloneScreenshotOptions_Internal 覆盖内部 cloneScreenshotOptions（client.go）的所有分支：
+// nil、深拷贝 slice/map/*bool 字段。
+func TestCloneScreenshotOptions_Internal(t *testing.T) {
+	// nil → 返回空 ScreenshotOptions
+	got := cloneScreenshotOptions(nil)
+	if got == nil {
+		t.Fatal("nil 输入应返回非 nil 空结构")
+	}
+
+	mobile := true
+	touch := false
+	src := &ScreenshotOptions{
+		ProxyList:     []string{"http://a:8080", "http://b:8080"},
+		Plugins:       []string{"p1", "p2"},
+		CustomHeaders: map[string]string{"X-Test": "v", "X-Foo": "bar"},
+		IsMobile:      &mobile,
+		HasTouch:      &touch,
+	}
+	clone := cloneScreenshotOptions(src)
+	if clone == src {
+		t.Fatal("应返回新指针")
+	}
+	// 修改 clone 不应影响 src
+	clone.ProxyList[0] = "changed"
+	if src.ProxyList[0] == "changed" {
+		t.Error("ProxyList 未深拷贝")
+	}
+	clone.Plugins[0] = "changed"
+	if src.Plugins[0] == "changed" {
+		t.Error("Plugins 未深拷贝")
+	}
+	clone.CustomHeaders["X-Test"] = "changed"
+	if src.CustomHeaders["X-Test"] == "changed" {
+		t.Error("CustomHeaders 未深拷贝")
+	}
+	if clone.IsMobile == src.IsMobile {
+		t.Error("IsMobile *bool 未深拷贝")
+	}
+	if *clone.IsMobile != true {
+		t.Error("IsMobile 值错误")
+	}
+	if *clone.HasTouch != false {
+		t.Error("HasTouch 值错误")
+	}
+}
+
+// TestClient_cookieJarForOptions 覆盖 cookieJarForOptions 的所有分支。
+func TestClient_cookieJarForOptions(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("nil opts 返回 client jar", func(t *testing.T) {
+		c := &Client{}
+		if c.cookieJarForOptions(nil) != nil {
+			t.Error("nil opts 且 client 无 jar 应返回 nil")
+		}
+	})
+
+	t.Run("空 CookiesFile 返回 client jar", func(t *testing.T) {
+		c := &Client{}
+		opts := &runner.Options{}
+		if c.cookieJarForOptions(opts) != nil {
+			t.Error("空 CookiesFile 且 client 无 jar 应返回 nil")
+		}
+	})
+
+	t.Run("不同文件路径每次新建", func(t *testing.T) {
+		c := &Client{opts: ClientOptions{CookieFile: ""}}
+		opts := &runner.Options{}
+		opts.Scan.CookiesFile = filepath.Join(tmpDir, "other.json")
+		jar := c.cookieJarForOptions(opts)
+		if jar == nil {
+			t.Fatal("应返回新 jar")
+		}
+		// 不应缓存到 client.cookieJar（路径不同）
+		if c.cookieJar != nil {
+			t.Error("不同路径不应缓存到 client.cookieJar")
+		}
+	})
+
+	t.Run("相同文件路径缓存到 client", func(t *testing.T) {
+		cookieFile := filepath.Join(tmpDir, "cached.json")
+		c := &Client{opts: ClientOptions{CookieFile: cookieFile}}
+		opts := &runner.Options{}
+		opts.Scan.CookiesFile = cookieFile
+		jar1 := c.cookieJarForOptions(opts)
+		if jar1 == nil {
+			t.Fatal("应返回 jar")
+		}
+		if c.cookieJar == nil {
+			t.Error("相同路径应缓存到 client.cookieJar")
+		}
+		// 第二次应返回缓存的同一个 jar
+		jar2 := c.cookieJarForOptions(opts)
+		if jar2 != jar1 {
+			t.Error("相同路径第二次应返回缓存的同一 jar")
+		}
+	})
+
+	t.Run("相同路径但 client 已有 jar 直接返回", func(t *testing.T) {
+		cookieFile := filepath.Join(tmpDir, "preset.json")
+		// 预设一个 jar
+		presetJar, err := newCookieJar(cookieFile)
+		if err != nil {
+			t.Fatalf("newCookieJar 失败: %v", err)
+		}
+		c := &Client{opts: ClientOptions{CookieFile: cookieFile}, cookieJar: presetJar}
+		opts := &runner.Options{}
+		opts.Scan.CookiesFile = cookieFile
+		if c.cookieJarForOptions(opts) != presetJar {
+			t.Error("client 已有 jar 时应直接返回预设 jar")
+		}
+	})
+}
+
+// newFakeClientUnit 构造一个使用 fakeDriverPool 的 Client（不启动浏览器）。
+func newFakeClientUnit(t *testing.T) *Client {
+	t.Helper()
+	return &Client{
+		pool: &fakeDriverPool{result: &models.Result{URL: "https://unit.test/", Title: "ok"}},
+		opts: DefaultClientOptions(),
+	}
+}
+
+// TestClient_BatchCallbacks_EmptyInputs 覆盖各 Batch*Callback 函数体：
+// 用空输入让 Streaming 立即关闭 channel，for range 0 次结束，
+// 同时测 callback==nil 与非 nil 分支。
+func TestClient_BatchCallbacks_EmptyInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("BatchScreenshotCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		// callback==nil 分支
+		client.BatchScreenshotCallback(ctx, nil, nil, nil)
+		// 非 nil callback 分支
+		var count int
+		client.BatchScreenshotCallback(ctx, nil, nil, func(BatchResult) { count++ })
+	})
+
+	t.Run("BatchScreenshotBytesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		client.BatchScreenshotBytesCallback(ctx, nil, nil, nil)
+		var count int
+		client.BatchScreenshotBytesCallback(ctx, nil, nil, func(BatchBytesResult) { count++ })
+	})
+
+	t.Run("BatchScreenshotEvidenceBundlesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		dir := t.TempDir()
+		client.BatchScreenshotEvidenceBundlesCallback(ctx, nil, dir, nil, nil)
+		var count int
+		client.BatchScreenshotEvidenceBundlesCallback(ctx, nil, dir, nil, func(BatchEvidenceBundleResult) { count++ })
+	})
+
+	t.Run("BatchScreenshotRequestsCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		client.BatchScreenshotRequestsCallback(ctx, nil, nil)
+		var count int
+		client.BatchScreenshotRequestsCallback(ctx, nil, func(BatchResult) { count++ })
+	})
+}
+
+// TestClient_BatchRequestsCallbacks_EmptyInputs 覆盖 RequestsBytes/RequestsEvidenceBundles Callback。
+func TestClient_BatchRequestsCallbacks_EmptyInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("BatchScreenshotRequestsBytesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		client.BatchScreenshotRequestsBytesCallback(ctx, nil, nil)
+		var count int
+		client.BatchScreenshotRequestsBytesCallback(ctx, nil, func(BatchBytesResult) { count++ })
+	})
+
+	t.Run("BatchScreenshotRequestsEvidenceBundlesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		dir := t.TempDir()
+		client.BatchScreenshotRequestsEvidenceBundlesCallback(ctx, nil, dir, nil)
+		var count int
+		client.BatchScreenshotRequestsEvidenceBundlesCallback(ctx, nil, dir, func(BatchEvidenceBundleResult) { count++ })
+	})
+}
+
+// TestClient_BatchTargetsEvidenceBundles_Empty 覆盖 BatchScreenshotTargetsEvidenceBundles
+// 与 WithContext（空 targets 立即返回）。
+func TestClient_BatchTargetsEvidenceBundles_Empty(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	t.Run("TargetsEvidenceBundles", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		results := client.BatchScreenshotTargetsEvidenceBundles(nil, dir, nil)
+		if len(results) != 0 {
+			t.Errorf("空 targets 应返回 0 结果, got %d", len(results))
+		}
+	})
+
+	t.Run("TargetsEvidenceBundlesWithContext", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		results := client.BatchScreenshotTargetsEvidenceBundlesWithContext(ctx, nil, dir, nil)
+		if len(results) != 0 {
+			t.Errorf("空 targets 应返回 0 结果, got %d", len(results))
+		}
+	})
+}
+
+// TestClient_BatchStreaming_CancelledCtx 覆盖各 Batch*Streaming 的 ctx.Done 分支：
+// 用已取消的 ctx + 非空输入，select 命中 ctx.Done → 发送带 ctx.Err 的结果，不启动浏览器。
+func TestClient_BatchStreaming_CancelledCtx(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 预取消
+
+	requests := []ScreenshotRequest{{URL: "https://example.com"}}
+	urls := []string{"https://example.com"}
+	dir := t.TempDir()
+
+	t.Run("BatchScreenshotStreaming", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		ch := client.BatchScreenshotStreaming(ctx, urls, nil)
+		var got int
+		for r := range ch {
+			got++
+			if r.Error == nil {
+				t.Error("取消的 ctx 应返回带 Error 的结果")
+			}
+		}
+		if got != 1 {
+			t.Errorf("应收到 1 个结果, got %d", got)
+		}
+	})
+
+	t.Run("BatchScreenshotBytesStreaming", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		ch := client.BatchScreenshotBytesStreaming(ctx, urls, nil)
+		var got int
+		for r := range ch {
+			got++
+			if r.Error == nil {
+				t.Error("取消的 ctx 应返回带 Error 的结果")
+			}
+		}
+		if got != 1 {
+			t.Errorf("应收到 1 个结果, got %d", got)
+		}
+	})
+
+	t.Run("BatchScreenshotEvidenceBundlesStreaming", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		ch := client.BatchScreenshotEvidenceBundlesStreaming(ctx, urls, dir, nil)
+		var got int
+		for r := range ch {
+			got++
+			if r.Error == nil {
+				t.Error("取消的 ctx 应返回带 Error 的结果")
+			}
+		}
+		if got != 1 {
+			t.Errorf("应收到 1 个结果, got %d", got)
+		}
+	})
+
+	t.Run("BatchScreenshotRequestsStreaming", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		ch := client.BatchScreenshotRequestsStreaming(ctx, requests)
+		var got int
+		for r := range ch {
+			got++
+			if r.Error == nil {
+				t.Error("取消的 ctx 应返回带 Error 的结果")
+			}
+		}
+		if got != 1 {
+			t.Errorf("应收到 1 个结果, got %d", got)
+		}
+	})
+
+	t.Run("BatchScreenshotRequestsBytesStreaming", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		ch := client.BatchScreenshotRequestsBytesStreaming(ctx, requests)
+		var got int
+		for r := range ch {
+			got++
+			if r.Error == nil {
+				t.Error("取消的 ctx 应返回带 Error 的结果")
+			}
+		}
+		if got != 1 {
+			t.Errorf("应收到 1 个结果, got %d", got)
+		}
+	})
+
+	t.Run("BatchScreenshotRequestsEvidenceBundlesStreaming", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		ch := client.BatchScreenshotRequestsEvidenceBundlesStreaming(ctx, requests, dir)
+		var got int
+		for r := range ch {
+			got++
+			if r.Error == nil {
+				t.Error("取消的 ctx 应返回带 Error 的结果")
+			}
+		}
+		if got != 1 {
+			t.Errorf("应收到 1 个结果, got %d", got)
+		}
+	})
+}
+
+// TestClient_BatchCallbacks_NonEmptyInputs 覆盖各 Batch*Callback 的
+// callback!=nil 且实际被调用分支（client.go:1543-1545 等）。
+// 用非空 urls + fakeDriverPool（不启动浏览器），Streaming 会发结果到 ch，
+// for range 接收并调用 callback。
+func TestClient_BatchCallbacks_NonEmptyInputs(t *testing.T) {
+	ctx := context.Background()
+	urls := []string{"https://example.com/"}
+
+	t.Run("BatchScreenshotCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		var count int
+		client.BatchScreenshotCallback(ctx, urls, nil, func(BatchResult) { count++ })
+		if count != 1 {
+			t.Errorf("callback 应被调用 1 次, got %d", count)
+		}
+	})
+
+	t.Run("BatchScreenshotBytesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		var count int
+		client.BatchScreenshotBytesCallback(ctx, urls, nil, func(BatchBytesResult) { count++ })
+		if count != 1 {
+			t.Errorf("callback 应被调用 1 次, got %d", count)
+		}
+	})
+
+	t.Run("BatchScreenshotEvidenceBundlesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		dir := t.TempDir()
+		var count int
+		client.BatchScreenshotEvidenceBundlesCallback(ctx, urls, dir, nil, func(BatchEvidenceBundleResult) { count++ })
+		if count != 1 {
+			t.Errorf("callback 应被调用 1 次, got %d", count)
+		}
+	})
+
+	t.Run("BatchScreenshotRequestsCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		reqs := []ScreenshotRequest{{URL: "https://example.com/"}}
+		var count int
+		client.BatchScreenshotRequestsCallback(ctx, reqs, func(BatchResult) { count++ })
+		if count != 1 {
+			t.Errorf("callback 应被调用 1 次, got %d", count)
+		}
+	})
+
+	t.Run("BatchScreenshotRequestsBytesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		reqs := []ScreenshotRequest{{URL: "https://example.com/"}}
+		var count int
+		client.BatchScreenshotRequestsBytesCallback(ctx, reqs, func(BatchBytesResult) { count++ })
+		if count != 1 {
+			t.Errorf("callback 应被调用 1 次, got %d", count)
+		}
+	})
+
+	t.Run("BatchScreenshotRequestsEvidenceBundlesCallback", func(t *testing.T) {
+		client := newFakeClientUnit(t)
+		reqs := []ScreenshotRequest{{URL: "https://example.com/"}}
+		dir := t.TempDir()
+		var count int
+		client.BatchScreenshotRequestsEvidenceBundlesCallback(ctx, reqs, dir, func(BatchEvidenceBundleResult) { count++ })
+		if count != 1 {
+			t.Errorf("callback 应被调用 1 次, got %d", count)
+		}
+	})
 }

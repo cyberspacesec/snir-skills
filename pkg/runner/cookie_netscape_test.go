@@ -333,3 +333,58 @@ func TestLoadNetscapeCookieFileToJar_ExpiredSkipped(t *testing.T) {
 		t.Errorf("Source = %s, want file", cookies[0].Source)
 	}
 }
+
+// TestLoadNetscapeCookieFile_HttpOnlyAndSession 覆盖 LoadNetscapeCookieFileToJar
+// 的 HttpOnly 字段（>7列）+ 会话 Cookie（expires=0）分支（line 156-164）。
+func TestLoadNetscapeCookieFile_HttpOnlyAndSession(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.txt")
+	// Netscape 格式 8 列（含 HttpOnly）：domain flag path secure expires name value httponly
+	content := ".example.com\tTRUE\t/\tTRUE\t0\tsess\tval\tTRUE\n"
+	content += ".example.com\tTRUE\t/\tFALSE\t9999999999\tpersist\tval2\tHTTPONLY\n"
+	if err := os.WriteFile(cookieFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	jar, cookies, err := LoadNetscapeCookieFileToJar(cookieFile, true, "import")
+	if err != nil {
+		t.Fatalf("LoadNetscapeCookieFileToJar 失败: %v", err)
+	}
+	if len(cookies) != 2 {
+		t.Fatalf("应返回 2 cookie, got %d", len(cookies))
+	}
+	// 找到 session cookie（expiresAt=0）
+	var sessFound bool
+	var sess PersistentCookie
+	for i := range cookies {
+		if cookies[i].Name == "sess" {
+			sess = cookies[i]
+			sessFound = true
+		}
+	}
+	if !sessFound {
+		t.Fatal("未找到 session cookie")
+	}
+	if sess.ExpiresAt != 0 {
+		t.Errorf("session cookie ExpiresAt 应为 0, got %d", sess.ExpiresAt)
+	}
+	_ = jar
+}
+
+// TestLoadNetscapeCookieFile_ExpiredSkipped 覆盖 LoadNetscapeCookieFileToJar
+// 的过期 Cookie 跳过分支（line 167-169）。
+func TestLoadNetscapeCookieFile_ExpiredSkipped(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.txt")
+	// expires=1（1970 年，已过期）
+	content := ".example.com\tTRUE\t/\tFALSE\t1\texpired\tval\n"
+	if err := os.WriteFile(cookieFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	_, cookies, err := LoadNetscapeCookieFileToJar(cookieFile, true, "import")
+	if err != nil {
+		t.Fatalf("LoadNetscapeCookieFileToJar 失败: %v", err)
+	}
+	if len(cookies) != 0 {
+		t.Errorf("已过期 Cookie 应被跳过, got %d", len(cookies))
+	}
+}

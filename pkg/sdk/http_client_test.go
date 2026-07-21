@@ -148,3 +148,156 @@ func TestHTTPGetResultByURL_SpecialChars(t *testing.T) {
 		t.Errorf("got %d results, want 0", len(results))
 	}
 }
+
+// TestHTTPGetResult_SuccessFalseWithNoError 覆盖 doSingleResult 的
+// Success=false 且 Error 为空分支（http_client.go:82-85）。
+func TestHTTPGetResult_SuccessFalseWithNoError(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":false}`))
+	})
+	defer cleanup()
+	_, err := c.GetResult(1)
+	if err == nil {
+		t.Error("Success=false 应返回错误")
+	}
+}
+
+// TestHTTPGetResult_SuccessFalseWithError 覆盖 doSingleResult 的
+// Success=false 且 Error 非空分支（http_client.go:86-87）。
+func TestHTTPGetResult_SuccessFalseWithError(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":false,"error":"数据库查询失败"}`))
+	})
+	defer cleanup()
+	_, err := c.GetResult(1)
+	if err == nil {
+		t.Error("Success=false 应返回错误")
+	}
+}
+
+// TestHTTPGetResult_InvalidJSON 覆盖 doSingleResult 的 json.Unmarshal 失败分支
+// （http_client.go:79-81）。
+func TestHTTPGetResult_InvalidJSON(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`not-valid-json{`))
+	})
+	defer cleanup()
+	_, err := c.GetResult(1)
+	if err == nil {
+		t.Error("无效 JSON 应返回错误")
+	}
+}
+
+// TestHTTPGetResult_500Error 覆盖 doSingleResult 的非 200/503 错误分支
+// （http_client.go:71-73）。
+func TestHTTPGetResult_500Error(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`内部错误`))
+	})
+	defer cleanup()
+	_, err := c.GetResult(1)
+	if err == nil {
+		t.Error("500 应返回错误")
+	}
+}
+
+// TestHTTPListResults_SuccessFalseNoError 覆盖 doListResult 的
+// Success=false 无 Error 分支（http_client.go:111-114）。
+func TestHTTPListResults_SuccessFalseNoError(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":false}`))
+	})
+	defer cleanup()
+	_, err := c.ListResults(10)
+	if err == nil {
+		t.Error("Success=false 应返回错误")
+	}
+}
+
+// TestHTTPListResults_SuccessFalseWithError 覆盖 doListResult 的
+// Success=false 有 Error 分支（http_client.go:115-116）。
+func TestHTTPListResults_SuccessFalseWithError(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":false,"error":"查询超时"}`))
+	})
+	defer cleanup()
+	_, err := c.ListResults(10)
+	if err == nil {
+		t.Error("Success=false 应返回错误")
+	}
+}
+
+// TestHTTPListResults_InvalidJSON 覆盖 doListResult 的 Unmarshal 失败分支
+// （http_client.go:108-110）。
+func TestHTTPListResults_InvalidJSON(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`not-json`))
+	})
+	defer cleanup()
+	_, err := c.ListResults(10)
+	if err == nil {
+		t.Error("无效 JSON 应返回错误")
+	}
+}
+
+// TestHTTPListResults_500Error 覆盖 doListResult 的非 200/503 分支
+// （http_client.go:100-102）。
+func TestHTTPListResults_500Error(t *testing.T) {
+	c, cleanup := newMockResultsServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`服务器错误`))
+	})
+	defer cleanup()
+	_, err := c.ListResults(10)
+	if err == nil {
+		t.Error("500 应返回错误")
+	}
+}
+
+// TestHTTPGetResult_NewRequestError 覆盖 GetResult 的 http.NewRequest 失败分支
+// （http_client.go:122-124）。baseURL 含控制字符使 NewRequest 失败。
+func TestHTTPGetResult_NewRequestError(t *testing.T) {
+	c := NewHTTPClient(HTTPClientOptions{BaseURL: "http://exa\x00mple.com"})
+	if _, err := c.GetResult(1); err == nil {
+		t.Error("无效 baseURL 应返回 NewRequest 错误")
+	}
+}
+
+// TestHTTPGetResultByURL_NewRequestError 覆盖 GetResultByURL 的 NewRequest 失败分支
+// （http_client.go:134-136）。
+func TestHTTPGetResultByURL_NewRequestError(t *testing.T) {
+	c := NewHTTPClient(HTTPClientOptions{BaseURL: "http://exa\x00mple.com"})
+	if _, err := c.GetResultByURL("https://example.com"); err == nil {
+		t.Error("无效 baseURL 应返回 NewRequest 错误")
+	}
+}
+
+// TestHTTPListResults_NewRequestError 覆盖 ListResults 的 NewRequest 失败分支
+// （http_client.go:148-150）。
+func TestHTTPListResults_NewRequestError(t *testing.T) {
+	c := NewHTTPClient(HTTPClientOptions{BaseURL: "http://exa\x00mple.com"})
+	if _, err := c.ListResults(10); err == nil {
+		t.Error("无效 baseURL 应返回 NewRequest 错误")
+	}
+}
+
+// TestHTTPDoRaw_DoError 覆盖 doRaw 的 httpClient.Do 失败分支（http_client.go:53-55）。
+// 指向不可达地址让 Do 立即失败。
+func TestHTTPDoRaw_DoError(t *testing.T) {
+	c := NewHTTPClient(HTTPClientOptions{BaseURL: "http://127.0.0.1:1", Timeout: 1})
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:1/results/1", nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	if _, _, err := c.doRaw(req); err == nil {
+		t.Error("不可达地址应返回 Do 错误")
+	}
+}

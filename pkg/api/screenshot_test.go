@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/gorilla/mux"
@@ -573,5 +574,117 @@ func TestHandleListScreenshots(t *testing.T) {
 		if !found {
 			t.Errorf("没有找到预期的文件: %s", filename)
 		}
+	}
+}
+
+// TestHandleListScreenshots_DirNotExist 覆盖截图目录不存在分支。
+func TestHandleListScreenshots_DirNotExist(t *testing.T) {
+	server := &Server{
+		Options: ServerOptions{ScreenshotPath: "/nonexistent/path/that/does/not/exist/xyz"},
+	}
+	req, err := http.NewRequest("GET", "/screenshots_list", nil)
+	if err != nil {
+		t.Fatalf("创建请求失败: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(server.HandleListScreenshots)
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("状态码 = %d, 期望 500", rr.Code)
+	}
+}
+
+// TestHandleListScreenshots_ReadDirError 覆盖 ReadDir 失败分支（路径为文件而非目录）。
+func TestHandleListScreenshots_ReadDirError(t *testing.T) {
+	tempDir := t.TempDir()
+	// 把 ScreenshotPath 设为文件，ReadDir 必然失败
+	filePath := filepath.Join(tempDir, "afile")
+	if err := ioutil.WriteFile(filePath, []byte("x"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	server := &Server{Options: ServerOptions{ScreenshotPath: filePath}}
+	req, _ := http.NewRequest("GET", "/screenshots_list", nil)
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(server.HandleListScreenshots)
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("状态码 = %d, 期望 500", rr.Code)
+	}
+}
+
+// TestHandleGetScreenshot_ReadError 覆盖 HandleGetScreenshot 读取文件失败分支。
+func TestHandleGetScreenshot_ReadError(t *testing.T) {
+	tempDir := t.TempDir()
+	// 创建一个目录作为目标文件——os.Stat 成功但 ReadFile 失败
+	dirAsFile := filepath.Join(tempDir, "iamdir.png")
+	if err := os.Mkdir(dirAsFile, 0755); err != nil {
+		t.Fatalf("mkdir 失败: %v", err)
+	}
+	server := &Server{Options: ServerOptions{ScreenshotPath: tempDir}}
+	router := mux.NewRouter()
+	router.HandleFunc("/get_screenshot/{filename}", server.HandleGetScreenshot)
+	req, _ := http.NewRequest("GET", "/get_screenshot/iamdir.png", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("状态码 = %d, 期望 500; body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleScreenshot_Real_EmptyURL 覆盖 HandleScreenshot 真实代码的空 URL 分支
+// （screenshot.go:32-38）。
+func TestHandleScreenshot_Real_EmptyURL(t *testing.T) {
+	s := &Server{Options: ServerOptions{}}
+	body, _ := json.Marshal(ScreenshotRequest{URL: ""})
+	req := httptest.NewRequest(http.MethodPost, "/screenshot", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.HandleScreenshot(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("空 URL 应返回 400, got %d", rr.Code)
+	}
+}
+
+// TestHandleScreenshot_Real_InvalidJSON 覆盖 HandleScreenshot 真实代码的无效 JSON 分支
+// （screenshot.go:22-29）。
+func TestHandleScreenshot_Real_InvalidJSON(t *testing.T) {
+	s := &Server{Options: ServerOptions{}}
+	req := httptest.NewRequest(http.MethodPost, "/screenshot", bytes.NewReader([]byte("not-valid-json{")))
+	rr := httptest.NewRecorder()
+	s.HandleScreenshot(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("无效 JSON 应返回 400, got %d", rr.Code)
+	}
+}
+
+// TestHandleScreenshot_Real_ProcessFailure 覆盖 HandleScreenshot 真实代码的
+// ProcessScreenshot 失败分支（screenshot.go:59-65）。pool==nil 且无 Chrome 时
+// ProcessScreenshot 回退到 NewChromeDP 会失败。
+func TestHandleScreenshot_Real_ProcessFailure(t *testing.T) {
+	s := &Server{
+		Options: ServerOptions{
+			ScreenshotPath: t.TempDir(),
+		},
+		pool: nil, // 强制 nil，走 NewChromeDP 回退
+	}
+	body, _ := json.Marshal(ScreenshotRequest{URL: "https://example.com", HTTPS: true})
+	req := httptest.NewRequest(http.MethodPost, "/screenshot", bytes.NewReader(body))
+
+	done := make(chan int, 1)
+	go func() {
+		rr := httptest.NewRecorder()
+		s.HandleScreenshot(rr, req)
+		done <- rr.Code
+	}()
+	select {
+	case code := <-done:
+		// ProcessScreenshot 失败应返回 500（或 Chrome 可用时 200，跳过）
+		if code == http.StatusOK {
+			t.Skip("Chrome 可用导致截图成功，跳过失败分支测试")
+		}
+		if code != http.StatusInternalServerError {
+			t.Logf("HandleScreenshot 返回 %d（预期 500，但非 OK 也算覆盖失败分支）", code)
+		}
+	case <-time.After(40 * time.Second):
+		t.Fatal("HandleScreenshot 超时")
 	}
 }

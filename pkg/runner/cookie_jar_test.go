@@ -635,3 +635,90 @@ func TestCookieJar_RemoveCookie_NonexistentDomain(t *testing.T) {
 		t.Errorf("RemoveCookie on nonexistent domain should not error: %v", err)
 	}
 }
+
+// TestCookieJar_LoadEmptyFile 覆盖 load() 的空 data 分支（line 296）。
+func TestCookieJar_LoadEmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	// 写入空文件
+	if err := os.WriteFile(cookieFile, []byte{}, 0644); err != nil {
+		t.Fatalf("写入空文件失败: %v", err)
+	}
+	jar, err := NewCookieJar(cookieFile)
+	if err != nil {
+		t.Fatalf("NewCookieJar 失败: %v", err)
+	}
+	// 空 data 应返回 nil 且 cookies 为空
+	if len(jar.GetAllCookies()) != 0 {
+		t.Errorf("空文件加载后应有 0 cookie, got %d", len(jar.GetAllCookies()))
+	}
+}
+
+// TestCookieJar_LoadInvalidJSON 覆盖 load() 的 json.Unmarshal 失败分支：
+// NewCookieJar 对无效 JSON 记 warn 后创建空存储，不返回错误。
+func TestCookieJar_LoadInvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	cookieFile := filepath.Join(tmpDir, "cookies.json")
+	if err := os.WriteFile(cookieFile, []byte("not valid json {"), 0644); err != nil {
+		t.Fatalf("写入文件失败: %v", err)
+	}
+	jar, err := NewCookieJar(cookieFile)
+	if err != nil {
+		t.Fatalf("NewCookieJar 对无效 JSON 不应返回错误（应回退到空存储）: %v", err)
+	}
+	if len(jar.GetAllCookies()) != 0 {
+		t.Errorf("无效 JSON 应回退到空存储, got %d cookies", len(jar.GetAllCookies()))
+	}
+}
+
+// TestCookieJar_SaveMkdirAll 覆盖 save() 的 MkdirAll 分支（目录不存在时创建）。
+func TestCookieJar_SaveMkdirAll(t *testing.T) {
+	tmpDir := t.TempDir()
+	// 指向一个尚不存在的子目录
+	cookieFile := filepath.Join(tmpDir, "sub", "deep", "cookies.json")
+	jar, err := NewCookieJar(cookieFile)
+	if err != nil {
+		t.Fatalf("NewCookieJar 失败: %v", err)
+	}
+	// 持久化 cookie 会触发 save，从而走 MkdirAll 分支
+	jar.AddCookie(PersistentCookie{
+		Domain:     ".example.com",
+		Name:       "test",
+		Value:      "value",
+		ExpiresAt:  time.Now().Add(3600 * time.Second).Unix(),
+		Persistent: true,
+	})
+	// save 应创建 sub/deep 目录
+	if err := jar.save(); err != nil {
+		t.Fatalf("save 应创建目录: %v", err)
+	}
+	if _, err := os.Stat(cookieFile); err != nil {
+		t.Errorf("save 后文件应存在: %v", err)
+	}
+}
+
+// TestCookieJar_Load_ReadFileError 覆盖 load() 的 os.ReadFile 失败分支
+// （cookie_jar.go:290-293）。直接调用未导出的 load，filePath 指向不存在文件。
+func TestCookieJar_Load_ReadFileError(t *testing.T) {
+	jar := &CookieJar{
+		filePath: "/nonexistent/cookies.json",
+		cookies:  make(map[string][]PersistentCookie),
+	}
+	err := jar.load()
+	if err == nil {
+		t.Fatal("读取不存在的文件应返回错误")
+	}
+}
+
+// TestCookieJar_GetCookies_NoDomain 覆盖 GetCookies 的空 domain 分支
+// （如存在）。先确认 GetCookies 对未知 domain 返回空切片。
+func TestCookieJar_GetCookies_UnknownDomain(t *testing.T) {
+	jar := &CookieJar{
+		filePath: t.TempDir() + "/c.json",
+		cookies:  make(map[string][]PersistentCookie),
+	}
+	got := jar.GetCookies("unknown.domain.test")
+	if len(got) != 0 {
+		t.Errorf("未知 domain 应返回 0 cookie, got %d", len(got))
+	}
+}

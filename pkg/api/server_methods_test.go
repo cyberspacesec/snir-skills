@@ -2,12 +2,15 @@ package api
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
+	"github.com/gorilla/mux"
 )
 
 // MockDriver is a simplified mock driver for testing
@@ -278,4 +281,126 @@ func TestCreateScreenshotDir(t *testing.T) {
 	if dir != testDir {
 		t.Errorf("path mismatch: want %v, got %v", testDir, dir)
 	}
+}
+
+// TestServer_Run_ListenAndServeFailure 覆盖 Server.Run 的成功路径直至 ListenAndServe 调用：
+// 先用 net.Listen 占住端口，再让 Run 尝试同端口 ListenAndServe → 立即返回错误，
+// 覆盖 Run 的配置打印 + HTTP 服务器构造（line 143-164）。
+func TestServer_Run_ListenAndServeFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen 失败: %v", err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	server := &Server{
+		Options: ServerOptions{
+			Host: "127.0.0.1",
+			Port: port,
+		},
+		Router: mux.NewRouter(),
+	}
+	if err := server.Run(); err == nil {
+		t.Fatal("端口已占用时 Run 应返回错误")
+	}
+}
+
+// TestServer_HandleStats_WithPoolNilViaStats 覆盖 HandleStats 的 pool==nil 分支
+// （补充确认无 pool 时不 panic）。HandleStats 的 pool!=nil 分支需构造 runner.DriverPool，
+// api 包无法构造 bare pool，故仅覆盖 nil 分支。
+func TestServer_HandleStats_PoolNil(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest("GET", "/stats", nil)
+	rr := httptest.NewRecorder()
+	server.HandleStats(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("状态码 = %d, want 200", rr.Code)
+	}
+	var resp APIResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	if !resp.Success {
+		t.Error("Success 应为 true")
+	}
+}
+
+// TestProcessScreenshot_WithProxyPoolFailure 覆盖 ProcessScreenshot 的 pool!=nil
+// 分支（server_methods.go:53-61）。用 proxyProvider 模式 pool（不启动浏览器）
+// 赋给 s.pool，ProcessScreenshot 调 pool.Screenshot 走代理→ensureProxyBrowser 失败，
+// 返回错误（line 56）。
+func TestProcessScreenshot_WithProxyPoolFailure(t *testing.T) {
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	runnerOpts.Chrome.Path = "/nonexistent/chrome-binary-for-test"
+	pool, err := runner.NewDriverPool(&runnerOpts, 1)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	defer pool.Close()
+	server := &Server{
+		Options: ServerOptions{ScreenshotPath: "/tmp/test"},
+		pool:    pool,
+	}
+	req := ScreenshotRequest{URL: "https://example.com", HTTPS: true}
+	opts := createRunnerOptions(req, server.Options)
+	_, err = server.ProcessScreenshot(req, opts)
+	if err == nil {
+		t.Skip("ProcessScreenshot 意外成功（可能有 Chrome）")
+	}
+}
+
+// TestHandleStatsServerMethod_WithPool 覆盖 HandleStats 的 pool!=nil 分支
+// （server_methods.go:181-190）。用 proxyProvider 模式 pool 赋给 server。
+func TestHandleStatsServerMethod_WithPool(t *testing.T) {
+	InitConcurrencyLimiter(10, 100)
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	pool, err := runner.NewDriverPool(&runnerOpts, 2)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	defer pool.Close()
+	server := &Server{
+		Options: ServerOptions{ScreenshotPath: "/tmp/test"},
+		pool:    pool,
+	}
+	req := httptest.NewRequest(http.MethodGet, "/stats", nil)
+	rr := httptest.NewRecorder()
+	server.HandleStats(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("stats 应返回 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "pool") {
+		t.Errorf("响应应包含 pool 统计, got: %s", body)
+	}
+}
+
+// TestInitPool_Success 覆盖 InitPool 的成功路径（server_methods.go:28-34）。
+// 用 proxyProvider 模式 opts 让 NewDriverPool 不启动浏览器即可成功。
+func TestInitPool_Success(t *testing.T) {
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	server := &Server{Options: ServerOptions{MaxConcurrentRequests: 2, ScreenshotPath: "/tmp/test"}}
+	if err := server.InitPool(&runnerOpts); err != nil {
+		t.Fatalf("InitPool proxyProvider 模式应成功: %v", err)
+	}
+	if server.pool == nil {
+		t.Fatal("InitPool 后 pool 不应为 nil")
+	}
+	server.ClosePool()
+}
+
+// TestClosePool_WithPool 覆盖 ClosePool 的 pool!=nil 分支（server_methods.go:39-41）。
+func TestClosePool_WithPool(t *testing.T) {
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	pool, err := runner.NewDriverPool(&runnerOpts, 1)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	server := &Server{Options: ServerOptions{ScreenshotPath: "/tmp/test"}, pool: pool}
+	server.ClosePool()
 }

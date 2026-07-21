@@ -478,3 +478,134 @@ func TestDetect_Deduplication(t *testing.T) {
 		t.Errorf("WordPress should only be detected once, got %d", wpCount)
 	}
 }
+
+// TestMatchFingerprint_Branches 覆盖 matchFingerprint 的 cookie/meta/script-version 分支。
+func TestMatchFingerprint_Branches(t *testing.T) {
+	t.Run("cookie match", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name:     "CustomCookie",
+			Category: "test",
+			Cookies:  map[string]string{"session": `^v\d+$`},
+		}})
+		techs := d.Detect(DetectInput{Cookies: map[string]string{"session": "v123"}})
+		if len(techs) != 1 || techs[0].Name != "CustomCookie" {
+			t.Fatalf("cookie 匹配失败: %+v", techs)
+		}
+	})
+
+	t.Run("cookie no match value", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name:     "CustomCookie",
+			Category: "test",
+			Cookies:  map[string]string{"session": `^v\d+$`},
+		}})
+		techs := d.Detect(DetectInput{Cookies: map[string]string{"session": "nomatch"}})
+		if len(techs) != 0 {
+			t.Fatalf("不应匹配: %+v", techs)
+		}
+	})
+
+	t.Run("meta match with version", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name:     "GeneratorCMS",
+			Category: "cms",
+			Meta:     map[string]string{"generator": `^MyCMS `},
+			Version:  `MyCMS\s+(\d+\.\d+)`,
+		}})
+		html := `<meta name="generator" content="MyCMS 2.5">`
+		techs := d.Detect(DetectInput{HTML: html})
+		if len(techs) != 1 || techs[0].Name != "GeneratorCMS" || techs[0].Version != "2.5" {
+			t.Fatalf("meta 版本提取失败: %+v", techs)
+		}
+	})
+
+	t.Run("meta tag present but content no match", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name: "GeneratorCMS",
+			Meta: map[string]string{"generator": `^MyCMS `},
+		}})
+		html := `<meta name="generator" content="OtherCMS 1.0">`
+		techs := d.Detect(DetectInput{HTML: html})
+		if len(techs) != 0 {
+			t.Fatalf("不应匹配: %+v", techs)
+		}
+	})
+
+	t.Run("script match without version", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name:     "VueLib",
+			Category: "js",
+			Script:   []string{`vue.*\.js`},
+		}})
+		html := `<script src="vue.runtime.js"></script>`
+		techs := d.Detect(DetectInput{HTML: html})
+		if len(techs) != 1 || techs[0].Name != "VueLib" {
+			t.Fatalf("script 匹配失败: %+v", techs)
+		}
+	})
+
+	t.Run("header match with version extraction", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name:     "Srv",
+			Category: "webserver",
+			Headers:  map[string]string{"server": `^myserver/`},
+			Version:  `myserver/(\d+\.\d+)`,
+		}})
+		techs := d.Detect(DetectInput{Headers: map[string]string{"Server": "myserver/3.2"}})
+		if len(techs) != 1 || techs[0].Version != "3.2" {
+			t.Fatalf("header 版本提取失败: %+v", techs)
+		}
+	})
+
+	t.Run("no patterns match returns empty", func(t *testing.T) {
+		d := NewDetectorWithFingerprints([]Fingerprint{{
+			Name: "Empty",
+		}})
+		techs := d.Detect(DetectInput{HTML: "<html></html>"})
+		if len(techs) != 0 {
+			t.Fatalf("应返回空: %+v", techs)
+		}
+	})
+}
+
+// TestDetectFromResult_ToModelsTechnologies 覆盖 DetectFromResult 与 ToModelsTechnologies 联动。
+func TestDetectFromResult_ToModelsTechnologies(t *testing.T) {
+	d := NewDetector()
+	result := &models.Result{
+		URL:     "https://example.com",
+		HTML:    `<script src="jquery-3.6.0.min.js"></script>`,
+		Headers: []models.Header{{Name: "Server", Value: "nginx/1.25.0"}},
+		Cookies: []models.Cookie{{Name: "sid", Value: "abc"}},
+	}
+	techs := d.DetectFromResult(result)
+	if len(techs) == 0 {
+		t.Fatal("应检测到至少一个技术")
+	}
+	mt := ToModelsTechnologies(techs)
+	if len(mt) != len(techs) {
+		t.Fatalf("转换后数量不一致: %d vs %d", len(mt), len(techs))
+	}
+}
+
+// TestCompilePatterns_InvalidRegex 覆盖 compilePatterns 中正则编译失败的分支。
+func TestCompilePatterns_InvalidRegex(t *testing.T) {
+	// 包含非法正则的指纹，compilePatterns 应跳过而非 panic
+	d := NewDetectorWithFingerprints([]Fingerprint{{
+		Name:    "BadRegex",
+		HTML:    []string{`[`}, // 非法正则
+		Headers: map[string]string{"x": `[`},
+		Cookies: map[string]string{"y": `[`},
+		Meta:    map[string]string{"z": `[`},
+		Script:  []string{`[`},
+		Version: `[`,
+	}})
+	// 检测不应 panic，且不匹配
+	techs := d.Detect(DetectInput{
+		HTML:    "<html></html>",
+		Headers: map[string]string{"x": "1"},
+		Cookies: map[string]string{"y": "1"},
+	})
+	if len(techs) != 0 {
+		t.Fatalf("非法正则不应匹配: %+v", techs)
+	}
+}

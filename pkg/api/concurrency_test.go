@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -323,17 +325,19 @@ func TestConcurrencyLimiter_Acquire(t *testing.T) {
 }
 
 // TestGlobalConcurrencyLimitMiddleware 测试全局并发限制中间件
+// 使用 AcquireConcurrencyPermit 手动占满工作槽与队列，再发起 HTTP 请求断言返回 429，
+// 完全避免依赖异步 http.Get goroutine（否则会因 handler 阻塞导致测试 hang）。
 func TestGlobalConcurrencyLimitMiddleware(t *testing.T) {
-	// 初始化全局并发限制器
+	// 重置全局并发限制器（防止被先执行的测试以更大上限初始化），再以 (1,1) 初始化。
+	ResetConcurrencyLimiter()
 	InitConcurrencyLimiter(1, 1)
+	t.Cleanup(ResetConcurrencyLimiter)
 
 	// 创建中间件
 	middleware := CreateConcurrencyLimitMiddleware()
 
-	// 创建测试处理器
+	// 创建测试处理器：立即返回，不阻塞。
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 模拟一个需要一些时间的处理
-		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("处理完成"))
 	})
@@ -368,34 +372,54 @@ func TestGlobalConcurrencyLimitMiddleware(t *testing.T) {
 		}
 	})
 
-	// 测试并发限制
+	// 测试并发限制：手动占满工作槽(1)与队列(1)，第三个请求应被拒绝返回 429
 	t.Run("并发限制", func(t *testing.T) {
-		// 启动第一个请求占用工作槽
+		ctx := context.Background()
+
+		// 占用唯一的工作槽
+		if err := AcquireConcurrencyPermit(ctx); err != nil {
+			t.Fatalf("占用工作槽失败: %v", err)
+		}
+		// defer 在子测试结束前释放工作槽，避免污染后续测试
+		defer ReleaseConcurrencyPermit()
+
+		// 用一个带短超时的 goroutine 占满队列中的 1 个等待位（Acquire 会阻塞，超时后返回）
+		waitDone := make(chan struct{})
 		go func() {
-			http.Get(srv.URL + "/screenshot")
+			timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			// 这次 Acquire 会进入等待队列（active 已满），占满队列后返回
+			_ = AcquireConcurrencyPermit(timeoutCtx)
+			close(waitDone)
 		}()
 
-		// 启动第二个请求占用队列中的位置
-		go func() {
-			http.Get(srv.URL + "/screenshot")
-		}()
+		// 轮询等待队列被占满（最多 1s）
+		deadline := time.Now().Add(time.Second)
+		for time.Now().Before(deadline) {
+			_, waiting, _, _, _ := GetConcurrencyStats()
+			if waiting >= 1 {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
 
-		// 给一些时间让前两个请求处理
-		time.Sleep(50 * time.Millisecond)
-
-		// 第三个请求应该返回429，因为队列已满
+		// 此时工作槽与队列均满，第三个请求应返回 429
 		resp, err := http.Get(srv.URL + "/screenshot")
 		if err != nil {
 			t.Fatalf("请求失败: %v", err)
 		}
-		defer resp.Body.Close()
+		resp.Body.Close()
 
 		if resp.StatusCode != http.StatusTooManyRequests {
 			t.Errorf("期望状态码 %d，但得到 %d", http.StatusTooManyRequests, resp.StatusCode)
 		}
 
-		// 等待所有请求完成
-		time.Sleep(400 * time.Millisecond)
+		// 等待占满队列的 goroutine 超时退出（它会因 ctx 超时退出并 Release 等待计数）
+		select {
+		case <-waitDone:
+		case <-time.After(3 * time.Second):
+			t.Error("等待队列 goroutine 未在预期时间内退出")
+		}
 	})
 }
 
@@ -653,4 +677,116 @@ func TestServerCreateConcurrencyLimitMiddleware(t *testing.T) {
 			t.Errorf("status = %v, want %v", rr.Code, http.StatusOK)
 		}
 	})
+}
+
+// TestConcurrencyLimiter_Acquire_QueueFull 覆盖 Acquire 的等待队列满拒绝分支
+// （concurrency.go:62-65）。
+func TestConcurrencyLimiter_Acquire_QueueFull(t *testing.T) {
+	// maxConcurrent=1, waitQueue=1：占满信号量（1）+ 等待队列（1），第 3 个应被拒
+	limiter := NewConcurrencyLimiter(1, 1)
+
+	// 占用唯一的信号量槽位
+	if err := limiter.Acquire(context.Background()); err != nil {
+		t.Fatalf("首次 Acquire 应成功: %v", err)
+	}
+
+	// 发起 1 个阻塞 Acquire（waitCount→1=queue 满），用可取消 ctx 便于后续退出
+	blockCtx, blockCancel := context.WithCancel(context.Background())
+	blockDone := make(chan error, 1)
+	go func() { blockDone <- limiter.Acquire(blockCtx) }()
+	time.Sleep(50 * time.Millisecond) // 让它进入等待
+
+	// 此时 waitCount=1=waitQueue，第 3 个 Acquire 应立即拒绝
+	if err := limiter.Acquire(context.Background()); err == nil {
+		t.Error("队列满时应返回错误")
+	} else if !strings.Contains(err.Error(), "队列已满") {
+		t.Logf("拒绝错误（预期）: %v", err)
+	}
+
+	// 取消阻塞的 Acquire 让它退出（释放槽位给后续清理）
+	blockCancel()
+	select {
+	case <-blockDone:
+	case <-time.After(time.Second):
+		t.Fatal("阻塞 Acquire 未在取消后返回")
+	}
+	limiter.Release()
+}
+
+// TestConcurrencyLimiter_Acquire_CtxCancelled 覆盖 Acquire 的
+// ctx.Done 分支（concurrency.go:78-82，waitQueue>0 时等待中被取消）。
+func TestConcurrencyLimiter_Acquire_CtxCancelled(t *testing.T) {
+	limiter := NewConcurrencyLimiter(1, 10)
+	// 占用信号量
+	if err := limiter.Acquire(context.Background()); err != nil {
+		t.Fatalf("首次 Acquire 应成功: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- limiter.Acquire(ctx) }()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("ctx 取消应返回错误")
+		} else if !errors.Is(err, context.Canceled) {
+			t.Errorf("应返回 context.Canceled, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Acquire 未在取消后返回")
+	}
+
+	limiter.Release()
+}
+
+// TestConcurrencyLimiter_Release_NoActive 覆盖 Release 的
+// activeCount==0 跳过分支（concurrency.go:100 false 分支）。
+func TestConcurrencyLimiter_Release_NoActive(t *testing.T) {
+	limiter := NewConcurrencyLimiter(2, 10)
+	// 未 Acquire 直接 Release，activeCount=0 → 不释放信号量
+	limiter.Release()
+	limiter.Release() // 重复释放不应 panic
+}
+
+// TestConcurrencyLimiter_Acquire_NoQueueCtxCancelled 覆盖 Acquire 的
+// waitQueue<=0 简化分支的 ctx.Done（concurrency.go:89-90）。
+func TestConcurrencyLimiter_Acquire_NoQueueCtxCancelled(t *testing.T) {
+	// waitQueue=0（实际 NewConcurrencyLimiter 会设默认 100，需手动构造 0）
+	limiter := &ConcurrencyLimiter{
+		maxConcurrent: 1,
+		semaphore:     make(chan struct{}, 1),
+		waitQueue:     0,
+	}
+	// 占用信号量
+	limiter.semaphore <- struct{}{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- limiter.Acquire(ctx) }()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("ctx 取消应返回错误")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Acquire 未在取消后返回")
+	}
+}
+
+// TestConcurrencyLimiter_Release_NoQueueDefault 覆盖 Release 的
+// waitQueue<=0 简化分支的 default（无信号量可释放，concurrency.go:109-111）。
+func TestConcurrencyLimiter_Release_NoQueueDefault(t *testing.T) {
+	limiter := &ConcurrencyLimiter{
+		maxConcurrent: 2,
+		semaphore:     make(chan struct{}, 2),
+		waitQueue:     0,
+	}
+	// 未占用直接 Release → default 分支，不 panic
+	limiter.Release()
 }

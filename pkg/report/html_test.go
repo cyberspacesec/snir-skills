@@ -563,3 +563,189 @@ func TestHTMLTemplate_NoScreenshot(t *testing.T) {
 		t.Error("无截图的HTML应包含'无截图'提示")
 	}
 }
+
+// TestGetStatusClass 直接覆盖 getStatusClass 的所有分支。
+func TestGetStatusClass(t *testing.T) {
+	tests := []struct {
+		code int
+		want string
+	}{
+		{200, "2xx"}, {299, "2xx"},
+		{300, "3xx"}, {399, "3xx"},
+		{400, "4xx"}, {499, "4xx"},
+		{500, "5xx"}, {599, "5xx"},
+		{0, "0xx"}, {100, "0xx"}, {199, "0xx"}, {600, "0xx"}, {999, "0xx"},
+	}
+	for _, tt := range tests {
+		if got := getStatusClass(tt.code); got != tt.want {
+			t.Errorf("getStatusClass(%d) = %q, want %q", tt.code, got, tt.want)
+		}
+	}
+}
+
+// TestGenerateHTML_ContentLengthMB 覆盖 ContentLength >= 1MB 分支与 cloudflare/server/powered-by 头。
+func TestGenerateHTML_ContentLengthMB(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "test.jsonl")
+	// 2MB 触发 MB 分支；附带 server/cloudflare/powered-by 头（字段使用 snake_case JSON tag）
+	content := `{"url":"https://big.example.com","title":"Big","response_code":200,"content_length":2097152,"headers":[{"name":"Server","value":"cloudflare"},{"name":"X-Powered-By","value":"Express"}]}
+`
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	outputFile := filepath.Join(tempDir, "out.html")
+	if err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: outputFile}); err != nil {
+		t.Fatalf("GenerateHTML 失败: %v", err)
+	}
+	html, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("读 HTML 失败: %v", err)
+	}
+	if !strings.Contains(string(html), "MB") {
+		t.Error("HTML 应包含 MB 内容长度")
+	}
+}
+
+// TestGenerateHTML_KB 覆盖 KB 分支。
+func TestGenerateHTML_KB(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "test.jsonl")
+	content := `{"url":"https://kb.example.com","title":"KB","response_code":200,"content_length":2048}
+`
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	outputFile := filepath.Join(tempDir, "out.html")
+	if err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: outputFile}); err != nil {
+		t.Fatalf("GenerateHTML 失败: %v", err)
+	}
+	html, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("读 HTML 失败: %v", err)
+	}
+	if !strings.Contains(string(html), "KB") {
+		t.Error("HTML 应包含 KB 内容长度")
+	}
+}
+
+// TestGenerateHTML_TechVersionAndConsole 覆盖 tech 带/不带版本与 console error 收集。
+func TestGenerateHTML_TechVersionAndConsole(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "test.jsonl")
+	content := `{"url":"https://tech.example.com","title":"Tech","response_code":200,"technologies":[{"name":"Nginx","version":"1.25"},{"name":"jQuery"}],"console":[{"level":"error","message":"boom"},{"level":"log","message":"hi"}]}
+`
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	outputFile := filepath.Join(tempDir, "out.html")
+	if err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: outputFile}); err != nil {
+		t.Fatalf("GenerateHTML 失败: %v", err)
+	}
+	html, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("读 HTML 失败: %v", err)
+	}
+	s := string(html)
+	if !strings.Contains(s, "Nginx 1.25") {
+		t.Error("HTML 应包含带版本的 tech badge")
+	}
+	if !strings.Contains(s, "boom") {
+		t.Error("HTML 应包含 console error")
+	}
+}
+
+// TestGenerateHTML_AbsScreenshot 覆盖绝对路径截图的相对路径转换。
+func TestGenerateHTML_AbsScreenshot(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "test.jsonl")
+	content := `{"url":"https://shot.example.com","title":"Shot","response_code":200,"filename":"` + filepath.Join(tempDir, "shot.png") + `"}
+`
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	outputFile := filepath.Join(tempDir, "out.html")
+	if err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: outputFile}); err != nil {
+		t.Fatalf("GenerateHTML 失败: %v", err)
+	}
+	if _, err := os.Stat(outputFile); err != nil {
+		t.Fatalf("输出文件未生成: %v", err)
+	}
+}
+
+// TestGenerateHTML_FailedResult 覆盖 Failed=true 分支。
+func TestGenerateHTML_FailedResult(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "test.jsonl")
+	content := `{"url":"https://fail.example.com","title":"Fail","response_code":0,"failed":true,"failed_reason":"timeout"}
+`
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	outputFile := filepath.Join(tempDir, "out.html")
+	if err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: outputFile}); err != nil {
+		t.Fatalf("GenerateHTML 失败: %v", err)
+	}
+	html, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("读 HTML 失败: %v", err)
+	}
+	if !strings.Contains(string(html), "timeout") {
+		t.Error("HTML 应包含失败原因")
+	}
+}
+
+// TestGenerateHTML_ReadError 覆盖读取结果失败分支（损坏的 JSONL）。
+func TestGenerateHTML_ReadError(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "bad.jsonl")
+	if err := os.WriteFile(inputFile, []byte("{invalid json"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: filepath.Join(tempDir, "out.html")})
+	if err == nil {
+		t.Fatal("期望读取失败错误，得到 nil")
+	}
+}
+
+// TestGenerateHTML_EmptyResultsFile 覆盖结果文件为空分支。
+func TestGenerateHTML_EmptyResultsFile(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "empty.jsonl")
+	if err := os.WriteFile(inputFile, []byte(""), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	err := GenerateHTML(HTMLOptions{InputFile: inputFile, OutputPath: filepath.Join(tempDir, "out.html")})
+	if err == nil {
+		t.Fatal("期望空结果错误，得到 nil")
+	}
+}
+
+// TestReadJSONLResults_ScannerError 覆盖 ReadJSONLResults 的 scanner.Err 分支
+// （html.go:552-553）。用超长行（>bufio.MaxScanTokenSize）触发 scanner 错误。
+func TestReadJSONLResults_ScannerError(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "toolong.jsonl")
+	// 一行超过默认 64KB 的 token，触发 bufio.Scanner.Err
+	longLine := strings.Repeat("a", 1<<20)
+	os.WriteFile(inputFile, []byte(longLine), 0644)
+	_, err := ReadJSONLResults(inputFile)
+	if err == nil {
+		t.Fatal("超长行应触发 scanner 错误")
+	}
+}
+
+// TestGenerateHTML_ReadJSONLError 覆盖 GenerateHTML 的 ReadJSONLResults 失败分支
+// （html.go:363-365）。
+func TestGenerateHTML_ReadJSONLError(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "toolong.jsonl")
+	longLine := strings.Repeat("a", 1<<20)
+	os.WriteFile(inputFile, []byte(longLine), 0644)
+	err := GenerateHTML(HTMLOptions{
+		InputFile:  inputFile,
+		OutputPath: filepath.Join(tempDir, "out.html"),
+	})
+	if err == nil {
+		t.Fatal("ReadJSONL 失败应返回错误")
+	}
+}

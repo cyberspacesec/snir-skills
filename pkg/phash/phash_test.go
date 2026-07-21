@@ -376,3 +376,30 @@ func TestHexToHashValue_Extra(t *testing.T) {
 		t.Fatalf("大写 hex 解析失败: v=%#x err=%v", v, err)
 	}
 }
+
+// TestComputeHash_InvalidPNG 覆盖 ComputeHash 的 png.Decode 失败分支
+// （phash.go:22-24）。传入无效 PNG 字节触发解码错误。
+func TestComputeHash_InvalidPNG(t *testing.T) {
+	_, err := ComputeHash([]byte("not-a-png-image"))
+	if err == nil {
+		t.Fatal("无效 PNG 应返回错误")
+	}
+}
+
+// TestComputePerceptionHash_InvalidPNG 覆盖 ComputePerceptionHash 的
+// png.Decode 失败分支（phash.go:42-44）。
+func TestComputePerceptionHash_InvalidPNG(t *testing.T) {
+	_, err := ComputePerceptionHash([]byte("not-a-png-image"))
+	if err == nil {
+		t.Fatal("无效 PNG 应返回错误")
+	}
+}
+
+// TestComputeAverageHash_InvalidPNG 覆盖 ComputeAverageHash 的
+// png.Decode 失败分支（phash.go:62-64）。
+func TestComputeAverageHash_InvalidPNG(t *testing.T) {
+	_, err := ComputeAverageHash([]byte("not-a-png-image"))
+	if err == nil {
+		t.Fatal("无效 PNG 应返回错误")
+	}
+}

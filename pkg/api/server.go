@@ -48,6 +48,21 @@ func InitConcurrencyLimiter(max, queueSize int) {
 	log.Info("初始化并发限制器", "max_concurrent", max, "queue_size", queueSize)
 }
 
+// ResetConcurrencyLimiter 重置全局并发限制器状态，仅用于测试。
+// 由于 InitConcurrencyLimiter 是幂等的（首次初始化后忽略后续调用），
+// 测试需要精确控制并发上限时必须先调用本函数清空旧状态。
+func ResetConcurrencyLimiter() {
+	limiterMu.Lock()
+	defer limiterMu.Unlock()
+
+	maxConcurrent = 10
+	maxQueueSize = 100
+	activeRequests = 0
+	waitingRequests = 0
+	concurrencySemaCh = nil
+	limiterInitialized = false
+}
+
 // AcquireConcurrencyPermit 尝试获取并发许可
 func AcquireConcurrencyPermit(ctx context.Context) error {
 	if !limiterInitialized {

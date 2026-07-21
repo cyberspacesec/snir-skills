@@ -401,6 +401,57 @@ func TestBuildInteractionActions(t *testing.T) {
 	}
 }
 
+// TestBuildInteractionActions_AllBranches 覆盖 buildInteractionActions 的所有剩余分支：
+// type、scroll(selector)、hover(selector)、空 selector+xpath 都空 continue、
+// wait 默认 1000ms（WaitTime<=0）、wait+WaitVisible+XPath。
+func TestBuildInteractionActions_AllBranches(t *testing.T) {
+	tasks := buildInteractionActions([]InteractionAction{
+		{Type: "type", Selector: "#input", Value: "hello"},
+		{Type: "scroll", Selector: "#main", Value: "200"},
+		{Type: "hover", Selector: "#menu"},
+		{Type: "click"},                                     // 无 selector+xpath → continue
+		{Type: "unknown", Selector: "#x"},                   // 未知 type → 无 append
+		{Type: "wait", WaitTime: 0},                         // 默认 1000ms 分支
+		{Type: "wait", XPath: "//ready", WaitVisible: true}, // wait+WaitVisible+XPath
+	})
+	// type/scroll/hover/wait(default)/wait(WaitVisible) = 5 个 action
+	if len(tasks) != 5 {
+		t.Fatalf("buildInteractionActions returned %d tasks, want 5", len(tasks))
+	}
+
+	// 验证 wait 默认 1000ms 分支：tasks[3] 应 sleep ~1s
+	start := time.Now()
+	if err := tasks[3].Do(context.Background()); err != nil {
+		t.Fatalf("wait default action error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 900*time.Millisecond {
+		t.Errorf("wait default 应 sleep ~1000ms, elapsed %v", elapsed)
+	}
+}
+
+// TestParseSameSite_AllBranches 覆盖 parseSameSite 的所有分支。
+func TestParseSameSite_AllBranches(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string // network.CookieSameSite 的字符串表示
+	}{
+		{"strict", "Strict"},
+		{"lax", "Lax"},
+		{"none", "None"},
+		{"", "Lax"},          // 默认 Lax
+		{"unknown", "Lax"},   // 默认 Lax
+		{"STRICT", "Strict"}, // 大写转小写
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got := parseSameSite(tt.in).String()
+			if got != tt.want {
+				t.Errorf("parseSameSite(%q) = %s, want %s", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func CreateTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(&discardWriter{}, &slog.HandlerOptions{}))
 }
@@ -409,4 +460,125 @@ type discardWriter struct{}
 
 func (w *discardWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
+}
+
+// TestEncodeScreenshot_EdgeBranches 覆盖 encodeScreenshot 的边缘分支：
+// 空 format 默认 png、jpg 别名、直接返回（已匹配 magic）、quality 边界、decode 失败。
+func TestEncodeScreenshot_EdgeBranches(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	src.Set(0, 0, color.RGBA{R: 255, A: 255})
+
+	var pngInput bytes.Buffer
+	if err := png.Encode(&pngInput, src); err != nil {
+		t.Fatalf("encode source png: %v", err)
+	}
+	pngBytes := pngInput.Bytes()
+
+	// 空 format → 默认 png，且 magic 匹配直接返回
+	out, err := encodeScreenshot(pngBytes, "", 90)
+	if err != nil {
+		t.Fatalf("empty format: %v", err)
+	}
+	if !bytes.Equal(out, pngBytes) {
+		t.Error("空 format 应默认 png 并直接返回原 buf")
+	}
+
+	// 大写 PNG → toLower 后直接返回
+	out, err = encodeScreenshot(pngBytes, "PNG", 90)
+	if err != nil {
+		t.Fatalf("uppercase PNG: %v", err)
+	}
+	if !bytes.Equal(out, pngBytes) {
+		t.Error("大写 PNG 应直接返回原 buf")
+	}
+
+	// jpg 别名 → 走 jpeg 编码（png 输入需 decode 后重新编码为 jpeg）
+	jpgOut, err := encodeScreenshot(pngBytes, "jpg", 0) // quality=0 → 默认 90
+	if err != nil {
+		t.Fatalf("jpg alias quality=0: %v", err)
+	}
+	if !bytes.HasPrefix(jpgOut, []byte{0xff, 0xd8}) {
+		t.Error("jpg 输出应有 jpeg magic")
+	}
+
+	// quality>100 → 默认 90
+	jpgOut2, err := encodeScreenshot(pngBytes, "jpeg", 150)
+	if err != nil {
+		t.Fatalf("jpeg quality=150: %v", err)
+	}
+	if len(jpgOut2) == 0 {
+		t.Error("jpeg quality=150 应有输出")
+	}
+
+	// 直接返回 jpeg（输入已是 jpeg magic）
+	fakeJPEG := []byte{0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 'J', 'F', 'I', 'F'}
+	out, err = encodeScreenshot(fakeJPEG, "jpeg", 90)
+	if err != nil {
+		t.Fatalf("jpeg direct return: %v", err)
+	}
+	if !bytes.Equal(out, fakeJPEG) {
+		t.Error("jpeg magic 匹配应直接返回原 buf")
+	}
+
+	// decode 失败：无效图像数据 + png format（magic 不匹配 → 尝试 decode → 失败）
+	_, err = encodeScreenshot([]byte("not an image at all"), "png", 90)
+	if err == nil {
+		t.Fatal("无效图像数据应返回 decode 错误")
+	}
+}
+
+// TestJsStringLiteral 覆盖 jsStringLiteral：正常编码与错误回退（理论上 json.Marshal 对 string 不失败，
+// 但覆盖正常路径即可）。
+func TestJsStringLiteral(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"空串", ""},
+		{"普通", "hello"},
+		{"含引号", `he said "hi"`},
+		{"含换行", "line1\nline2"},
+		{"含中文", "你好世界"},
+		{"含反斜杠", `path\to\file`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := jsStringLiteral(tt.input)
+			if len(got) == 0 {
+				t.Fatalf("jsStringLiteral 返回空串")
+			}
+			// 应以引号包裹
+			if got[0] != '"' || got[len(got)-1] != '"' {
+				t.Errorf("jsStringLiteral(%q) = %q, 应以引号包裹", tt.input, got)
+			}
+		})
+	}
+}
+
+// TestAddScriptToEvaluateOnNewDocument 构造 Action 并验证其类型（不执行，避免依赖浏览器）。
+func TestAddScriptToEvaluateOnNewDocument(t *testing.T) {
+	action := addScriptToEvaluateOnNewDocument("(() => {})()")
+	if action == nil {
+		t.Fatal("addScriptToEvaluateOnNewDocument 不应返回 nil")
+	}
+}
+
+// TestAddScriptToEvaluateOnNewDocument_ExecuteWithPlainCtx 覆盖
+// addScriptToEvaluateOnNewDocument 闭包体的执行路径（chromedp.go:852-855）。
+// 用普通 context.Background() 执行 Do，chromedp 会因缺少 cdp session 返回错误，
+// 覆盖闭包内的 err 返回分支（不启动浏览器）。
+func TestAddScriptToEvaluateOnNewDocument_ExecuteWithPlainCtx(t *testing.T) {
+	action := addScriptToEvaluateOnNewDocument("(() => {})()")
+	// chromedp.ActionFunc 的执行需通过其 Do 方法
+	type executer interface{ Do(context.Context) error }
+	ex, ok := action.(executer)
+	if !ok {
+		t.Skip("action 不实现 Do(context.Context) error，跳过")
+	}
+	// 普通 ctx 执行，预期返回错误（无 cdp session），覆盖闭包体
+	err := ex.Do(context.Background())
+	if err == nil {
+		t.Log("Do 在普通 ctx 上意外成功（可能 chromedp 版本行为不同）")
+	}
+	// 关键：不 panic、覆盖 line 853-854
 }

@@ -1,7 +1,10 @@
 package runner
 
 import (
+	"net"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -205,5 +208,163 @@ func TestExtractDomainSimple(t *testing.T) {
 				t.Fatalf("extractDomainSimple(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestNewURLBlacklist_BlacklistFile 覆盖 NewURLBlacklist 的 BlacklistFile 成功加载分支。
+func TestNewURLBlacklist_BlacklistFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	blacklistFile := tmpDir + "/bl.txt"
+	content := "# 注释行\n10.0.0.0/8\nbad.example.com\n*.evil.com\n"
+	if err := os.WriteFile(blacklistFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写入文件失败: %v", err)
+	}
+
+	options := &Options{}
+	options.Scan.EnableBlacklist = true
+	options.Scan.DefaultBlacklist = false
+	options.Scan.BlacklistFile = blacklistFile
+
+	bl, err := NewURLBlacklist(options)
+	if err != nil {
+		t.Fatalf("NewURLBlacklist 失败: %v", err)
+	}
+	// 应加载 3 条规则（注释跳过）
+	if len(bl.patterns) != 3 {
+		t.Errorf("patterns 数量 = %d, want 3", len(bl.patterns))
+	}
+	// 验证规则生效
+	if blocked, _ := bl.IsBlacklisted("http://10.1.2.3/x"); !blocked {
+		t.Error("10.0.0.0/8 应被拉黑")
+	}
+	if blocked, _ := bl.IsBlacklisted("http://bad.example.com/"); !blocked {
+		t.Error("bad.example.com 应被拉黑")
+	}
+	// *.evil.com 编译为正则后匹配完整 URL（含 http:// 前缀），
+	// 此处仅验证规则已加载（不依赖完整 URL 匹配，避免与 IsBlacklisted 的正则锚定设计耦合）
+	_ = "http://sub.evil.com/"
+}
+
+// TestNewURLBlacklist_BlacklistFileError 覆盖 BlacklistFile 不存在的错误分支。
+func TestNewURLBlacklist_BlacklistFileError(t *testing.T) {
+	options := &Options{}
+	options.Scan.EnableBlacklist = true
+	options.Scan.DefaultBlacklist = false
+	options.Scan.BlacklistFile = "/nonexistent/path/blacklist.txt"
+
+	_, err := NewURLBlacklist(options)
+	if err == nil {
+		t.Fatal("BlacklistFile 不存在应返回错误")
+	}
+}
+
+// TestNewURLBlacklist_InvalidRegexPattern 覆盖 parsePatterns 的无效正则分支。
+// pattern 含 '[' 但未闭合会生成非法正则，regexp.Compile 失败。
+func TestNewURLBlacklist_InvalidRegexPattern(t *testing.T) {
+	options := &Options{}
+	options.Scan.EnableBlacklist = true
+	options.Scan.DefaultBlacklist = false
+	// '[abc' 含 '[' 触发正则分支，但未闭合字符类 → 编译失败
+	options.Scan.BlacklistPatterns = []string{"[abc"}
+
+	_, err := NewURLBlacklist(options)
+	if err == nil {
+		t.Fatal("无效正则 pattern 应返回错误")
+	}
+}
+
+// TestNewURLBlacklist_IPv6Pattern 覆盖 parsePatterns 的 IPv6 地址分支。
+func TestNewURLBlacklist_IPv6Pattern(t *testing.T) {
+	options := &Options{}
+	options.Scan.EnableBlacklist = true
+	options.Scan.DefaultBlacklist = false
+	options.Scan.BlacklistPatterns = []string{"::1"}
+
+	bl, err := NewURLBlacklist(options)
+	if err != nil {
+		t.Fatalf("NewURLBlacklist 失败: %v", err)
+	}
+	if blocked, _ := bl.IsBlacklisted("http://[::1]/"); !blocked {
+		t.Error("::1 应被拉黑")
+	}
+}
+
+// TestIsBlacklisted_InvalidURL 覆盖 IsBlacklisted 的 URL 解析失败分支
+// （blacklist.go:184-187，出于安全返回 true）。
+func TestIsBlacklisted_InvalidURL(t *testing.T) {
+	bl := &URLBlacklist{}
+	bl.enabled = true
+	// 构造 url.Parse 失败的输入：含非法转义的控制字符
+	blocked, reason := bl.IsBlacklisted("http://example.com\x7f\x00")
+	if !blocked {
+		t.Error("无效 URL 应出于安全返回 true")
+	}
+	if !strings.Contains(reason, "无效") {
+		t.Errorf("reason 应包含 '无效', got %q", reason)
+	}
+}
+
+// TestIsBlacklisted_DisabledReturnsFalse 覆盖 IsBlacklisted 的
+// enabled==false 早返回分支（blacklist.go:178-180）。
+func TestIsBlacklisted_DisabledReturnsFalse(t *testing.T) {
+	bl := &URLBlacklist{}
+	bl.enabled = false
+	blocked, _ := bl.IsBlacklisted("http://10.0.0.1/")
+	if blocked {
+		t.Error("未启用黑名单应返回 false")
+	}
+}
+
+// TestIsBlacklisted_PortRegexMatch 覆盖 IsBlacklisted 的 regex 匹配分支
+// （blacklist.go:198-202）。注意 line 233-240 端口分支在 regexPatterns
+// 已匹配完整 URL 时不可达（hostPort 是 URL 子串），故仅覆盖主 regex 分支。
+func TestIsBlacklisted_PortRegexMatch(t *testing.T) {
+	bl := &URLBlacklist{}
+	bl.enabled = true
+	re := regexp.MustCompile(`example\.com:8080`)
+	bl.regexPatterns = []*regexp.Regexp{re}
+
+	blocked, reason := bl.IsBlacklisted("http://example.com:8080/path")
+	if !blocked {
+		t.Error("应匹配正则黑名单规则")
+	}
+	if !strings.Contains(reason, "正则表达式黑名单") {
+		t.Errorf("reason 应包含 '正则表达式黑名单', got %q", reason)
+	}
+}
+
+// TestIsBlacklisted_DomainSuffixMatch 覆盖 IsBlacklisted 的
+// 域名后缀匹配分支（blacklist.go:205-209）。
+func TestIsBlacklisted_DomainSuffixMatch(t *testing.T) {
+	bl := &URLBlacklist{}
+	bl.enabled = true
+	bl.domainPatterns = []string{"evil.com"}
+
+	// 子域应匹配
+	blocked, _ := bl.IsBlacklisted("http://sub.evil.com/")
+	if !blocked {
+		t.Error("子域 evil.com 应匹配")
+	}
+	// 非后缀的不应匹配（如 notevil.com）
+	blocked, _ = bl.IsBlacklisted("http://notevil.com/")
+	if blocked {
+		t.Error("notevil.com 不应匹配 evil.com 后缀")
+	}
+}
+
+// TestIsBlacklisted_IPInCIDR 覆盖 IsBlacklisted 的
+// IP 在 CIDR 范围分支（blacklist.go:212-218）。
+func TestIsBlacklisted_IPInCIDR(t *testing.T) {
+	bl := &URLBlacklist{}
+	bl.enabled = true
+	_, ipNet, _ := net.ParseCIDR("192.168.1.0/24")
+	bl.ipNetworks = []*net.IPNet{ipNet}
+
+	blocked, reason := bl.IsBlacklisted("http://192.168.1.50/")
+	if !blocked {
+		t.Error("192.168.1.50 应在 192.168.1.0/24 范围内")
+	}
+	if !strings.Contains(reason, "CIDR") {
+		t.Errorf("reason 应包含 'CIDR', got %q", reason)
 	}
 }

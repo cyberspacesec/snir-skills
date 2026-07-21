@@ -173,3 +173,29 @@ func TestGetScreenshotsByURL_NoMatch(t *testing.T) {
 		t.Errorf("无匹配查询应返回空切片，实际得到 %d 条", len(got))
 	}
 }
+
+// TestGetScreenshotsByURL_EmptyInput 验证空/空白 url 输入返回 error 且不查询数据库。
+func TestGetScreenshotsByURL_EmptyInput(t *testing.T) {
+	db := newTestDBForHostQuery(t)
+	for _, in := range []string{"", "   ", "\t\n"} {
+		got, err := db.GetScreenshotsByURL(in)
+		if err == nil {
+			t.Fatalf("GetScreenshotsByURL(%q) 期望返回错误", in)
+		}
+		if got != nil {
+			t.Fatalf("GetScreenshotsByURL(%q) 期望返回 nil 切片", in)
+		}
+	}
+}
+
+// TestGetScreenshotsByHost_EmptyInputExtra 覆盖 GetScreenshotsByHost 的空白输入分支。
+func TestGetScreenshotsByHost_EmptyInputExtra(t *testing.T) {
+	db := newTestDBForHostQuery(t)
+	got, err := db.GetScreenshotsByHost("  \t ")
+	if err == nil {
+		t.Fatal("空白 host 应返回错误")
+	}
+	if got != nil {
+		t.Fatalf("空白 host 应返回 nil 切片, got %v", got)
+	}
+}

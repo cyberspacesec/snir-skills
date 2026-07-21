@@ -408,3 +408,26 @@ func TestFindSourceFiles_NoValidExtensions(t *testing.T) {
 		t.Errorf("期望找到 0 个文件，但找到了 %d 个", len(files))
 	}
 }
+
+// TestMerge_ReadResultsErrorContinue 覆盖 Merge 的 readResults 失败 continue 分支
+// （merge.go:62-64）。用一个无法读取的 .db 源文件让 readResults 报错，
+// Merge 应跳过它并最终返回"没有读取到有效记录"错误。
+func TestMerge_ReadResultsErrorContinue(t *testing.T) {
+	tempDir := t.TempDir()
+	// 无效 .db 文件（SQLite 打开失败）
+	badDB := filepath.Join(tempDir, "bad.db")
+	os.WriteFile(badDB, []byte("not a sqlite db"), 0644)
+	// 同时提供一个有效 jsonl 让 allResults 非空，走到 writeResults
+	goodJSONL := filepath.Join(tempDir, "good.jsonl")
+	os.WriteFile(goodJSONL, []byte(`{"URL":"https://example.com","Title":"T","ResponseCode":200}`+"\n"), 0644)
+
+	outputFile := filepath.Join(tempDir, "output.jsonl")
+	err := Merge(MergeOptions{
+		SourceFiles: []string{badDB, goodJSONL},
+		OutputFile:  outputFile,
+	})
+	// bad.db 被跳过（continue），good.jsonl 成功 → 合并成功
+	if err != nil {
+		t.Errorf("应跳过坏文件并成功合并, got: %v", err)
+	}
+}

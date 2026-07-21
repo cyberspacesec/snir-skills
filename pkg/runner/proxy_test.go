@@ -1,6 +1,8 @@
 package runner
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -595,5 +597,146 @@ func TestCreateProxyProvider_AllOptions(t *testing.T) {
 	name := p.Name()
 	if !strings.Contains(name, "proxy-file") {
 		t.Errorf("Should use ProxyFile (second priority), got Name() = %s", name)
+	}
+}
+
+// TestProxyAPI_GetProxy_Success 覆盖 ProxyAPI.GetProxy 的成功路径：
+// 远程 API 返回 200 + 代理地址，缓存并返回（含协议前缀补充与原样返回）。
+func TestProxyAPI_GetProxy_Success(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("10.0.0.1:8080"))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	api := NewProxyAPI(srv.URL+"/get", ProxyRandom)
+	proxy, err := api.GetProxy()
+	if err != nil {
+		t.Fatalf("GetProxy() error = %v", err)
+	}
+	if proxy != "http://10.0.0.1:8080" {
+		t.Errorf("GetProxy() = %s, want http://10.0.0.1:8080", proxy)
+	}
+	// 缓存应包含一条
+	api.cacheMu.Lock()
+	if len(api.cache) != 1 {
+		t.Errorf("缓存数量 = %d, want 1", len(api.cache))
+	}
+	api.cacheMu.Unlock()
+}
+
+func TestProxyAPI_GetProxy_SuccessWithProtocol(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("socks5://10.0.0.2:1080"))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	api := NewProxyAPI(srv.URL+"/get", ProxyRoundRobin)
+	proxy, err := api.GetProxy()
+	if err != nil {
+		t.Fatalf("GetProxy() error = %v", err)
+	}
+	if proxy != "socks5://10.0.0.2:1080" {
+		t.Errorf("GetProxy() = %s, want socks5://10.0.0.2:1080", proxy)
+	}
+}
+
+func TestProxyAPI_GetProxy_Non200(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	api := NewProxyAPI(srv.URL+"/get", ProxyRoundRobin)
+	_, err := api.GetProxy()
+	if err == nil {
+		t.Fatal("非 200 应返回错误")
+	}
+}
+
+func TestProxyAPI_GetProxy_EmptyBody(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("   "))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	api := NewProxyAPI(srv.URL+"/get", ProxyRoundRobin)
+	_, err := api.GetProxy()
+	if err == nil {
+		t.Fatal("空响应应返回错误")
+	}
+}
+
+func TestProxyAPI_GetProxy_FallbackToCache(t *testing.T) {
+	// 第一次用有效 API 获取并缓存；第二次让 API 返回 500，应回退到缓存。
+	mux := http.NewServeMux()
+	good := true
+	mux.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		if good {
+			_, _ = w.Write([]byte("10.0.0.3:8080"))
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	api := NewProxyAPI(srv.URL+"/get", ProxyRoundRobin)
+	proxy, err := api.GetProxy()
+	if err != nil {
+		t.Fatalf("第一次 GetProxy() error = %v", err)
+	}
+	if proxy != "http://10.0.0.3:8080" {
+		t.Fatalf("第一次 GetProxy() = %s", proxy)
+	}
+
+	// 让 API 失败，应回退到缓存
+	good = false
+	proxy2, err := api.GetProxy()
+	if err != nil {
+		t.Fatalf("回退缓存时应成功，error = %v", err)
+	}
+	if proxy2 != "http://10.0.0.3:8080" {
+		t.Errorf("回退缓存 GetProxy() = %s, want http://10.0.0.3:8080", proxy2)
+	}
+}
+
+func TestSimpleHTTPClient_Get_Success(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("hello"))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	client := &simpleHTTPClient{timeout: 2 * time.Second}
+	body, err := client.Get(srv.URL + "/ok")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if body != "hello" {
+		t.Errorf("Get() body = %q, want hello", body)
+	}
+}
+
+func TestSimpleHTTPClient_Get_Non200Status(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/err", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	client := &simpleHTTPClient{timeout: 2 * time.Second}
+	_, err := client.Get(srv.URL + "/err")
+	if err == nil {
+		t.Fatal("非 200 应返回错误")
 	}
 }

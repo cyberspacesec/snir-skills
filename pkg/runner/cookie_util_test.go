@@ -170,3 +170,46 @@ func containsStr(s, substr string) bool {
 	}
 	return false
 }
+
+// TestParseSetCookieHeaders_EdgeBranches 覆盖 ParseSetCookieHeaders 的边缘分支：
+// max-age（有效/无效/<=0）、expires（有效/无效）、空 part、无 name（跳过）、
+// 多 cookie、仅有 name 无属性。
+func TestParseSetCookieHeaders_EdgeBranches(t *testing.T) {
+	headers := []string{
+		"token=xyz; Max-Age=3600",
+		"bad=abc; Max-Age=notanumber",
+		"neg=1; Max-Age=0",
+		"exp=1; Expires=Wed, 09 Jun 2021 10:18:14 GMT",
+		"badexp=1; Expires=not-a-date",
+		"empty=1;; ;Path=/x",
+		"; Path=/; Domain=.x.com",
+		"plain=value",
+	}
+
+	cookies := ParseSetCookieHeaders(headers, ".default.com")
+	if len(cookies) != 7 {
+		t.Fatalf("got %d cookies, want 7", len(cookies))
+	}
+
+	if cookies[0].Expires != 3600 {
+		t.Errorf("Max-Age=3600 → Expires = %d, want 3600", cookies[0].Expires)
+	}
+	if cookies[1].Expires != 0 {
+		t.Errorf("无效 Max-Age → Expires = %d, want 0", cookies[1].Expires)
+	}
+	if cookies[2].Expires != 0 {
+		t.Errorf("Max-Age=0 → Expires = %d, want 0", cookies[2].Expires)
+	}
+	if cookies[3].Expires == 0 {
+		t.Error("有效 Expires 应解析为非零 Unix 时间戳")
+	}
+	if cookies[4].Expires != 0 {
+		t.Errorf("无效 Expires → Expires = %d, want 0", cookies[4].Expires)
+	}
+	if cookies[5].Path != "/x" {
+		t.Errorf("空 part cookie Path = %s, want /x", cookies[5].Path)
+	}
+	if cookies[6].Name != "plain" || cookies[6].Value != "value" {
+		t.Errorf("plain cookie = %s=%s", cookies[6].Name, cookies[6].Value)
+	}
+}

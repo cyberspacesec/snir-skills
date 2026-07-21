@@ -301,3 +301,117 @@ func TestCreateRunnerOptions(t *testing.T) {
 		})
 	}
 }
+
+// TestCreateRunnerOptions_AdvancedBranches 覆盖 createRunnerOptions 的指纹/cookie/action/form/未知设备分支。
+func TestCreateRunnerOptions_AdvancedBranches(t *testing.T) {
+	t.Run("unknown device preset warns and continues", func(t *testing.T) {
+		opts := createRunnerOptions(ScreenshotRequest{
+			URL:    "example.com",
+			Device: "nonexistent-device-xyz",
+		}, ServerOptions{ScreenshotPath: "/tmp/x"})
+		// 未知设备不应 panic，UA 等保持默认
+		if opts.Chrome.DeviceName != "" {
+			t.Fatalf("DeviceName 应为空, got %q", opts.Chrome.DeviceName)
+		}
+	})
+
+	t.Run("fingerprint full override", func(t *testing.T) {
+		opts := createRunnerOptions(ScreenshotRequest{
+			URL: "example.com",
+			Fingerprint: BrowserFingerprint{
+				UserAgent:       "ua",
+				AcceptLanguage:  "zh",
+				Platform:        "Win32",
+				Vendor:          "Google",
+				Plugins:         []string{"PDF"},
+				WebGLVendor:     "vendor",
+				WebGLRenderer:   "renderer",
+				CustomHeaders:   map[string]string{"X-Custom": "1"},
+				DisableWebRTC:   true,
+				SpoofScreenSize: true,
+				ScreenWidth:     1920,
+				ScreenHeight:    1080,
+			},
+		}, ServerOptions{ScreenshotPath: "/tmp/x"})
+		c := opts.Chrome
+		if c.UserAgent != "ua" || c.AcceptLanguage != "zh" || c.Platform != "Win32" || c.Vendor != "Google" {
+			t.Fatalf("指纹字段未覆盖: %+v", c)
+		}
+		if len(c.Plugins) != 1 || c.Plugins[0] != "PDF" {
+			t.Fatalf("Plugins = %+v", c.Plugins)
+		}
+		if c.WebGLVendor != "vendor" || c.WebGLRenderer != "renderer" {
+			t.Fatalf("WebGL = %q/%q", c.WebGLVendor, c.WebGLRenderer)
+		}
+		if c.CustomHeaders["X-Custom"] != "1" {
+			t.Fatalf("CustomHeaders = %+v", c.CustomHeaders)
+		}
+		if !c.DisableWebRTC || !c.SpoofScreenSize || c.ScreenWidth != 1920 || c.ScreenHeight != 1080 {
+			t.Fatalf("spoof/webrtc = %v/%v/%d/%d", c.DisableWebRTC, c.SpoofScreenSize, c.ScreenWidth, c.ScreenHeight)
+		}
+	})
+
+	t.Run("cookies and cookie header parsed", func(t *testing.T) {
+		opts := createRunnerOptions(ScreenshotRequest{
+			URL:             "example.com",
+			Cookies:         []CustomCookie{{Name: "sid", Value: "1", Domain: "example.com", Path: "/", Secure: true, HttpOnly: true}},
+			CookieHeader:    "x=2",
+			CookieFile:      "cookies.json",
+			CookieWriteBack: true,
+		}, ServerOptions{ScreenshotPath: "/tmp/x"})
+		if len(opts.Scan.Cookies) < 2 {
+			t.Fatalf("Cookies 数量 = %d, 期望 >=2", len(opts.Scan.Cookies))
+		}
+		if opts.Scan.Cookies[0].Name != "sid" || !opts.Scan.Cookies[0].Secure || !opts.Scan.Cookies[0].HttpOnly {
+			t.Fatalf("cookie0 = %+v", opts.Scan.Cookies[0])
+		}
+		if opts.Scan.CookiesFile != "cookies.json" || !opts.Scan.CookieWriteBack {
+			t.Fatalf("cookie file/writeback = %q/%v", opts.Scan.CookiesFile, opts.Scan.CookieWriteBack)
+		}
+	})
+
+	t.Run("cookie import missing file warns", func(t *testing.T) {
+		opts := createRunnerOptions(ScreenshotRequest{
+			URL:          "example.com",
+			CookieImport: "/nonexistent/cookies.txt",
+		}, ServerOptions{ScreenshotPath: "/tmp/x"})
+		// 导入失败仅 warn，不应 panic，cookies 切片为空
+		if len(opts.Scan.Cookies) != 0 {
+			t.Fatalf("Cookies 应为空, got %d", len(opts.Scan.Cookies))
+		}
+	})
+
+	t.Run("actions and form mapped", func(t *testing.T) {
+		opts := createRunnerOptions(ScreenshotRequest{
+			URL: "example.com",
+			Actions: []InteractionAction{
+				{Type: "click", Selector: "#btn", XPath: "//btn", Value: "v", WaitTime: 100, WaitVisible: true},
+			},
+			Form: Form{
+				Fields:          []FormField{{Selector: "#user", XPath: "//u", Value: "admin", Type: "input"}},
+				SubmitSelector:  "#submit",
+				SubmitXPath:     "//submit",
+				WaitAfterSubmit: 500,
+			},
+		}, ServerOptions{ScreenshotPath: "/tmp/x"})
+		if len(opts.Scan.Actions) != 1 || opts.Scan.Actions[0].Type != "click" || opts.Scan.Actions[0].WaitTime != 100 || !opts.Scan.Actions[0].WaitVisible {
+			t.Fatalf("Actions = %+v", opts.Scan.Actions)
+		}
+		if opts.Scan.Form.SubmitSelector != "#submit" || opts.Scan.Form.SubmitXPath != "//submit" || opts.Scan.Form.WaitAfterSubmit != 500 {
+			t.Fatalf("Form = %+v", opts.Scan.Form)
+		}
+		if len(opts.Scan.Form.Fields) != 1 || opts.Scan.Form.Fields[0].Selector != "#user" {
+			t.Fatalf("Form.Fields = %+v", opts.Scan.Form.Fields)
+		}
+	})
+
+	t.Run("javascript defaults to run-after when no flag", func(t *testing.T) {
+		opts := createRunnerOptions(ScreenshotRequest{
+			URL:        "example.com",
+			JavaScript: "console.log(1)",
+		}, ServerOptions{ScreenshotPath: "/tmp/x"})
+		if !opts.Scan.RunJSAfter {
+			t.Fatal("RunJSAfter 应被默认启用")
+		}
+	})
+}

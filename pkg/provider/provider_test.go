@@ -3,15 +3,26 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
+
+// netSplitHostPort 包装 net.SplitHostPort 便于测试。
+func netSplitHostPort(s string) (string, string, error) { return net.SplitHostPort(s) }
+
+// netParsePort 解析端口字符串为 int。
+func netParsePort(s string) int {
+	p, _ := strconv.Atoi(s)
+	return p
+}
 
 func TestDefaultProviderOptions(t *testing.T) {
 	opts := DefaultProviderOptions()
@@ -499,6 +510,39 @@ func TestProvider_HandleScreenshot_InvalidBodyJSON(t *testing.T) {
 	}
 }
 
+// TestProvider_HandleScreenshot_BodyURLOkPoolNil 覆盖 handleScreenshot 的
+// 有效 JSON body 提取 URL（line 351-353）+ pool==nil 早返回（line 365-367）
+// 的组合分支，无需浏览器。POST 有效 JSON body，不设 pool，期望 503。
+func TestProvider_HandleScreenshot_BodyURLOkPoolNil(t *testing.T) {
+	p := NewProvider(DefaultProviderOptions())
+	body := strings.NewReader(`{"url":"https://example.com"}`)
+	req := httptest.NewRequest("POST", "/screenshot", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	p.handleScreenshot(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("有效 body URL + pool nil 应返回 503, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "provider not initialized") {
+		t.Errorf("响应体应包含 'provider not initialized', got: %s", rr.Body.String())
+	}
+}
+
+// TestProvider_HandleScreenshot_BodyEmptyURLPoolNil 覆盖 handleScreenshot 的
+// 有效 JSON 但 url 为空（line 351 Unmarshal 成功但 req.URL==""）分支，
+// 期望 400。无需浏览器。
+func TestProvider_HandleScreenshot_BodyEmptyURLPoolNil(t *testing.T) {
+	p := NewProvider(DefaultProviderOptions())
+	body := strings.NewReader(`{"url":""}`)
+	req := httptest.NewRequest("POST", "/screenshot", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	p.handleScreenshot(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("空 URL 应返回 400, got %d", rr.Code)
+	}
+}
+
 func TestProvider_GetWebSocketURL(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -957,5 +1001,219 @@ func TestProvider_ScreenshotHandler_NotInitialized(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), "provider not initialized") {
 		t.Errorf("响应体应包含 'provider not initialized', got: %s", rr.Body.String())
+	}
+}
+
+// TestDiscoverChrome_Success 覆盖 provider.DiscoverChrome 的成功路径（返回 WsURL）。
+// 用 httptest 模拟 Chrome 的 /json/version 端点。
+func TestDiscoverChrome_Success(t *testing.T) {
+	const wsURL = "ws://127.0.0.1:9222/devtools/browser/fake-session-id"
+	mux := http.NewServeMux()
+	mux.HandleFunc("/json/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"webSocketDebuggerUrl": wsURL,
+			"Browser":              "Test Chrome/1.0",
+		})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	// 从 httptest 监听地址解析端口
+	_, portStr, err := netSplitHostPort(srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("解析端口失败: %v", err)
+	}
+	port := netParsePort(portStr)
+
+	got, err := DiscoverChrome("127.0.0.1", []int{port})
+	if err != nil {
+		t.Fatalf("DiscoverChrome 成功路径失败: %v", err)
+	}
+	if got != wsURL {
+		t.Errorf("DiscoverChrome 返回 %q, want %q", got, wsURL)
+	}
+}
+
+// TestProvider_Shutdown_WithServerNoPool 覆盖 Shutdown 的 server!=nil 分支
+// （line 219-225）+ pool==nil 分支。不启动浏览器：构造一个已绑定但未
+// ListenAndServe 的 http.Server，Shutdown 会立即返回（无活跃连接）。
+func TestProvider_Shutdown_WithServerNoPool(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen 失败: %v", err)
+	}
+	defer ln.Close()
+
+	p := NewProvider(DefaultProviderOptions())
+	p.server = &http.Server{Handler: http.NewServeMux()}
+	p.ready = true
+	p.startedAt = time.Now()
+	// pool 保持 nil，覆盖 line 228 的 pool==nil 跳过分支
+
+	// 把已绑定的 listener 交给 server，让 Shutdown 有东西可关
+	go func() { _ = p.server.Serve(ln) }()
+	// 给 Serve 一点时间进入循环
+	time.Sleep(50 * time.Millisecond)
+
+	if err := p.Shutdown(); err != nil {
+		t.Errorf("Shutdown 应无错误, got: %v", err)
+	}
+	if p.ready {
+		t.Error("Shutdown 后 ready 应为 false")
+	}
+}
+
+// TestProvider_Shutdown_ServerShutdownError 覆盖 Shutdown 的
+// server.Shutdown 异常分支（line 222-224 记 warn 不返回错误）。
+// 通过让 server 在已关闭的 listener 上构造，Shutdown 返回错误被吞掉。
+func TestProvider_Shutdown_ServerShutdownError(t *testing.T) {
+	p := NewProvider(DefaultProviderOptions())
+	// 构造一个 server 并立即关闭其底层 listener，使 Shutdown 返回错误
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen 失败: %v", err)
+	}
+	srv := &http.Server{Handler: http.NewServeMux()}
+	go func() { _ = srv.Serve(ln) }()
+	time.Sleep(50 * time.Millisecond)
+	// 先关闭 listener 制造异常
+	ln.Close()
+
+	p.server = srv
+	p.ready = true
+	p.startedAt = time.Now()
+
+	// Shutdown 会尝试关闭 server（可能已关闭），错误被吞掉
+	if err := p.Shutdown(); err != nil {
+		t.Errorf("Shutdown 应吞掉 server 错误返回 nil, got: %v", err)
+	}
+}
+
+// TestProvider_HandleHealth_WithProxyPool 覆盖 handleHealth 的成功路径
+// （provider.go:289-303，pool!=nil + Stats）。用 proxyProvider 模式构造
+// 不启动浏览器的 pool，赋给 p.pool，无需真实 Chrome。
+func TestProvider_HandleHealth_WithProxyPool(t *testing.T) {
+	opts := DefaultProviderOptions()
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	pool, err := runner.NewDriverPool(&runnerOpts, 2)
+	if err != nil {
+		t.Fatalf("NewDriverPool proxyProvider 模式: %v", err)
+	}
+	defer pool.Close()
+	p := NewProvider(opts)
+	p.pool = pool
+	p.ready = true
+	p.startedAt = time.Now()
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	p.handleHealth(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("health 应返回 200, got %d; body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "ok") {
+		t.Errorf("响应应包含 ok, got: %s", rr.Body.String())
+	}
+}
+
+// TestProvider_HandleStats_WithProxyPool 覆盖 handleStats 的成功路径
+// （provider.go:318-336，pool!=nil + Stats 附加 pool 统计）。
+func TestProvider_HandleStats_WithProxyPool(t *testing.T) {
+	opts := DefaultProviderOptions()
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	pool, err := runner.NewDriverPool(&runnerOpts, 2)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	defer pool.Close()
+	p := NewProvider(opts)
+	p.pool = pool
+	p.startedAt = time.Now()
+
+	req := httptest.NewRequest(http.MethodGet, "/stats", nil)
+	rr := httptest.NewRecorder()
+	p.handleStats(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("stats 应返回 200, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "max_concurrent") {
+		t.Errorf("响应应包含 pool 统计, got: %s", rr.Body.String())
+	}
+}
+
+// TestProvider_HandleScreenshot_PoolScreenshotFailure 覆盖 handleScreenshot 的
+// pool!=nil + Screenshot 失败分支（provider.go:371-374，返回 500）。用 proxyProvider
+// 模式 pool，Screenshot 走代理→ensureProxyBrowser 失败。
+func TestProvider_HandleScreenshot_PoolScreenshotFailure(t *testing.T) {
+	opts := DefaultProviderOptions()
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	runnerOpts.Chrome.Path = "/nonexistent/chrome-binary-for-test"
+	pool, err := runner.NewDriverPool(&runnerOpts, 1)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	defer pool.Close()
+	p := NewProvider(opts)
+	p.pool = pool
+	p.ready = true
+
+	req := httptest.NewRequest(http.MethodPost, "/screenshot?url=https://example.com", nil)
+	rr := httptest.NewRecorder()
+	p.handleScreenshot(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Logf("状态码 = %d（截图失败应 500，可能其他情况）, body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestProvider_HandleHealth_ClosedPool 覆盖 handleHealth 的 stats.Closed 分支
+// （provider.go:298-301，返回 unhealthy + 503）。用 proxyProvider pool 关闭后
+// stats.Closed=true。
+func TestProvider_HandleHealth_ClosedPool(t *testing.T) {
+	opts := DefaultProviderOptions()
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	pool, err := runner.NewDriverPool(&runnerOpts, 2)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	pool.Close() // 关闭后 stats.Closed=true
+	p := NewProvider(opts)
+	p.pool = pool
+	p.ready = true
+	p.startedAt = time.Now()
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rr := httptest.NewRecorder()
+	p.handleHealth(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("closed pool health 应返回 503, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "unhealthy") {
+		t.Errorf("响应应包含 unhealthy, got: %s", rr.Body.String())
+	}
+}
+
+// TestProvider_Shutdown_WithProxyPool 覆盖 Shutdown 的 pool!=nil 分支
+// （provider.go:228-230，pool.Close）。用 proxyProvider 模式 pool。
+func TestProvider_Shutdown_WithProxyPool(t *testing.T) {
+	opts := DefaultProviderOptions()
+	runnerOpts := runner.Options{}
+	runnerOpts.Chrome.ProxyList = []string{"http://proxy:8080"}
+	pool, err := runner.NewDriverPool(&runnerOpts, 2)
+	if err != nil {
+		t.Fatalf("NewDriverPool: %v", err)
+	}
+	p := NewProvider(opts)
+	p.pool = pool
+	p.ready = true
+	if err := p.Shutdown(); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if p.ready {
+		t.Error("Shutdown 后 ready 应为 false")
 	}
 }

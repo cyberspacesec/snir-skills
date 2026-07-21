@@ -204,3 +204,51 @@ func TestHandleListResults_VerifyDataContent(t *testing.T) {
 		t.Errorf("expected URL=https://example.com/, got %q", results[0].URL)
 	}
 }
+
+// TestHandleListResults_TruncationByLimit 覆盖 HandleListResults 的
+// screenshots>limit 截断分支（line 57-59）：插入多条数据，limit 小于总数。
+func TestHandleListResults_TruncationByLimit(t *testing.T) {
+	db, err := database.NewDB(database.Options{Path: t.TempDir() + "/trunc.db"})
+	if err != nil {
+		t.Fatalf("NewDB failed: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	// 插入 5 条不同 URL 的记录
+	for i := 0; i < 5; i++ {
+		rec := &models.Result{
+			URL:           "https://example" + string(rune('a'+i)) + ".com/",
+			Title:         "Example",
+			ResponseCode:  200,
+			SchemaVersion: models.ResultSchemaVersion,
+			ProbedAt:      models.Now().Add(-time.Duration(i) * time.Hour),
+		}
+		if err := db.SaveResult(rec); err != nil {
+			t.Fatalf("SaveResult failed: %v", err)
+		}
+	}
+
+	s := &Server{Options: ServerOptions{}, Router: mux.NewRouter()}
+	s.SetDB(db)
+	s.SetupRoutes()
+
+	req := httptest.NewRequest(http.MethodGet, "/results?limit=2", nil)
+	rec := httptest.NewRecorder()
+	s.Router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp APIResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	results, ok := resp.Data.([]interface{})
+	if !ok {
+		t.Fatalf("Data 类型错误: %T", resp.Data)
+	}
+	// limit=2 应截断为 2 条
+	if len(results) != 2 {
+		t.Errorf("limit=2 应返回 2 条结果, got %d", len(results))
+	}
+}

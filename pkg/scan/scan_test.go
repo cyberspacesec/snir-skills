@@ -1717,3 +1717,172 @@ func TestCreateWriters(t *testing.T) {
 		})
 	}
 }
+
+// TestHasExplicitPort 直接覆盖 hasExplicitPort 的各分支（IPv6、空、无端口、非法端口）。
+func TestHasExplicitPort(t *testing.T) {
+	cases := []struct {
+		name string
+		host string
+		want bool
+	}{
+		{"empty", "", false},
+		{"no port", "example.com", false},
+		{"valid port", "example.com:8080", true},
+		{"colon only at end", "example.com:", false},
+		{"colon at start", ":8080", false},
+		{"multiple colons no brackets", "a:b:8080", false},
+		{"invalid port non-numeric", "example.com:abc", false},
+		{"port out of range", "example.com:70000", false},
+		{"port zero", "example.com:0", false},
+		{"ipv6 with brackets valid port", "[::1]:8080", true},
+		{"ipv6 with brackets no port", "[::1]", false},
+		{"ipv6 brackets invalid port", "[::1]:abc", false},
+		{"ipv6 brackets split error", "[::1", false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasExplicitPort(tt.host); got != tt.want {
+				t.Fatalf("hasExplicitPort(%q) = %v, want %v", tt.host, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestExpandTarget_Direct 直接覆盖 expandTarget 的空输入、显式协议、无 options 等分支。
+func TestExpandTarget_Direct(t *testing.T) {
+	t.Run("empty target returns nil", func(t *testing.T) {
+		if got := expandTarget("  ", nil); got != nil {
+			t.Fatalf("空目标应返回 nil, got %v", got)
+		}
+	})
+	t.Run("explicit scheme returned as-is", func(t *testing.T) {
+		got := expandTarget("https://example.com/path", nil)
+		if len(got) != 1 || got[0] != "https://example.com/path" {
+			t.Fatalf("显式协议应原样返回, got %v", got)
+		}
+	})
+	t.Run("nil options no ports uses default https", func(t *testing.T) {
+		got := expandTarget("example.com", nil)
+		if len(got) != 1 || got[0] != "https://example.com" {
+			t.Fatalf("nil options 应默认 https, got %v", got)
+		}
+	})
+	t.Run("all invalid ports falls back to protocol", func(t *testing.T) {
+		opts := &runner.Options{}
+		opts.Scan.HTTP = true
+		opts.Scan.HTTPS = false
+		opts.Scan.Ports = []int{0, 70000}
+		got := expandTarget("example.com", opts)
+		if len(got) != 1 || got[0] != "http://example.com" {
+			t.Fatalf("全非法端口应回退, got %v", got)
+		}
+	})
+	t.Run("explicit bare host with port and path", func(t *testing.T) {
+		opts := &runner.Options{}
+		opts.Scan.HTTP = true
+		opts.Scan.HTTPS = true
+		opts.Scan.Ports = []int{80}
+		got := expandTarget("example.com:9443/admin?x=1", opts)
+		want := []string{"https://example.com:9443/admin?x=1", "http://example.com:9443/admin?x=1"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("显式端口裸 host 展开 = %v, want %v", got, want)
+		}
+	})
+	t.Run("ipv6 host with port", func(t *testing.T) {
+		opts := &runner.Options{}
+		opts.Scan.HTTPS = true
+		opts.Scan.HTTP = false
+		opts.Scan.Ports = []int{8080}
+		got := expandTarget("[::1]:8080", opts)
+		if len(got) != 1 || !strings.Contains(got[0], "://[::1]:8080") {
+			t.Fatalf("IPv6 端口展开 = %v", got)
+		}
+	})
+}
+
+// TestNewPooledScanner_PoolDriverFailure 覆盖 NewPooledScanner 的
+// NewPoolDriver 失败分支（scan.go:112-115）。用不存在的 Chrome 路径让
+// NewPoolDriver 失败。
+func TestNewPooledScanner_PoolDriverFailure(t *testing.T) {
+	opts := &runner.Options{}
+	opts.Chrome.Path = "/nonexistent/chrome-binary-for-test"
+	opts.Chrome.Headless = true
+	config := &Config{Options: opts}
+
+	done := make(chan struct{})
+	var got *Scanner
+	var err error
+	go func() {
+		got, err = NewPooledScanner(config, 1)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("NewPooledScanner 超时")
+	}
+	if err == nil {
+		if got != nil {
+			got.Close()
+		}
+		t.Skip("Chrome 意外可用，跳过失败分支测试")
+	}
+	if !strings.Contains(err.Error(), "创建连接池驱动失败") {
+		t.Logf("NewPooledScanner 错误（预期）: %v", err)
+	}
+}
+
+// TestNewPooledScanner_CookiesFile 覆盖 NewPooledScanner 的 CookiesFile
+// 分支（scan.go:130-138）。需 NewPoolDriver 成功——若 Chrome 不可用会跳过。
+func TestNewPooledScanner_CookiesFile(t *testing.T) {
+	dir := t.TempDir()
+	opts := &runner.Options{}
+	opts.Chrome.Headless = true
+	opts.Scan.CookiesFile = dir + "/cookies.json"
+	opts.Scan.ScreenshotPath = dir
+	opts.Scan.ScreenshotFormat = "png"
+	config := &Config{Options: opts}
+
+	done := make(chan struct{})
+	var got *Scanner
+	var err error
+	go func() {
+		got, err = NewPooledScanner(config, 1)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("NewPooledScanner 超时")
+	}
+	if err != nil {
+		t.Skipf("Chrome 不可用，跳过 CookiesFile 分支测试: %v", err)
+	}
+	if got == nil {
+		t.Fatal("scanner 不应为 nil")
+	}
+	got.Close()
+}
+
+// TestTargetSchemes 覆盖 targetSchemes 的所有分支（含两者皆 false 的默认 https 分支）。
+func TestTargetSchemes(t *testing.T) {
+	cases := []struct {
+		name  string
+		https bool
+		http  bool
+		want  []string
+	}{
+		{"both", true, true, []string{"https", "http"}},
+		{"https only", true, false, []string{"https"}},
+		{"http only", false, true, []string{"http"}},
+		{"neither defaults https", false, false, []string{"https"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := targetSchemes(tc.https, tc.http)
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("targetSchemes(%v,%v) = %v, want %v", tc.https, tc.http, got, tc.want)
+			}
+		})
+	}
+}

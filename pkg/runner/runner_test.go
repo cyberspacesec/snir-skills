@@ -774,3 +774,25 @@ func TestRunnerRunWriterError(t *testing.T) {
 		t.Errorf("Expected 1 Write call, got %d", writer.WriteCalls)
 	}
 }
+
+// TestNewRunner_CreateDirFailure 覆盖 NewRunner 的 CreateDir 失败分支
+// （runner.go:57-60）。用已存在文件作为 ScreenshotPath，让 CreateDir 失败。
+func TestNewRunner_CreateDirFailure(t *testing.T) {
+	driver := &MockDriver{}
+	logger := log.GetLogger()
+
+	options := setupTestOptions()
+	options.Scan.ScreenshotSkipSave = false
+	// 用一个已存在的文件路径作为 ScreenshotPath，CreateDir 会失败
+	tmpFile := filepath.Join(t.TempDir(), "afile")
+	if err := os.WriteFile(tmpFile, []byte("x"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	options.Scan.ScreenshotPath = tmpFile
+	options.Scan.ScreenshotFormat = "png"
+
+	_, err := NewRunner(logger, driver, options, nil)
+	if err == nil {
+		t.Skip("CreateDir 意外成功，跳过失败分支测试")
+	}
+}

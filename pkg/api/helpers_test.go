@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -353,4 +354,33 @@ func TestMemoryWriter(t *testing.T) {
 			t.Errorf("Close() error = %v, want nil", err)
 		}
 	})
+}
+
+// TestSendJSONResponse_MarshalError 覆盖 SendJSONResponse 中 json.Marshal 失败分支。
+func TestSendJSONResponse_MarshalError(t *testing.T) {
+	rr := httptest.NewRecorder()
+	// channel 无法被 json.Marshal，触发序列化失败分支
+	SendJSONResponse(rr, http.StatusOK, APIResponse{
+		Success: true,
+		Data:    make(chan int),
+	})
+	body := rr.Body.String()
+	if !strings.Contains(body, "内部服务器错误") {
+		t.Fatalf("响应体应包含内部服务器错误, got %q", body)
+	}
+}
+
+// TestSendJSONResponse_StatusCode 覆盖不同状态码写入。
+func TestSendJSONResponse_StatusCode(t *testing.T) {
+	rr := httptest.NewRecorder()
+	SendJSONResponse(rr, http.StatusTeapot, APIResponse{Success: false, Error: "teapot"})
+	if rr.Code != http.StatusTeapot {
+		t.Fatalf("状态码 = %d, want %d", rr.Code, http.StatusTeapot)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("Content-Type = %q", ct)
+	}
+	if ao := rr.Header().Get("Access-Control-Allow-Origin"); ao != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", ao)
+	}
 }

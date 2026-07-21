@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cyberspacesec/snir-skills/pkg/models"
+	"github.com/cyberspacesec/snir-skills/pkg/runner"
 )
 
 // 为测试创建一个MockBatchScreenshotHandler
@@ -490,3 +491,134 @@ func TestProcessBatchConcurrentEdgeCases(t *testing.T) {
 		}
 	})
 }
+
+// TestHandleBatchScreenshot_SuccessPathFallback 覆盖 HandleBatchScreenshot 的成功路径：
+// pool==nil 时走 ProcessScreenshot 回退分支，NewChromeDP 使用不存在的 Chrome 路径快速失败，
+// 每个URL都进入 errors，但响应仍为 200。覆盖 ensureProtocol/createRunnerOptions/请求构建/
+// ProcessConcurrent/结果收集/响应序列化。
+func TestHandleBatchScreenshot_SuccessPathFallback(t *testing.T) {
+	server := &Server{
+		Options: ServerOptions{
+			ScreenshotPath: "/tmp/test-screenshots",
+			MaxBatchSize:   10,
+		},
+		// pool 为 nil，强制走回退分支
+	}
+
+	body := `{"urls":["http://example1.com","http://example2.com"],"threads":2,"timeout":2}`
+	req, err := http.NewRequest("POST", "/batch", bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatalf("创建请求失败: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(server.HandleBatchScreenshot)
+
+	// 用超时保护：回退路径会尝试启动 Chrome（路径不存在应快速失败），但设上限避免 hang
+	done := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(rr, req)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatal("HandleBatchScreenshot 超时未返回")
+	}
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("状态码 = %d, want 200（即使截图失败也应返回200）", rr.Code)
+	}
+
+	var response APIResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	if !response.Success {
+		t.Errorf("Success = false, want true（批量请求本身成功）")
+	}
+
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Data 类型错误: %T", response.Data)
+	}
+	results, ok := data["results"].([]interface{})
+	if !ok {
+		t.Fatalf("results 类型错误: %T", data["results"])
+	}
+	if len(results) != 2 {
+		t.Errorf("results 数量 = %d, want 2", len(results))
+	}
+	errs, ok := data["errors"].([]interface{})
+	if !ok {
+		t.Fatalf("errors 类型错误: %T", data["errors"])
+	}
+	// 两个URL都应失败（无 Chrome），所以 errors 应有 2 条
+	if len(errs) != 2 {
+		t.Errorf("errors 数量 = %d, want 2（无浏览器时全部失败）", len(errs))
+	}
+}
+
+// TestHandleBatchScreenshot_ThreadsDefault 覆盖 concurrency 默认值分支（Threads<=0 或 >20）。
+func TestHandleBatchScreenshot_ThreadsDefault(t *testing.T) {
+	server := &Server{
+		Options: ServerOptions{
+			ScreenshotPath: "/tmp/test-screenshots",
+			MaxBatchSize:   10,
+		},
+	}
+
+	// Threads=0 走默认 concurrency=2 分支；回退路径会失败但响应 200
+	body := `{"urls":["http://a.com"],"threads":0,"timeout":2}`
+	req, _ := http.NewRequest("POST", "/batch", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		http.HandlerFunc(server.HandleBatchScreenshot).ServeHTTP(rr, req)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatal("HandleBatchScreenshot 超时")
+	}
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("状态码 = %d, want 200", rr.Code)
+	}
+}
+
+// TestHandleBatchScreenshot_HTTPSProtocol 覆盖 ensureProtocol 的 HTTPS 分支。
+func TestHandleBatchScreenshot_HTTPSProtocol(t *testing.T) {
+	server := &Server{
+		Options: ServerOptions{
+			ScreenshotPath: "/tmp/test-screenshots",
+			MaxBatchSize:   10,
+		},
+	}
+	body := `{"urls":["barehost.com"],"https":true,"timeout":2}`
+	req, _ := http.NewRequest("POST", "/batch", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		http.HandlerFunc(server.HandleBatchScreenshot).ServeHTTP(rr, req)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatal("HandleBatchScreenshot 超时")
+	}
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("状态码 = %d, want 200", rr.Code)
+	}
+}
+
+// 确保引用 runner 包（通过 options 字段类型）避免未使用导入
+var _ = runner.Options{}

@@ -1,6 +1,7 @@
 package report
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -421,5 +422,84 @@ func TestGetFiles_SubDirectoriesNotListed(t *testing.T) {
 	}
 	if len(files) != 1 {
 		t.Errorf("子目录不应计入，期望 1 个文件，但得到了 %d 个", len(files))
+	}
+}
+
+// TestRun_CreateDirError 覆盖 Run 在 ScreenshotPath 不可创建时返回错误。
+func TestRun_CreateDirError(t *testing.T) {
+	tempDir := t.TempDir()
+	// 把 ScreenshotPath 设为已存在的文件路径，MkdirAll 必然失败
+	filePath := filepath.Join(tempDir, "afile")
+	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	server := NewServer(ServerOptions{
+		Host:           "127.0.0.1",
+		Port:           0,
+		ScreenshotPath: filePath,
+		ReportPath:     tempDir,
+	})
+	if err := server.Run(); err == nil {
+		t.Fatal("期望 Run 返回创建截图目录失败错误，得到 nil")
+	}
+}
+
+// TestRun_ReportDirError 覆盖 Run 在 ReportPath 不可创建时返回错误。
+func TestRun_ReportDirError(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "rfile")
+	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	server := NewServer(ServerOptions{
+		Host:           "127.0.0.1",
+		Port:           0,
+		ScreenshotPath: tempDir,
+		ReportPath:     filePath,
+	})
+	if err := server.Run(); err == nil {
+		t.Fatal("期望 Run 返回创建报告目录失败错误，得到 nil")
+	}
+}
+
+// TestServeIndex_GetFilesError 覆盖 serveIndex 中 getFiles 失败分支。
+func TestServeIndex_GetFilesError(t *testing.T) {
+	tempDir := t.TempDir()
+	// 把 screenshotPath 设为文件，getFiles 调用 ReadDir 失败
+	badPath := filepath.Join(tempDir, "notdir")
+	if err := os.WriteFile(badPath, []byte("x"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	server := NewServer(ServerOptions{ScreenshotPath: badPath, ReportPath: tempDir})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	server.serveIndex(rr, req, badPath, tempDir)
+	// 无论状态码如何，只要不 panic 即视为通过（错误分支已覆盖）
+	_ = rr.Code
+}
+
+// TestRun_ListenAndServeFailure 覆盖 Run 的成功路径（CreateDir 都成功）直至 ListenAndServe 调用：
+// 先用 net.Listen 占住一个端口，再让 Run 尝试在同一端口 ListenAndServe → 立即返回错误，
+// 覆盖 Run 的 line 37-62（除成功返回外全部行）。注意：Run 使用 DefaultServeMux，可能与其他
+// 测试的全局注册冲突，故仅验证返回错误（端口已占用）而不发请求。
+func TestRun_ListenAndServeFailure(t *testing.T) {
+	// 占住一个空闲端口
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen 失败: %v", err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	tempDir := t.TempDir()
+	server := NewServer(ServerOptions{
+		Host:           "127.0.0.1",
+		Port:           port,
+		ScreenshotPath: tempDir,
+		ReportPath:     tempDir,
+	})
+	// Run 会走到 ListenAndServe，因端口已被 ln 占用而返回错误
+	if err := server.Run(); err == nil {
+		t.Fatal("端口已占用时 Run 应返回错误")
 	}
 }

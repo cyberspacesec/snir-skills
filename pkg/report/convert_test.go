@@ -574,3 +574,157 @@ func TestConvert_DBToJSONL(t *testing.T) {
 		t.Errorf("期望 %d 条记录，但得到 %d 条", len(results), len(readBack))
 	}
 }
+
+// TestConvert_ErrorBranches 覆盖 Convert 的各错误分支。
+func TestConvert_ErrorBranches(t *testing.T) {
+	t.Run("empty from file", func(t *testing.T) {
+		if err := Convert(ConvertOptions{ToFile: "out.jsonl"}); err == nil {
+			t.Fatal("期望输入文件为空错误")
+		}
+	})
+	t.Run("empty to file", func(t *testing.T) {
+		if err := Convert(ConvertOptions{FromFile: "in.jsonl"}); err == nil {
+			t.Fatal("期望输出文件为空错误")
+		}
+	})
+	t.Run("from file not exist", func(t *testing.T) {
+		if err := Convert(ConvertOptions{FromFile: "/nonexistent/path/in.jsonl", ToFile: "out.jsonl"}); err == nil {
+			t.Fatal("期望输入文件不存在错误")
+		}
+	})
+	t.Run("invalid from ext", func(t *testing.T) {
+		tempDir := t.TempDir()
+		from := filepath.Join(tempDir, "in.txt")
+		if err := os.WriteFile(from, []byte("x"), 0644); err != nil {
+			t.Fatalf("写文件失败: %v", err)
+		}
+		if err := Convert(ConvertOptions{FromFile: from, ToFile: "out.jsonl"}); err == nil {
+			t.Fatal("期望不支持的输入格式错误")
+		}
+	})
+	t.Run("invalid to ext", func(t *testing.T) {
+		tempDir := t.TempDir()
+		from := filepath.Join(tempDir, "in.jsonl")
+		if err := os.WriteFile(from, []byte(`{"url":"https://x"}`), 0644); err != nil {
+			t.Fatalf("写文件失败: %v", err)
+		}
+		if err := Convert(ConvertOptions{FromFile: from, ToFile: "out.txt"}); err == nil {
+			t.Fatal("期望不支持的输出格式错误")
+		}
+	})
+}
+
+// TestWriteResults_UnsupportedExt 覆盖 writeResults default 分支。
+func TestWriteResults_UnsupportedExt(t *testing.T) {
+	if err := writeResults(filepath.Join(t.TempDir(), "out.unknown"), ".unknown", createTestResults()); err == nil {
+		t.Fatal("期望不支持的格式错误")
+	}
+}
+
+// TestReadResults_UnsupportedExt 覆盖 readResults default 分支。
+func TestReadResults_UnsupportedExt(t *testing.T) {
+	if _, err := readResults("file.unknown", ".unknown"); err == nil {
+		t.Fatal("期望不支持的格式错误")
+	}
+}
+
+// TestReadCSVResults_BadHeader 覆盖 readCSVResults 表头为空分支。
+func TestReadCSVResults_BadHeader(t *testing.T) {
+	tempDir := t.TempDir()
+	file := filepath.Join(tempDir, "bad.csv")
+	// 空白文件触发"CSV文件为空"分支
+	if err := os.WriteFile(file, []byte("\n\n"), 0644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+	if _, err := readCSVResults(file); err == nil {
+		t.Fatal("期望 CSV 文件为空错误")
+	}
+}
+
+// TestReadResults_SQLiteOpenFailure 覆盖 readResults 的 SQLite 连接失败分支
+// （convert.go:88-90）。用无法创建的目录路径让 NewDB 失败。
+func TestReadResults_SQLiteOpenFailure(t *testing.T) {
+	_, err := readResults("/nonexistent-dir/cannot-create.db", ".db")
+	if err == nil {
+		t.Fatal("无效 DB 路径应返回错误")
+	}
+}
+
+// TestWriteResults_SQLiteCreateFailure 覆盖 writeResults 的 SQLite 创建失败分支
+// （convert.go:118-120）。
+func TestWriteResults_SQLiteCreateFailure(t *testing.T) {
+	err := writeResults("/nonexistent-dir/cannot-create.db", ".db", createTestResults())
+	if err == nil {
+		t.Fatal("无效 DB 路径应返回错误")
+	}
+}
+
+// TestWriteResults_CSVCreateWriterFailure 覆盖 writeResults 的 CSV 创建写入器失败分支
+// （convert.go:142-144）。用无法创建的路径让 NewCSVWriter 失败。
+func TestWriteResults_CSVCreateWriterFailure(t *testing.T) {
+	err := writeResults("/nonexistent-dir/sub/out.csv", ".csv", createTestResults())
+	if err == nil {
+		t.Fatal("无效路径应返回错误")
+	}
+}
+
+// TestReadCSVResults_NoHeaderTreatsFirstAsData 覆盖 readCSVResults 的
+// 无表头分支（convert.go:186-187，首行不以 "URL" 开头时当数据行处理）。
+func TestReadCSVResults_NoHeaderTreatsFirstAsData(t *testing.T) {
+	tempDir := t.TempDir()
+	csvFile := filepath.Join(tempDir, "noheader.csv")
+	// 首行不以 URL 开头，无表头，但行>=7列
+	content := "http://a.com,Title,200,shot.png,time,http://a.com,成功\n"
+	content += "http://b.com,Title2,404,shot2.png,time2,http://b.com,失败\n"
+	if err := os.WriteFile(csvFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写入文件失败: %v", err)
+	}
+	results, err := readCSVResults(csvFile)
+	if err != nil {
+		t.Fatalf("readCSVResults 失败: %v", err)
+	}
+	// 无表头时首行也当数据，应返回 2 条
+	if len(results) != 2 {
+		t.Errorf("无表头应将首行当数据, got %d 条", len(results))
+	}
+}
+
+// TestReadCSVResults_RowTooFewColumns 覆盖 readCSVResults 的
+// 行<7列跳过分支（convert.go:189-191）。csv.ReadAll 要求列数一致，
+// 故用所有行都<7列的文件，让每行跳过、返回 0 条。
+func TestReadCSVResults_RowTooFewColumns(t *testing.T) {
+	tempDir := t.TempDir()
+	csvFile := filepath.Join(tempDir, "fewcols.csv")
+	content := "URL,标题,响应码\n"             // 表头 3 列
+	content += "http://a.com,Title,200\n" // 3 列 <7 应跳过
+	content += "http://b.com,Title2,404\n"
+	if err := os.WriteFile(csvFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写入文件失败: %v", err)
+	}
+	results, err := readCSVResults(csvFile)
+	if err != nil {
+		t.Fatalf("readCSVResults 失败: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("所有行<7列应全部跳过, got %d 条", len(results))
+	}
+}
+
+// TestReadCSVResults_ReadAllError 覆盖 readCSVResults 的 csv.ReadAll 失败分支
+// （convert.go:169-171）。csv.ReadAll 要求每行列数一致，列数不一致时返回错误。
+func TestReadCSVResults_ReadAllError(t *testing.T) {
+	tempDir := t.TempDir()
+	csvFile := filepath.Join(tempDir, "inconsistent.csv")
+	// 第一行 7 列，第二行 5 列 → ReadAll 报错
+	content := "URL,标题,响应码,截图,时间,最终URL,状态\n"
+	content += "http://a.com,T,200,s,t,u,成功\n"
+	content += "http://b.com,T2,404,s2,t2,失败\n"
+	content += "http://c.com,T3,404\n" // 4 列，不一致
+	if err := os.WriteFile(csvFile, []byte(content), 0644); err != nil {
+		t.Fatalf("写入文件失败: %v", err)
+	}
+	_, err := readCSVResults(csvFile)
+	if err == nil {
+		t.Fatal("列数不一致应触发 ReadAll 错误")
+	}
+}

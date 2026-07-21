@@ -629,6 +629,13 @@ func TestResultWrapper_SaveJSON_ErrorBranches(t *testing.T) {
 	if err := w.SaveJSON(""); err == nil {
 		t.Fatal("空路径 SaveJSON() 应该返回错误")
 	}
+
+	// WriteFile 失败分支（path 指向已存在文件当作目录）
+	fileAsDir := filepath.Join(t.TempDir(), "afile")
+	os.WriteFile(fileAsDir, []byte("x"), 0644)
+	if err := w.SaveJSON(filepath.Join(fileAsDir, "out.json")); err == nil {
+		t.Fatal("无效路径 SaveJSON() 应该返回 WriteFile 错误")
+	}
 }
 
 func TestResultWrapper_SaveHTML(t *testing.T) {
@@ -659,6 +666,14 @@ func TestResultWrapper_SaveHTML_ErrorBranches(t *testing.T) {
 	}
 	if err := w.SaveHTML(filepath.Join(t.TempDir(), "page.html")); err == nil {
 		t.Fatal("缺少 HTML SaveHTML() 应该返回错误")
+	}
+
+	// WriteFile 失败分支：HTML 非空但 path 指向已存在文件当作目录
+	wHTML := WrapResult(&models.Result{HTML: "<html></html>"})
+	fileAsDir := filepath.Join(t.TempDir(), "afile")
+	os.WriteFile(fileAsDir, []byte("x"), 0644)
+	if err := wHTML.SaveHTML(filepath.Join(fileAsDir, "out.html")); err == nil {
+		t.Fatal("无效路径 SaveHTML() 应该返回 WriteFile 错误")
 	}
 }
 
